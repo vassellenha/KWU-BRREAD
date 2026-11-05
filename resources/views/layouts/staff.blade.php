@@ -46,16 +46,18 @@
                     <span class="material-symbols-outlined text-[20px]">history</span>
                     Stock Movements
                 </a>
+                @if (auth()->user()?->hasRole(\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_HR))
+                    <a
+                        href="{{ route('staff.hr.index') }}"
+                        class="flex items-center gap-space-sm px-space-md py-space-xs rounded-DEFAULT font-label-lg text-label-lg transition-colors duration-200 {{ request()->routeIs('staff.hr.*') ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-container' }}"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">groups</span>
+                        HR
+                    </a>
+                @endif
                 <div class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant/60 uppercase tracking-wide mt-space-sm">
                     Other modules
                 </div>
-                <span class="flex items-center justify-between gap-space-sm px-space-md py-space-xs rounded-DEFAULT font-label-lg text-label-lg text-on-surface-variant/40 cursor-not-allowed">
-                    <span class="flex items-center gap-space-sm">
-                        <span class="material-symbols-outlined text-[20px]">groups</span>
-                        HR
-                    </span>
-                    <span class="font-label-md text-label-md px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant/70">Soon</span>
-                </span>
                 <span class="flex items-center justify-between gap-space-sm px-space-md py-space-xs rounded-DEFAULT font-label-lg text-label-lg text-on-surface-variant/40 cursor-not-allowed">
                     <span class="flex items-center gap-space-sm">
                         <span class="material-symbols-outlined text-[20px]">account_balance</span>

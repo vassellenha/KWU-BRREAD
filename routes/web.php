@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Staff\AuthController;
+use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,13 @@ Route::prefix('staff')->name('staff.')->group(function () {
             Route::get('/', [MrpController::class, 'index'])->name('index');
             Route::post('/{component}/adjust', [MrpController::class, 'adjustStock'])->name('adjust');
             Route::get('/movements', [MrpController::class, 'movements'])->name('movements');
+        });
+
+        Route::middleware('role:admin,hr')->prefix('hr')->name('hr.')->group(function () {
+            Route::get('/', [HrController::class, 'index'])->name('index');
+            Route::post('/', [HrController::class, 'store'])->name('store');
+            Route::put('/{employee}', [HrController::class, 'update'])->name('update');
+            Route::post('/{employee}/toggle', [HrController::class, 'toggleActive'])->name('toggle');
         });
     });
 });

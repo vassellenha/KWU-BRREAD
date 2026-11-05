@@ -28,5 +28,15 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        User::updateOrCreate(
+            ['email' => 'hr@brread.id'],
+            [
+                'name' => 'HR Staff',
+                'password' => 'brread-hr-2026',
+                'role' => User::ROLE_HR,
+                'email_verified_at' => now(),
+            ]
+        );
     }
 }
