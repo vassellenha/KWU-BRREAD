@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('staff.login'));
+
+        // Railway (and most PaaS hosts) terminate HTTPS at their edge and forward to the
+        // app over plain HTTP, so without this Laravel thinks every request is HTTP and
+        // generates asset/font URLs as http://, which browsers block as mixed content on
+        // an https:// page. The app has no other public entry point, so trusting all proxies
+        // here is safe.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
