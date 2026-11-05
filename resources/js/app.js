@@ -19,6 +19,24 @@ function prefersReducedMotion() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// Count-up for rare/informational numbers (dashboard stats) — never for data a user
+// reads precisely in real time, and instant under reduced motion.
+function animateCounter(el, target, { duration = 900, formatter = (n) => Math.round(n).toLocaleString('id-ID') } = {}) {
+    if (!el) return;
+    if (prefersReducedMotion()) {
+        el.textContent = formatter(target);
+        return;
+    }
+    const start = performance.now();
+    const easeOut = (t) => 1 - (1 - t) ** 3;
+    function tick(now) {
+        const progress = Math.min(1, (now - start) / duration);
+        el.textContent = formatter(target * easeOut(progress));
+        if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
 // Clones a small round thumbnail and flies it from sourceEl to targetEl along an arc,
 // so an add-to-cart / ingredient-pick action reads as "this item went there" (spatial consistency).
 function flyClone({ sourceEl, targetEl, imageSrc, size = 44, onLand }) {
@@ -74,7 +92,7 @@ function pop(el, className = 'cart-badge-pop') {
     el.classList.add(className);
 }
 
-window.__brreadFx = { flyClone, bounceBadge: pop, pop };
+window.__brreadFx = { flyClone, bounceBadge: pop, pop, animateCounter };
 
 Alpine.data('brreadBuilder', () => ({
     loading: true,
