@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
@@ -27,6 +28,13 @@ Route::prefix('staff')->name('staff.')->group(function () {
             Route::post('/', [HrController::class, 'store'])->name('store');
             Route::put('/{employee}', [HrController::class, 'update'])->name('update');
             Route::post('/{employee}/toggle', [HrController::class, 'toggleActive'])->name('toggle');
+        });
+
+        Route::middleware('role:admin,accountant')->prefix('accounting')->name('accounting.')->group(function () {
+            Route::get('/', [AccountingController::class, 'index'])->name('index');
+            Route::get('/export', [AccountingController::class, 'export'])->name('export');
+            Route::post('/expenses', [AccountingController::class, 'storeExpense'])->name('expenses.store');
+            Route::delete('/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('expenses.destroy');
         });
     });
 });

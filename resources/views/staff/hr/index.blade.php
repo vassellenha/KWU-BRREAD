@@ -14,6 +14,40 @@
         </div>
     </div>
 
+    {{-- STAT SUMMARY --}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-lg">
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
+            <div class="flex items-center gap-space-xs mb-1">
+                <span class="material-symbols-outlined text-[18px] text-on-surface-variant">groups</span>
+                <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Employees</span>
+            </div>
+            <p class="font-headline-sm text-headline-sm text-on-surface" x-data x-init="window.__brreadFx?.animateCounter($el, {{ $stats['total_employees'] }}, { formatter: (n) => Math.round(n) })">0</p>
+        </div>
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
+            <div class="flex items-center gap-space-xs mb-1">
+                <span class="material-symbols-outlined text-[18px] text-on-surface-variant">check_circle</span>
+                <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Active</span>
+            </div>
+            <p class="font-headline-sm text-headline-sm text-on-surface" x-data x-init="window.__brreadFx?.animateCounter($el, {{ $stats['active_employees'] }}, { formatter: (n) => Math.round(n) })">0</p>
+        </div>
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
+            <div class="flex items-center gap-space-xs mb-1">
+                <span class="material-symbols-outlined text-[18px] text-on-surface-variant">diversity_3</span>
+                <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Rotation Teams</span>
+            </div>
+            <p class="font-headline-sm text-headline-sm text-on-surface" x-data x-init="window.__brreadFx?.animateCounter($el, {{ $stats['teams'] }}, { formatter: (n) => Math.round(n) })">0</p>
+        </div>
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
+            <div class="flex items-center gap-space-xs mb-1">
+                <span class="material-symbols-outlined text-[18px] text-on-surface-variant">event_upcoming</span>
+                <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Next Rotation</span>
+            </div>
+            <p class="font-headline-sm text-headline-sm text-on-surface">
+                {{ $stats['next_rotation']?->format('d M') ?? '—' }}
+            </p>
+        </div>
+    </div>
+
     {{-- TODAY'S DUTY --}}
     <div class="bg-gradient-to-br from-primary-container/25 via-surface-container-lowest to-tertiary-fixed/20 rounded-lg border border-outline-variant/30 p-space-lg mb-space-lg">
         <div class="flex items-center gap-1.5 mb-space-sm">
@@ -27,16 +61,16 @@
         @if ($currentShift['employees']->isEmpty())
             <p class="font-body-md text-body-md text-on-surface-variant">No active employees to schedule yet — add your first one below.</p>
         @else
-            <div class="flex flex-wrap gap-space-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-sm">
                 @foreach ($currentShift['employees'] as $employee)
-                    <div class="flex items-center gap-space-sm bg-surface-container-lowest/90 backdrop-blur-sm rounded-full pl-1.5 pr-space-md py-1.5 border border-outline-variant/30 shadow-sm">
-                        <span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-lg text-label-lg shrink-0">
+                    <div class="flex items-center gap-space-sm bg-surface-container-lowest/90 backdrop-blur-sm rounded-lg pl-space-sm pr-space-md py-space-sm border border-outline-variant/30 shadow-sm">
+                        <span class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-lg text-label-lg shrink-0">
                             {{ strtoupper(substr($employee->name, 0, 1)) }}
                         </span>
-                        <div class="leading-tight">
-                            <p class="font-label-lg text-label-lg text-on-surface">{{ $employee->name }}</p>
+                        <div class="leading-tight min-w-0">
+                            <p class="font-label-lg text-label-lg text-on-surface truncate">{{ $employee->name }}</p>
                             @if ($employee->position)
-                                <p class="font-label-md text-label-md text-on-surface-variant">{{ $employee->position }}</p>
+                                <p class="font-label-md text-label-md text-on-surface-variant truncate">{{ $employee->position }}</p>
                             @endif
                         </div>
                     </div>

@@ -10,17 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     {{ Vite::fonts() }}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>
-        /* Smooth cross-page fade between staff portal pages (Chromium; no-op elsewhere). */
-        @view-transition {
-            navigation: auto;
-        }
-        @media (prefers-reduced-motion: reduce) {
-            @view-transition {
-                navigation: none;
-            }
-        }
-    </style>
 </head>
 <body class="bg-surface-container-low text-on-surface antialiased font-plus-jakarta">
 
@@ -55,16 +44,15 @@
                         HR
                     </a>
                 @endif
-                <div class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant/60 uppercase tracking-wide mt-space-sm">
-                    Other modules
-                </div>
-                <span class="flex items-center justify-between gap-space-sm px-space-md py-space-xs rounded-DEFAULT font-label-lg text-label-lg text-on-surface-variant/40 cursor-not-allowed">
-                    <span class="flex items-center gap-space-sm">
+                @if (auth()->user()?->hasRole(\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_ACCOUNTANT))
+                    <a
+                        href="{{ route('staff.accounting.index') }}"
+                        class="flex items-center gap-space-sm px-space-md py-space-xs rounded-DEFAULT font-label-lg text-label-lg transition-colors duration-200 {{ request()->routeIs('staff.accounting.*') ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-container' }}"
+                    >
                         <span class="material-symbols-outlined text-[20px]">account_balance</span>
                         Accounting
-                    </span>
-                    <span class="font-label-md text-label-md px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant/70">Soon</span>
-                </span>
+                    </a>
+                @endif
             </nav>
             <div class="p-space-sm border-t border-outline-variant/30">
                 <div class="flex items-center gap-space-sm px-space-md py-space-xs">

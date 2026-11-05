@@ -38,5 +38,15 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        User::updateOrCreate(
+            ['email' => 'accounting@brread.id'],
+            [
+                'name' => 'Accounting Staff',
+                'password' => 'brread-accounting-2026',
+                'role' => User::ROLE_ACCOUNTANT,
+                'email_verified_at' => now(),
+            ]
+        );
     }
 }

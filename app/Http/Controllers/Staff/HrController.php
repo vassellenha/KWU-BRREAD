@@ -19,12 +19,21 @@ class HrController extends Controller
         $today = CarbonImmutable::today();
         $currentShift = $scheduler->teamForDate($today);
         $upcoming = $scheduler->upcoming($today, 6);
+        $teams = $scheduler->teams();
+
+        $stats = [
+            'total_employees' => $employees->count(),
+            'active_employees' => $employees->where('is_active', true)->count(),
+            'teams' => $teams->count(),
+            'next_rotation' => $upcoming[1]['period_start'] ?? null,
+        ];
 
         return view('staff.hr.index', [
             'employees' => $employees,
             'currentShift' => $currentShift,
             'upcoming' => $upcoming,
-            'teams' => $scheduler->teams(),
+            'teams' => $teams,
+            'stats' => $stats,
         ]);
     }
 
