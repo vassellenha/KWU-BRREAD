@@ -1,4 +1,4 @@
-<header class="fixed top-0 left-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_4px_16px_rgba(113,59,44,0.06)] font-plus-jakarta">
+<header x-data="{}" class="fixed top-0 left-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_4px_16px_rgba(113,59,44,0.06)] font-plus-jakarta">
     <div class="h-20 max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop flex items-center justify-between gap-space-md">
         <div class="flex items-center gap-space-lg">
             <a class="flex items-center gap-space-sm group" href="{{ route('home') }}">
@@ -47,14 +47,16 @@
                 <span class="material-symbols-outlined text-[16px] text-tertiary">payments</span>
                 <span>IDR</span>
             </div>
-            <a
-                href="{{ route('build') }}"
+            <button
+                type="button"
+                id="nav-cart-icon"
+                @click="$store.cart.open = true"
                 class="flex items-center gap-space-xs bg-primary-container text-on-primary-container px-space-md py-space-xs rounded-full font-label-lg text-label-lg shadow-[0_4px_12px_rgba(199,70,89,0.3)] hover:opacity-95 active:translate-y-[2px] transition-[opacity,transform,box-shadow] duration-200"
             >
                 <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
                 <span class="hidden md:inline font-label-lg text-label-lg">My Sweet Cart</span>
-                <span id="nav-cart-badge" class="bg-surface-container-lowest text-primary text-label-md font-label-md px-2 py-0.5 rounded-full">3</span>
-            </a>
+                <span id="nav-cart-badge" class="bg-surface-container-lowest text-primary text-label-md font-label-md px-2 py-0.5 rounded-full" x-text="$store.cart.count"></span>
+            </button>
         </div>
     </div>
 </header>

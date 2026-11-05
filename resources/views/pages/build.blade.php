@@ -54,7 +54,8 @@
                                 :class="isStepDone(tab.key) ? 'bg-primary text-on-primary' : (activeTab === tab.key ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-high text-on-surface-variant')"
                             >
                                 <span x-show="isStepDone(tab.key)" x-cloak class="material-symbols-outlined text-[16px]">check</span>
-                                <span x-show="!isStepDone(tab.key)" x-text="index + 1"></span>
+                                <span x-show="!isStepDone(tab.key) && ((tab.key === 'ice_cream' && flavorLocked) || (tab.key === 'topping' && toppingLocked))" x-cloak class="material-symbols-outlined text-[14px]">lock</span>
+                                <span x-show="!isStepDone(tab.key) && !((tab.key === 'ice_cream' && flavorLocked) || (tab.key === 'topping' && toppingLocked))" x-text="index + 1"></span>
                             </span>
                             <div class="flex flex-col leading-tight">
                                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Step <span x-text="index + 1"></span></span>
@@ -63,13 +64,13 @@
                         </button>
                     </template>
                     <div class="flex items-center gap-space-sm p-space-sm rounded-DEFAULT border border-transparent">
-                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0" :class="customerName && customerPhone ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'">
-                            <span x-show="customerName && customerPhone" x-cloak class="material-symbols-outlined text-[16px]">check</span>
-                            <span x-show="!(customerName && customerPhone)" x-cloak>4</span>
+                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0" :class="canAddToCart ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'">
+                            <span x-show="canAddToCart" x-cloak class="material-symbols-outlined text-[16px]">check</span>
+                            <span x-show="!canAddToCart" x-cloak>4</span>
                         </span>
                         <div class="flex flex-col leading-tight">
                             <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Step 4</span>
-                            <span class="font-label-lg text-label-lg text-on-surface">Name &amp; Order</span>
+                            <span class="font-label-lg text-label-lg text-on-surface">Add to Cart</span>
                         </div>
                     </div>
                 </div>
@@ -95,8 +96,9 @@
                             <template x-for="preset in presets" :key="preset.name">
                                 <button
                                     type="button"
+                                    :disabled="isPresetUnavailable(preset)"
                                     @click="applyPreset(preset, $event)"
-                                    class="press-scale hover-lift relative flex items-start gap-space-xs p-space-sm rounded-DEFAULT text-left transition-[background-color,border-color,box-shadow] duration-200 border-2"
+                                    class="press-scale hover-lift relative flex items-start gap-space-xs p-space-sm rounded-DEFAULT text-left transition-[background-color,border-color,box-shadow] duration-200 border-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isActivePreset(preset) ? 'bg-primary-container/15 border-primary shadow-[0_4px_14px_rgba(199,70,89,0.22)]' : 'bg-surface-container-lowest border-transparent hover:border-outline-variant'"
                                 >
                                     <span
@@ -129,60 +131,73 @@
                             <template x-for="component in components.bread" :key="component.id">
                                 <button
                                     type="button"
+                                    :disabled="component.stock_quantity <= 0"
                                     @click="selectComponent(component, $event)"
-                                    class="press-scale hover-lift relative rounded-DEFAULT border-2 bg-surface-container-lowest p-space-sm text-left transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(113,59,44,0.04)]"
+                                    class="press-scale hover-lift relative rounded-DEFAULT border-2 bg-surface-container-lowest p-space-sm text-left transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(113,59,44,0.04)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary ring-2 ring-primary/30' : 'border-outline-variant/50'"
                                 >
-                                    <img :src="window.INGREDIENT_IMAGES[component.name]" class="w-full h-16 object-contain mb-space-xs" alt="">
+                                    <img :src="window.INGREDIENT_IMAGES[component.name]" class="w-full h-16 object-contain mb-space-xs" :class="component.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                     <span class="block font-label-lg text-label-lg text-on-surface leading-tight" x-text="component.name"></span>
                                     <span class="block font-price-tag text-price-tag text-primary mt-1" x-text="formatPrice(component.price)"></span>
                                     <span x-show="isSelected(component)" x-cloak class="material-symbols-outlined absolute top-2 right-2 text-[18px] text-primary">check_circle</span>
+                                    <span x-show="component.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md">Sold Out</span>
                                 </button>
                             </template>
                         </div>
                     </div>
 
                     {{-- Step 2: Flavor --}}
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
+                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="flavorLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Ice Cream Slab</h2>
                             <span class="font-label-md text-label-md text-on-surface-variant">Thick Cut</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-space-sm">
+                        <p x-show="flavorLocked" x-cloak class="flex items-center gap-1.5 mb-space-sm font-label-md text-label-md text-on-surface-variant">
+                            <span class="material-symbols-outlined text-[16px]">lock</span>
+                            Pick a bread base first to unlock flavors.
+                        </p>
+                        <div class="grid grid-cols-3 gap-space-sm" :class="flavorLocked ? 'pointer-events-none' : ''">
                             <template x-for="component in components.ice_cream" :key="component.id">
                                 <button
                                     type="button"
+                                    :disabled="component.stock_quantity <= 0 || flavorLocked"
                                     @click="selectComponent(component, $event)"
-                                    class="press-scale hover-lift relative flex flex-col items-center p-space-sm rounded-DEFAULT text-center border-2 transition-[border-color,box-shadow] duration-200"
+                                    class="press-scale hover-lift relative flex flex-col items-center p-space-sm rounded-DEFAULT text-center border-2 transition-[border-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary shadow-[0_2px_8px_rgba(199,70,89,0.2)]' : 'border-outline-variant/50'"
                                 >
                                     <span class="w-10 h-10 rounded-full mb-space-xs border border-outline-variant flex items-center justify-center" :style="{ backgroundColor: component.hex_color }">
                                         <span x-show="isSelected(component)" x-cloak class="material-symbols-outlined text-[16px] text-white drop-shadow">check</span>
                                     </span>
                                     <span class="font-label-md text-label-md text-on-surface leading-tight" x-text="component.name"></span>
-                                    <span class="font-label-md text-label-md text-primary font-bold mt-0.5" x-text="formatPrice(component.price)"></span>
+                                    <span x-show="component.stock_quantity > 0" class="font-label-md text-label-md text-primary font-bold mt-0.5" x-text="formatPrice(component.price)"></span>
+                                    <span x-show="component.stock_quantity <= 0" x-cloak class="font-label-md text-label-md text-on-surface-variant mt-0.5">Sold Out</span>
                                 </button>
                             </template>
                         </div>
                     </div>
 
                     {{-- Step 3: Toppings --}}
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
+                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="toppingLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Toppings &amp; Drizzle</h2>
                             <span class="font-label-md text-label-md text-on-surface-variant">Multi-Select</span>
                         </div>
-                        <div class="flex flex-wrap gap-space-xs">
+                        <p x-show="toppingLocked" x-cloak class="flex items-center gap-1.5 mb-space-sm font-label-md text-label-md text-on-surface-variant">
+                            <span class="material-symbols-outlined text-[16px]">lock</span>
+                            Pick a base and a flavor first to unlock toppings.
+                        </p>
+                        <div class="flex flex-wrap gap-space-xs" :class="toppingLocked ? 'pointer-events-none' : ''">
                             <template x-for="component in components.topping" :key="component.id">
                                 <button
                                     type="button"
+                                    :disabled="component.stock_quantity <= 0 || toppingLocked"
                                     @click="selectComponent(component, $event)"
-                                    class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-colors duration-200 border"
+                                    class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed"
                                     :class="isSelected(component) ? 'bg-primary-container text-on-primary-container border-primary-container' : 'bg-surface-container-lowest text-on-surface border-outline-variant/50 hover:border-primary'"
                                 >
                                     <span class="material-symbols-outlined text-[16px]" x-text="isSelected(component) ? 'done' : 'add'"></span>
                                     <span x-text="component.name"></span>
-                                    <span class="opacity-80" x-text="'+' + formatPrice(component.price)"></span>
+                                    <span class="opacity-80" x-text="component.stock_quantity > 0 ? '+' + formatPrice(component.price) : 'Sold Out'"></span>
                                 </button>
                             </template>
                         </div>
@@ -213,21 +228,41 @@
                                     class="relative mx-auto flex flex-col items-center"
                                     style="width: 280px; min-height: 320px;"
                                 >
-                                    <img :src="breadImage" x-show="breadImage" x-cloak src="" alt="" class="w-full drop-shadow-xl relative z-30 pointer-events-none select-none transition-all duration-500" :class="explodedView ? '-mb-2' : ''">
+                                    <img
+                                        :src="breadImage" x-show="breadImage" x-cloak src="" alt=""
+                                        class="w-full drop-shadow-xl relative z-30 pointer-events-none select-none transition-all duration-500"
+                                        :class="explodedView ? '-mb-2' : ''"
+                                        x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
+                                        x-transition:enter-start="opacity-0 -translate-y-4 scale-95"
+                                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                    >
                                     <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high"></div>
 
                                     <div class="relative z-20 w-[82%] aspect-[2.6/1] transition-all duration-500" :class="explodedView ? 'mt-2 mb-2' : '-mt-8'">
-                                        <img :src="flavorImage" x-show="flavorImage" x-cloak src="" alt="" class="absolute inset-0 w-full h-full object-cover rounded-md drop-shadow-xl pointer-events-none select-none">
+                                        <img
+                                            :src="flavorImage" x-show="flavorImage" x-cloak src="" alt=""
+                                            class="absolute inset-0 w-full h-full object-cover rounded-md drop-shadow-xl pointer-events-none select-none"
+                                            x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
+                                            x-transition:enter-start="opacity-0 scale-90"
+                                            x-transition:enter-end="opacity-100 scale-100"
+                                        >
                                         <div x-show="!flavorImage" class="w-full h-full rounded-lg bg-surface-container-highest"></div>
                                         <img :src="toppingImage('Chocolate Sauce')" x-show="hasChocolateSauce" x-cloak src="" alt="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
                                         <img :src="toppingImage('Rainbow Sprinkles')" x-show="hasSprinkles" x-cloak src="" alt="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
                                     </div>
 
-                                    <img :src="breadImage" x-show="breadImage" x-cloak src="" alt="" class="w-full drop-shadow-xl relative z-10 pointer-events-none select-none transition-all duration-500" :class="explodedView ? '-mt-2' : '-mt-8'">
+                                    <img
+                                        :src="breadImage" x-show="breadImage" x-cloak src="" alt=""
+                                        class="w-full drop-shadow-xl relative z-10 pointer-events-none select-none transition-all duration-500"
+                                        :class="explodedView ? '-mt-2' : '-mt-8'"
+                                        x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
+                                        x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                    >
                                     <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high transition-all duration-500" :class="explodedView ? '-mt-2' : '-mt-8'"></div>
 
-                                    <div x-show="!selectedBread && !selectedFlavor" x-cloak class="absolute inset-0 flex items-center justify-center text-center font-body-sm text-body-sm text-on-surface-variant px-space-lg">
-                                        Pick a base and a flavor to start stacking →
+                                    <div x-show="!selectedBread" x-cloak class="absolute inset-0 flex items-center justify-center text-center font-body-sm text-body-sm text-on-surface-variant px-space-lg">
+                                        Pick a bread base to start stacking →
                                     </div>
                                 </div>
                             </div>
@@ -239,9 +274,18 @@
                                     <span class="material-symbols-outlined text-[16px] text-primary">unfold_more</span>
                                     Exploded View
                                 </button>
-                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200">
+                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" title="Clear everything and start over">
                                     <span class="material-symbols-outlined text-[16px]">restart_alt</span>
                                     Reset
+                                </button>
+                                <span class="w-px h-5 bg-outline-variant/40 mx-0.5"></span>
+                                <button type="button" @click="undo()" :disabled="!canUndo" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Undo">
+                                    <span class="material-symbols-outlined text-[16px]">undo</span>
+                                    <span class="hidden sm:inline">Undo</span>
+                                </button>
+                                <button type="button" @click="redo()" :disabled="!canRedo" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Redo">
+                                    <span class="material-symbols-outlined text-[16px]">redo</span>
+                                    <span class="hidden sm:inline">Redo</span>
                                 </button>
                             </div>
                             <p class="font-body-sm text-body-sm text-on-surface-variant text-center sm:text-right">
@@ -285,63 +329,58 @@
                             </template>
                         </dl>
 
+                        <div class="flex items-center justify-between border-t border-outline-variant/30 pt-space-sm">
+                            <span class="font-label-md text-label-md text-on-surface-variant">Quantity</span>
+                            <div class="flex items-center gap-1.5 bg-surface-container rounded-full p-0.5">
+                                <button type="button" @click="decrementQty()" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+                                    <span class="material-symbols-outlined text-[18px]">remove</span>
+                                </button>
+                                <span class="font-label-lg text-label-lg text-on-surface w-6 text-center" x-text="creationQuantity"></span>
+                                <button type="button" @click="incrementQty()" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+                                    <span class="material-symbols-outlined text-[18px]">add</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="flex justify-between items-center border-t border-outline-variant/30 pt-space-sm">
-                            <span class="font-title-md text-title-md text-on-surface">Total</span>
+                            <span class="font-title-md text-title-md text-on-surface">Subtotal</span>
                             <span class="font-headline-sm text-headline-sm text-primary" x-text="formatPrice(totalPrice)"></span>
                         </div>
 
-                        <template x-if="orderSuccess">
+                        <template x-if="justAdded">
                             <div
                                 x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
                                 x-transition:enter-start="opacity-0 scale-90"
                                 x-transition:enter-end="opacity-100 scale-100"
-                                class="rounded-DEFAULT bg-primary-container border-2 border-primary p-space-lg text-center"
+                                class="rounded-DEFAULT bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-md flex items-center gap-space-sm"
                             >
-                                <span class="material-symbols-outlined text-[28px] text-on-primary-container">celebration</span>
-                                <p class="font-title-md text-title-md text-on-primary-container mt-1">Order placed!</p>
-                                <p class="font-body-sm text-body-sm text-on-primary-container/80 mt-1">
-                                    Order number: <span class="font-mono font-bold" x-text="orderSuccess"></span>
-                                </p>
-                                <button type="button" @click="resetOrder()" class="mt-space-md font-label-lg text-label-lg text-primary hover:underline">
-                                    Build another one
-                                </button>
+                                <span class="material-symbols-outlined text-[22px] text-on-primary-container">check_circle</span>
+                                <p class="font-label-lg text-label-lg text-on-primary-container">Added to your cart — build another one, or check out.</p>
                             </div>
                         </template>
 
-                        <form x-show="!orderSuccess" @submit.prevent="submitOrder()" class="space-y-space-sm">
-                            <div>
-                                <label class="block font-label-md text-label-md text-on-surface-variant mb-1">Name</label>
-                                <input
-                                    type="text"
-                                    x-model="customerName"
-                                    placeholder="Your name"
-                                    class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
-                                >
-                            </div>
-                            <div>
-                                <label class="block font-label-md text-label-md text-on-surface-variant mb-1">Phone Number</label>
-                                <input
-                                    type="tel"
-                                    x-model="customerPhone"
-                                    placeholder="+62 812 3456 7890"
-                                    class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
-                                >
-                            </div>
+                        <p x-show="errorMessage" x-cloak class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
 
-                            <p x-show="errorMessage" x-cloak class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
+                        <button
+                            type="button"
+                            @click="addToCart($event)"
+                            :disabled="!canAddToCart"
+                            class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <span class="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+                            Add to Cart
+                        </button>
 
-                            <button
-                                type="submit"
-                                :disabled="!canCheckout || submitting"
-                                class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <span x-show="!submitting" class="flex items-center gap-space-xs">
-                                    <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-                                    Order Now
-                                </span>
-                                <span x-show="submitting" x-cloak>Placing order...</span>
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            @click="$store.cart.open = true"
+                            x-show="$store.cart.items.length > 0"
+                            x-cloak
+                            class="w-full flex items-center justify-center gap-space-xs rounded-full border border-outline-variant px-space-lg py-space-sm font-label-lg text-label-lg text-on-surface hover:bg-surface-container transition-colors duration-200"
+                        >
+                            View Cart
+                            <span class="bg-primary-container text-on-primary-container text-label-md font-label-md px-2 py-0.5 rounded-full" x-text="$store.cart.count"></span>
+                        </button>
 
                         <div class="flex items-center justify-center gap-1.5 text-on-surface-variant font-body-sm text-body-sm">
                             <span class="material-symbols-outlined text-[16px] text-tertiary">verified_user</span>

@@ -13,7 +13,9 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'component_id',
+        'creation_index',
         'layer_order',
+        'quantity',
     ];
 
     public function order(): BelongsTo

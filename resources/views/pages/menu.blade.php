@@ -44,8 +44,9 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.bread" :key="item.id">
-                            <div class="hover-lift rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" data-reveal>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" alt="">
+                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
+                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
                                 <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
                             </div>
@@ -60,8 +61,9 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.ice_cream" :key="item.id">
-                            <div class="hover-lift rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" data-reveal>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" alt="">
+                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
+                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
                                 <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
                             </div>
@@ -76,8 +78,9 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.topping" :key="item.id">
-                            <div class="hover-lift rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" data-reveal>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" alt="">
+                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
+                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
                                 <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
                             </div>
