@@ -1,0 +1,129 @@
+@import 'tailwindcss';
+@config '../../tailwind.config.js';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Baloo 2', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* Button / pressable feedback — scale() carries icons + label along for a physical press feel. */
+.press-scale {
+    transition: transform 160ms var(--ease-out);
+}
+.press-scale:active {
+    transform: scale(0.97);
+}
+
+/* Card hover lift, gated to real pointers so touch taps don't get stuck mid-hover. */
+@media (hover: hover) and (pointer: fine) {
+    .hover-lift {
+        transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+    }
+    .hover-lift:hover {
+        transform: translateY(-4px);
+    }
+    .hover-wiggle {
+        transition: transform 200ms var(--ease-bounce);
+    }
+    .hover-wiggle:hover {
+        transform: scale(1.12) rotate(-6deg);
+    }
+}
+
+@keyframes cart-badge-pop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.45); }
+    65% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+.cart-badge-pop {
+    animation: cart-badge-pop 480ms var(--ease-bounce);
+}
+
+@keyframes pop-gentle {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.04); }
+    70% { transform: scale(0.99); }
+    100% { transform: scale(1); }
+}
+.pop-gentle {
+    animation: pop-gentle 420ms var(--ease-bounce);
+}
+
+@keyframes fly-clone-fade {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .press-scale:active {
+        transform: none;
+    }
+    .cart-badge-pop {
+        animation: none;
+    }
+    [data-reveal],
+    .hover-lift,
+    .hover-wiggle {
+        transform: none !important;
+    }
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'liga';
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(var(--float-rotate, -3deg)); }
+    50% { transform: translateY(-14px) rotate(var(--float-rotate, -3deg)); }
+}
+
+.animate-float {
+    animation: float 5s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+    animation: float 5s ease-in-out infinite;
+    animation-delay: -2.5s;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+        opacity: 0;
+        transform: translateY(24px);
+        transition: opacity 0.6s cubic-bezier(0.23, 1, 0.32, 1), transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        transition-delay: var(--reveal-delay, 0ms);
+    }
+
+    [data-reveal].is-revealed {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
