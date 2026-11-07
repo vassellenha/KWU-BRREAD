@@ -19,10 +19,11 @@ class RoleAccessTest extends TestCase
         User::MODULE_MRP => ['/staff/mrp', '/staff/mrp/movements'],
         User::MODULE_HR => ['/staff/hr'],
         User::MODULE_ACCOUNTING => ['/staff/accounting', '/staff/accounting/export'],
+        User::MODULE_SALES => ['/staff/sales'],
     ];
 
     private const ALLOWED_MODULES = [
-        User::ROLE_ADMIN => [User::MODULE_MRP, User::MODULE_HR, User::MODULE_ACCOUNTING],
+        User::ROLE_ADMIN => [User::MODULE_MRP, User::MODULE_HR, User::MODULE_ACCOUNTING, User::MODULE_SALES],
         User::ROLE_WAREHOUSE => [User::MODULE_MRP],
         User::ROLE_HR => [User::MODULE_HR],
         User::ROLE_ACCOUNTANT => [User::MODULE_ACCOUNTING],
@@ -76,6 +77,7 @@ class RoleAccessTest extends TestCase
             User::MODULE_MRP => route('staff.mrp.index'),
             User::MODULE_HR => route('staff.hr.index'),
             User::MODULE_ACCOUNTING => route('staff.accounting.index'),
+            User::MODULE_SALES => route('staff.sales.index'),
         ];
 
         foreach ($links as $module => $href) {

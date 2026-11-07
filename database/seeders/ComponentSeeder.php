@@ -4,7 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Component;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Arr;
 
+/**
+ * Runs on every deploy, so it keeps the catalog in step with this list without touching
+ * live stock counts or the sales history of ingredients that were retired.
+ */
 class ComponentSeeder extends Seeder
 {
     public function run(): void
@@ -25,12 +30,13 @@ class ComponentSeeder extends Seeder
         ];
 
         foreach ($components as $component) {
-            Component::updateOrCreate(
-                ['name' => $component['name']],
-                $component + ['is_active' => true]
-            );
+            $existing = Component::firstWhere('name', $component['name']);
+
+            $existing
+                ? $existing->update(Arr::except($component, 'stock_quantity') + ['is_active' => true])
+                : Component::create($component + ['is_active' => true]);
         }
 
-        Component::whereNotIn('name', array_column($components, 'name'))->delete();
+        Component::whereNotIn('name', array_column($components, 'name'))->update(['is_active' => false]);
     }
 }

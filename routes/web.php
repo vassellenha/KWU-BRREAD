@@ -4,6 +4,7 @@ use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
+use App\Http\Controllers\Staff\SalesController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +42,10 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::get('/export', [AccountingController::class, 'export'])->name('export');
         Route::post('/expenses', [AccountingController::class, 'storeExpense'])->name('expenses.store');
         Route::delete('/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('expenses.destroy');
+    });
+
+    Route::middleware($rolesFor(User::MODULE_SALES))->prefix('sales')->name('sales.')->group(function () {
+        Route::get('/', [SalesController::class, 'index'])->name('index');
     });
 });
 

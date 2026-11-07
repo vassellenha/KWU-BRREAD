@@ -38,6 +38,8 @@ class User extends Authenticatable
 
     public const MODULE_ACCOUNTING = 'accounting';
 
+    public const MODULE_SALES = 'sales';
+
     /**
      * The single source of truth for RBAC: routes and the sidebar both read this map.
      *
@@ -47,6 +49,7 @@ class User extends Authenticatable
         self::MODULE_MRP => [self::ROLE_ADMIN, self::ROLE_WAREHOUSE],
         self::MODULE_HR => [self::ROLE_ADMIN, self::ROLE_HR],
         self::MODULE_ACCOUNTING => [self::ROLE_ADMIN, self::ROLE_ACCOUNTANT],
+        self::MODULE_SALES => [self::ROLE_ADMIN],
     ];
 
     /**
@@ -56,6 +59,7 @@ class User extends Authenticatable
         self::MODULE_MRP => 'staff.mrp.index',
         self::MODULE_HR => 'staff.hr.index',
         self::MODULE_ACCOUNTING => 'staff.accounting.index',
+        self::MODULE_SALES => 'staff.sales.index',
     ];
 
     public function hasRole(string ...$roles): bool

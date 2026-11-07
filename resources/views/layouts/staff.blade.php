@@ -8,6 +8,7 @@
         ['module' => User::MODULE_MRP, 'route' => 'staff.mrp.movements', 'active' => 'staff.mrp.movements', 'icon' => 'history', 'label' => 'Stock Movements'],
         ['module' => User::MODULE_HR, 'route' => 'staff.hr.index', 'active' => 'staff.hr.*', 'icon' => 'groups', 'label' => 'HR'],
         ['module' => User::MODULE_ACCOUNTING, 'route' => 'staff.accounting.index', 'active' => 'staff.accounting.*', 'icon' => 'account_balance', 'label' => 'Accounting'],
+        ['module' => User::MODULE_SALES, 'route' => 'staff.sales.index', 'active' => 'staff.sales.*', 'icon' => 'monitoring', 'label' => 'Sales'],
     ])->filter(fn (array $link) => $currentUser->canAccessModule($link['module']));
 
     $portalName = $currentUser->isAdmin() ? 'Admin Portal' : 'Staff Portal';
@@ -83,7 +84,7 @@
                     @foreach ($navLinks as $link)
                         <a
                             href="{{ route($link['route']) }}"
-                            @if (request()->routeIs($link['active'])) aria-current="page" @endif
+                            @if (request()->routeIs($link['active'])) aria-current="page" x-data x-init="$el.scrollIntoView({ inline: 'center', block: 'nearest' })" @endif
                             class="shrink-0 flex items-center gap-1.5 px-space-sm py-1.5 rounded-full font-label-md text-label-md {{ request()->routeIs($link['active']) ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface-variant' }}"
                         >
                             <span class="material-symbols-outlined text-[16px]">{{ $link['icon'] }}</span>

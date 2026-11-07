@@ -24,12 +24,12 @@ Akun staff hanya bisa masuk lewat `/staff`, dan akun admin hanya bisa masuk lewa
 
 ## Akses per Role (RBAC)
 
-| Role | MRP | HR | Accounting |
-|---|---|---|---|
-| Admin | ✓ | ✓ | ✓ |
-| MRP Staff | ✓ | — | — |
-| HR Staff | — | ✓ | — |
-| Accounting Staff | — | — | ✓ |
+| Role | MRP | HR | Accounting | Sales |
+|---|---|---|---|---|
+| Admin | ✓ | ✓ | ✓ | ✓ |
+| MRP Staff | ✓ | — | — | — |
+| HR Staff | — | ✓ | — | — |
+| Accounting Staff | — | — | ✓ | — |
 
 Sidebar hanya menampilkan modul yang boleh dibuka, dan URL modul lain menjawab halaman 403.
 
@@ -60,6 +60,15 @@ Modul MRP digunakan untuk mengelola persediaan bahan baku BRREAD! yang terintegr
 - **Financial Report:** Saldo awal, income, expenses, saldo akhir, dan rincian expense per kategori untuk rentang tanggal yang dipilih.
 - **Export to Excel:** Mengunduh laporan dan ledger dalam format `.xlsx`.
 
+## Sales
+
+**URL:** `http://127.0.0.1:8000/staff/sales` (khusus admin)
+
+- **Best-selling Combinations:** Kombinasi rasa, roti, dan topping yang paling laku.
+- **Ingredient Rankings:** Ranking rasa, roti, dan topping, termasuk yang belum terjual.
+- **Sales Trend:** Jumlah sandwich dan omzet per hari, minggu, atau bulan, dibandingkan dengan periode sebelumnya.
+- **Busiest Days & Hours:** Hari dan jam paling ramai.
+
 ## Customer Storefront Integration
 
 Ketika customer melakukan checkout melalui keranjang:
@@ -68,7 +77,7 @@ Ketika customer melakukan checkout melalui keranjang:
 2. Stok setiap bahan berkurang sesuai jumlah pesanan.
 3. Transaksi dicatat dalam stock movement log.
 4. Dashboard MRP menampilkan stok terbaru.
-5. Order muncul sebagai uang masuk di Accounting.
+5. Order muncul sebagai uang masuk di Accounting dan masuk ke laporan Sales.
 
 ## Technical Information
 

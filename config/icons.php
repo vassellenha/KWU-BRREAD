@@ -54,6 +54,7 @@ return [
         'logout',
         'mail',
         'menu',
+        'monitoring',
         'nutrition',
         'payments',
         'person',

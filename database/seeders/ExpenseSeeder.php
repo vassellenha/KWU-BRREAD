@@ -6,10 +6,18 @@ use App\Models\Expense;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
+/**
+ * Runs on every deploy, so it only fills an empty table: removed expenses stay removed
+ * and past dates stay put.
+ */
 class ExpenseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (Expense::exists()) {
+            return;
+        }
+
         $accountant = User::where('role', User::ROLE_ACCOUNTANT)->first();
 
         $expenses = [

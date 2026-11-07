@@ -16,6 +16,11 @@ class OrderItem extends Model
         'creation_index',
         'layer_order',
         'quantity',
+        'unit_price',
+    ];
+
+    protected $casts = [
+        'unit_price' => 'decimal:2',
     ];
 
     public function order(): BelongsTo

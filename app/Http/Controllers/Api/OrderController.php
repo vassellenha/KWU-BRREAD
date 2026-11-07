@@ -80,6 +80,7 @@ class OrderController extends Controller
                         'creation_index' => $creationIndex,
                         'layer_order' => $layerOrder,
                         'quantity' => $item['quantity'],
+                        'unit_price' => $components[$componentId]->price,
                     ]);
                 }
             }

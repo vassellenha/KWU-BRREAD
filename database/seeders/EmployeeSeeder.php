@@ -5,10 +5,17 @@ namespace Database\Seeders;
 use App\Models\Employee;
 use Illuminate\Database\Seeder;
 
+/**
+ * Runs on every deploy, so it only fills an empty table and never undoes changes made in HR.
+ */
 class EmployeeSeeder extends Seeder
 {
     public function run(): void
     {
+        if (Employee::exists()) {
+            return;
+        }
+
         $employees = [
             'Rizky Joestar',
             'Evan Brando',
