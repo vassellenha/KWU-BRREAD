@@ -410,6 +410,9 @@ Alpine.data('brreadBuilder', () => ({
         { key: 'topping', label: 'Add Toppings' },
     ],
 
+    // The one step the phone-width stepper shows. Desktop shows all four instead.
+    mobileStep: 'bread',
+
     presets: SIGNATURE_PRESETS,
 
     get components() {
@@ -417,6 +420,10 @@ Alpine.data('brreadBuilder', () => ({
     },
 
     async init() {
+        this.$watch('guidedStep', (step) => {
+            this.mobileStep = step;
+        });
+
         // Selections hold their own copy of each component, so re-read them when stock changes.
         window.addEventListener('catalog-updated', () => {
             this.restoreSnapshot(this.snapshotState());
@@ -612,6 +619,7 @@ Alpine.data('brreadBuilder', () => ({
     isStepDone(tabKey) {
         if (tabKey === 'bread') return !!this.selectedBread;
         if (tabKey === 'ice_cream') return !!this.selectedFlavor;
+        if (tabKey === 'cart') return false;
         // Toppings are optional, so this step is satisfied as soon as it can be reached.
         return !this.toppingLocked;
     },
@@ -631,10 +639,43 @@ Alpine.data('brreadBuilder', () => ({
 
     goToStep(tabKey) {
         if (this.isStepLocked(tabKey)) return;
+        const isPhoneWidth = window.matchMedia('(max-width: 767px)').matches;
         document.getElementById(`step-${tabKey}`)?.scrollIntoView({
             behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-            block: 'center',
+            // A card can be taller than the space left under the sticky stepper on a phone.
+            block: isPhoneWidth ? 'start' : 'center',
         });
+    },
+
+    get steps() {
+        return [...this.tabs, { key: 'cart', label: 'Add to Cart' }];
+    },
+
+    // Unlike currentStep this stops at Toppings, so a phone walks through all four steps in order.
+    get guidedStep() {
+        if (!this.selectedBread) return 'bread';
+        if (!this.selectedFlavor) return 'ice_cream';
+        return 'topping';
+    },
+
+    get mobileStepIndex() {
+        return this.steps.findIndex((step) => step.key === this.mobileStep);
+    },
+
+    get canGoToPreviousStep() {
+        return this.mobileStepIndex > 0;
+    },
+
+    get canGoToNextStep() {
+        const next = this.steps[this.mobileStepIndex + 1];
+        return !!next && !this.isStepLocked(next.key);
+    },
+
+    moveMobileStep(offset) {
+        const target = this.steps[this.mobileStepIndex + offset];
+        if (!target || this.isStepLocked(target.key)) return;
+        this.mobileStep = target.key;
+        this.goToStep(target.key);
     },
 
     isSelected(component) {

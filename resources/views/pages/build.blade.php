@@ -40,8 +40,44 @@
             </div>
 
             {{-- STEP PROGRESS STRIP --}}
-            <div class="bg-surface-container-lowest rounded-lg p-space-sm border border-outline-variant/30 shadow-sm">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-space-sm">
+            <div class="bg-surface-container-lowest rounded-lg p-space-sm border border-outline-variant/30 shadow-sm max-md:sticky max-md:top-20 max-md:z-30">
+                {{-- Phone: one step at a time. Stays pinned so the arrows are in reach after scrolling. --}}
+                <div class="md:hidden flex items-center gap-space-xs">
+                    <button
+                        type="button"
+                        @click="moveMobileStep(-1)"
+                        :disabled="!canGoToPreviousStep"
+                        aria-label="Previous step"
+                        class="press-scale shrink-0 w-11 h-11 rounded-full bg-surface-container text-on-surface flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    </button>
+                    <button type="button" @click="goToStep(mobileStep)" aria-live="polite" class="flex-1 min-w-0 flex items-center justify-center gap-space-sm text-left">
+                        <span
+                            class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0"
+                            :class="isStepDone(mobileStep) ? 'bg-primary text-on-primary' : 'bg-primary-container text-on-primary-container'"
+                        >
+                            <span x-show="isStepDone(mobileStep)" x-cloak class="material-symbols-outlined text-[16px]">check</span>
+                            <span x-show="!isStepDone(mobileStep)" x-text="mobileStepIndex + 1"></span>
+                        </span>
+                        <span class="flex flex-col leading-tight min-w-0">
+                            <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Step <span x-text="mobileStepIndex + 1"></span> of <span x-text="steps.length"></span></span>
+                            <span class="font-label-lg text-label-lg text-on-surface truncate" x-text="steps[mobileStepIndex].label"></span>
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="moveMobileStep(1)"
+                        :disabled="!canGoToNextStep"
+                        aria-label="Next step"
+                        class="press-scale shrink-0 w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center disabled:bg-surface-container disabled:text-on-surface disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    </button>
+                </div>
+
+                {{-- Tablet and desktop: all four steps. --}}
+                <div class="hidden md:grid md:grid-cols-4 gap-space-sm">
                     <template x-for="(tab, index) in tabs" :key="tab.key">
                         <button
                             type="button"
@@ -131,7 +167,7 @@
                     </div>
 
                     {{-- Step 1: Bread --}}
-                    <div id="step-bread" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
+                    <div id="step-bread" class="max-md:scroll-mt-44 bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Bread &amp; Crust</h2>
                             <span class="font-label-md text-label-md text-primary px-2 py-0.5 rounded-full bg-primary-fixed">Required</span>
@@ -156,7 +192,7 @@
                     </div>
 
                     {{-- Step 2: Flavor --}}
-                    <div id="step-ice_cream" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="flavorLocked ? 'opacity-60' : ''">
+                    <div id="step-ice_cream" class="max-md:scroll-mt-44 bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="flavorLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Ice Cream Slab</h2>
                             <span class="font-label-md text-label-md text-on-surface-variant">Thick Cut</span>
@@ -186,7 +222,7 @@
                     </div>
 
                     {{-- Step 3: Toppings --}}
-                    <div id="step-topping" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="toppingLocked ? 'opacity-60' : ''">
+                    <div id="step-topping" class="max-md:scroll-mt-44 bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="toppingLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Toppings &amp; Drizzle</h2>
                             <span class="font-label-md text-label-md text-on-surface-variant">Optional · Multi-Select</span>
@@ -311,7 +347,7 @@
 
                 {{-- RIGHT: Sticky order summary --}}
                 <div class="lg:col-span-3 lg:sticky lg:top-28">
-                    <div id="step-cart" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-[0_8px_24px_rgba(113,59,44,0.08)] flex flex-col gap-space-md">
+                    <div id="step-cart" class="max-md:scroll-mt-44 bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-[0_8px_24px_rgba(113,59,44,0.08)] flex flex-col gap-space-md">
                         <div class="flex items-center justify-between pb-space-sm border-b border-outline-variant/30">
                             <div class="flex items-center gap-space-xs">
                                 <span class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-primary">
