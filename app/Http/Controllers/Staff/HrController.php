@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Rules\PersonName;
+use App\Rules\PhoneNumber;
 use App\Services\ShiftScheduler;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -19,20 +21,18 @@ class HrController extends Controller
         $today = CarbonImmutable::today();
         $currentShift = $scheduler->teamForDate($today);
         $upcoming = $scheduler->upcoming($today, 6);
-        $teams = $scheduler->teams();
 
         $stats = [
             'total_employees' => $employees->count(),
             'active_employees' => $employees->where('is_active', true)->count(),
-            'teams' => $teams->count(),
-            'next_rotation' => $upcoming[1]['period_start'] ?? null,
+            'on_duty' => $currentShift['employees']->count(),
+            'next_rotation' => $upcoming[1]['period_start'],
         ];
 
         return view('staff.hr.index', [
             'employees' => $employees,
             'currentShift' => $currentShift,
             'upcoming' => $upcoming,
-            'teams' => $teams,
             'stats' => $stats,
         ]);
     }
@@ -40,9 +40,9 @@ class HrController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', new PersonName],
             'position' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'string', 'max:30', new PhoneNumber],
         ]);
 
         $nextOrder = ((int) Employee::max('rotation_order')) + 1;
@@ -55,10 +55,10 @@ class HrController extends Controller
     public function update(Request $request, Employee $employee): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', new PersonName],
             'position' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'rotation_order' => ['required', 'integer', 'min:0'],
+            'phone' => ['nullable', 'string', 'max:30', new PhoneNumber],
+            'rotation_order' => ['required', 'integer', 'min:0', 'max:9999'],
         ]);
 
         $employee->update($validated);

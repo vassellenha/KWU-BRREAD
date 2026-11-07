@@ -1,8 +1,8 @@
 FROM php:8.3-cli
 
 RUN apt-get update && apt-get install -y \
-        git unzip curl libsqlite3-dev libzip-dev libonig-dev \
-    && docker-php-ext-install pdo pdo_sqlite zip mbstring bcmath \
+        git unzip curl libsqlite3-dev libzip-dev libonig-dev libpng-dev \
+    && docker-php-ext-install pdo pdo_sqlite zip mbstring bcmath gd opcache \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -20,8 +20,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
     && touch database/database.sqlite \
     && chmod -R 775 storage bootstrap/cache database
 
+ENV PHP_CLI_SERVER_WORKERS=4
+
 EXPOSE 8080
-CMD php artisan migrate --force \
-    && php artisan db:seed --force \
-    && php artisan config:clear \
-    && php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080} --no-reload"]

@@ -7,11 +7,14 @@
     <section
         x-data="{
             loading: true,
+            loadFailed: false,
             components: { bread: [], ice_cream: [], topping: [] },
             async init() {
                 try {
                     const res = await axios.get('/api/components');
                     this.components = res.data;
+                } catch (e) {
+                    this.loadFailed = true;
                 } finally {
                     this.loading = false;
                 }
@@ -36,7 +39,9 @@
 
             <div x-show="loading" class="text-center font-body-lg text-body-lg text-on-surface-variant py-space-xl">Loading menu...</div>
 
-            <div x-show="!loading" x-cloak class="space-y-space-xl">
+            <div x-show="loadFailed" x-cloak role="alert" class="text-center font-body-lg text-body-lg text-on-surface-variant py-space-xl">The menu could not load. Please refresh the page.</div>
+
+            <div x-show="!loading && !loadFailed" x-cloak class="space-y-space-xl">
                 <div data-reveal>
                     <h2 class="flex items-center gap-space-xs font-title-md text-title-md text-on-surface mb-space-lg">
                         <span class="material-symbols-outlined hover-wiggle text-[22px] text-primary">bakery_dining</span>
@@ -44,7 +49,7 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.bread" :key="item.id">
-                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
                                 <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
                                 <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
@@ -61,7 +66,7 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.ice_cream" :key="item.id">
-                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
                                 <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
                                 <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
@@ -78,7 +83,7 @@
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
                         <template x-for="item in components.topping" :key="item.id">
-                            <div class="hover-lift relative rounded-DEFAULT border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
+                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
                                 <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
                                 <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                 <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>

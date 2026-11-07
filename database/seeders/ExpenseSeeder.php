@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Expense;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 class ExpenseSeeder extends Seeder
 {
@@ -25,13 +24,12 @@ class ExpenseSeeder extends Seeder
         ];
 
         foreach ($expenses as $expense) {
-            $date = Carbon::now()->subDays($expense['days_ago']);
-
             Expense::updateOrCreate(
-                ['description' => $expense['description'], 'expense_date' => $date->toDateString()],
+                ['description' => $expense['description']],
                 [
                     'category' => $expense['category'],
                     'amount' => $expense['amount'],
+                    'expense_date' => today()->subDays($expense['days_ago']),
                     'user_id' => $accountant?->id,
                 ]
             );

@@ -4,45 +4,12 @@
 
 @section('content')
 
-    <div class="w-full font-plus-jakarta" x-data="{
-        activeFilter: 'all',
-        cartCount: 3,
-        toastVisible: false,
-        toastTimer: null,
-        products: [
+    <div class="w-full font-plus-jakarta" x-data="signatureMenu([
             { id: 1, badge: 'Bestseller #1', badgeClass: 'bg-primary text-on-primary', tag: 'Vanilla', category: ['white-bread'], rating: '4.9', reviews: '1.2k', name: 'Classic Vanilla Slab', desc: 'Soft plain white bread folded around a thick block of creamy Madagascar vanilla bean ice cream.', price: 14000, image: '/img/marketing/product-vanilla.jpg' },
             { id: 2, badge: 'Fan Favorite', badgeClass: 'bg-on-surface text-surface', tag: 'Strawberry + Sprinkles', category: ['white-bread'], rating: '4.8', reviews: '860', name: 'Strawberry Sprinkle Stack', desc: 'Plain white bread with real-fruit strawberry ice cream, finished with a scatter of rainbow sprinkles.', price: 17000, image: '/img/marketing/product-strawberry.jpg' },
             { id: 3, badge: 'Wholegrain', badgeClass: 'bg-tertiary text-on-tertiary', tag: 'Chocolate', category: ['wheat-bread'], rating: '4.7', reviews: '540', name: 'Wholegrain Choco Crunch', desc: 'Hearty whole wheat bread paired with rich dark chocolate ice cream for a less-sweet, grown-up bite.', price: 15000, image: '/img/marketing/product-chocolate.jpg' },
             { id: 4, badge: 'Drizzle Special', badgeClass: 'bg-primary text-on-primary', tag: 'Vanilla + Choco Drizzle', category: ['wheat-bread'], rating: '4.9', reviews: '610', name: 'Wheat Vanilla Drizzle', desc: 'Whole wheat bread and vanilla bean ice cream, drizzled generously with glossy dark chocolate sauce.', price: 18000, image: '/img/marketing/product-vanilla-wheat.jpg' },
-        ],
-        get filteredProducts() {
-            if (this.activeFilter === 'all') return this.products;
-            return this.products.filter((p) => p.category.includes(this.activeFilter));
-        },
-        addToCart(event) {
-            this.cartCount++;
-            const badge = document.getElementById('nav-cart-badge');
-            const btn = event?.currentTarget;
-            const img = btn?.closest('.product-card')?.querySelector('img');
-            const landed = () => {
-                if (badge) {
-                    badge.textContent = this.cartCount;
-                    window.__brreadFx?.bounceBadge(badge);
-                }
-                this.toastVisible = true;
-                clearTimeout(this.toastTimer);
-                this.toastTimer = setTimeout(() => { this.toastVisible = false }, 2400);
-            };
-            if (btn && badge && img && window.__brreadFx) {
-                window.__brreadFx.flyClone({ sourceEl: btn, targetEl: badge, imageSrc: img.src, onLand: landed });
-            } else {
-                landed();
-            }
-        },
-        formatPrice(n) {
-            return 'Rp ' + n.toLocaleString('id-ID');
-        },
-    }">
+        ])">
 
         {{-- HERO SECTION --}}
         <section class="relative w-full overflow-hidden bg-surface-container-low pb-space-xl">
@@ -78,7 +45,7 @@
                             </a>
                         </div>
 
-                        <div class="flex items-center gap-space-md bg-surface-container/70 p-space-sm rounded-DEFAULT backdrop-blur-md">
+                        <div class="flex items-center gap-space-md bg-surface-container/70 p-space-sm rounded backdrop-blur-md">
                             <div class="flex -space-x-2">
                                 <span class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-primary ring-2 ring-surface-container-lowest">
                                     <span class="material-symbols-outlined text-[16px]">icecream</span>
@@ -113,7 +80,7 @@
                                 <span class="material-symbols-outlined text-[18px] text-primary">ac_unit</span>
                                 <span class="font-label-md text-label-md text-on-surface">Sub-Zero Cold Chain</span>
                             </div>
-                            <div class="absolute -bottom-3 -left-4 bg-surface-container-lowest p-space-sm rounded-DEFAULT shadow-[0_6px_20px_rgba(113,59,44,0.14)] flex items-center gap-space-sm">
+                            <div class="absolute -bottom-3 -left-4 bg-surface-container-lowest p-space-sm rounded shadow-[0_6px_20px_rgba(113,59,44,0.14)] flex items-center gap-space-sm">
                                 <div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-primary font-bold">
                                     <span class="material-symbols-outlined text-[20px]">bakery_dining</span>
                                 </div>
@@ -182,7 +149,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg" data-reveal-group>
                     <div class="bg-surface-container rounded-lg p-space-lg flex flex-col relative overflow-hidden shadow-[0_4px_16px_rgba(113,59,44,0.06)] hover:-translate-y-1 transition-transform" data-reveal>
                         <div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline-sm text-headline-sm mb-space-md shadow-md">1</div>
-                        <div class="h-44 w-full rounded-DEFAULT overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
+                        <div class="h-44 w-full rounded overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
                             <img class="w-full h-full object-cover" alt="Stacks of plain white sandwich bread and whole wheat bread slices" src="/img/marketing/step-bread.jpg" loading="lazy">
                         </div>
                         <h3 class="font-title-md text-title-md text-on-surface mb-1">Pick Your Bread</h3>
@@ -195,7 +162,7 @@
 
                     <div class="bg-surface-container rounded-lg p-space-lg flex flex-col relative overflow-hidden shadow-[0_4px_16px_rgba(113,59,44,0.06)] hover:-translate-y-1 transition-transform" data-reveal>
                         <div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-headline-sm text-headline-sm mb-space-md shadow-md">2</div>
-                        <div class="h-44 w-full rounded-DEFAULT overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
+                        <div class="h-44 w-full rounded overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
                             <img class="w-full h-full object-cover" alt="Three sliced ice cream blocks: vanilla, strawberry, and chocolate on a marble slab" src="/img/marketing/step-icecream.jpg" loading="lazy">
                         </div>
                         <h3 class="font-title-md text-title-md text-on-surface mb-1">Slice Your Ice Cream Slab</h3>
@@ -209,7 +176,7 @@
 
                     <div class="bg-surface-container rounded-lg p-space-lg flex flex-col relative overflow-hidden shadow-[0_4px_16px_rgba(113,59,44,0.06)] hover:-translate-y-1 transition-transform" data-reveal>
                         <div class="w-12 h-12 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center font-headline-sm text-headline-sm mb-space-md shadow-md">3</div>
-                        <div class="h-44 w-full rounded-DEFAULT overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
+                        <div class="h-44 w-full rounded overflow-hidden mb-space-md bg-surface-container-lowest flex items-center justify-center">
                             <img class="w-full h-full object-cover" alt="A completed ice cream sandwich packaged in a pastel pink thermal pouch with ice mist" src="/img/marketing/step-packaged.jpg" loading="lazy">
                         </div>
                         <h3 class="font-title-md text-title-md text-on-surface mb-1">Drizzle &amp; Deliver Ice-Cold</h3>
@@ -256,7 +223,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md" data-reveal-group>
                     <template x-for="product in filteredProducts" :key="product.id">
                         <div class="product-card hover-lift bg-surface-container-lowest rounded-lg p-space-md flex flex-col shadow-[0_4px_16px_rgba(113,59,44,0.06)] hover:shadow-[0_12px_28px_rgba(113,59,44,0.12)] transition-shadow duration-200" data-reveal>
-                            <div class="relative w-full h-52 rounded-DEFAULT bg-tertiary-fixed/40 overflow-hidden mb-space-sm flex items-center justify-center">
+                            <div class="relative w-full h-52 rounded bg-tertiary-fixed/40 overflow-hidden mb-space-sm flex items-center justify-center">
                                 <span class="absolute top-2 left-2 font-label-md text-label-md px-space-sm py-0.5 rounded-full z-10" :class="product.badgeClass" x-text="product.badge"></span>
                                 <img class="w-full h-full object-cover hover:scale-105 transition-transform" :src="product.image" :alt="product.name" loading="lazy">
                             </div>
@@ -272,9 +239,10 @@
                             <div class="mt-auto flex items-center justify-between pt-space-xs">
                                 <div>
                                     <span class="font-body-sm text-body-sm text-on-surface-variant">Price</span>
-                                    <div class="font-price-tag text-price-tag text-primary" x-text="formatPrice(product.price)"></div>
+                                    <div class="font-price-tag text-price-tag text-primary" x-text="formatPrice(priceOf(product))"></div>
                                 </div>
-                                <button @click="addToCart($event)" class="quick-add-btn press-scale w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-md" type="button">
+                                <span x-show="isSoldOut(product)" x-cloak class="px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md">Sold Out</span>
+                                <button x-show="!isSoldOut(product)" @click="addToCart($event, product)" :aria-label="'Add ' + product.name + ' to cart'" class="quick-add-btn press-scale w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-md" type="button">
                                     <span class="material-symbols-outlined text-[20px]">add</span>
                                 </button>
                             </div>
@@ -311,7 +279,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="absolute -bottom-6 -right-6 hidden sm:flex items-center gap-space-sm bg-surface-container-lowest p-space-md rounded-DEFAULT shadow-[0_8px_24px_rgba(113,59,44,0.12)] max-w-xs">
+                        <div class="absolute -bottom-6 -right-6 hidden sm:flex items-center gap-space-sm bg-surface-container-lowest p-space-md rounded shadow-[0_8px_24px_rgba(113,59,44,0.12)] max-w-xs">
                             <span class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-primary flex-shrink-0">
                                 <span class="material-symbols-outlined text-[20px]">inventory_2</span>
                             </span>
@@ -335,12 +303,12 @@
                             and zero melted arrivals thanks to custom insulated thermal boxes.
                         </p>
                         <div class="grid grid-cols-2 gap-space-md pt-space-xs">
-                            <div class="bg-surface-container p-space-md rounded-DEFAULT">
+                            <div class="bg-surface-container p-space-md rounded">
                                 <div class="font-headline-sm text-headline-sm text-primary mb-1">0%</div>
                                 <div class="font-title-md text-title-md text-on-surface">Melt Guarantee</div>
                                 <p class="font-body-sm text-body-sm text-on-surface-variant">If it arrives melted, we instantly send a brand-new box for free.</p>
                             </div>
-                            <div class="bg-surface-container p-space-md rounded-DEFAULT">
+                            <div class="bg-surface-container p-space-md rounded">
                                 <div class="font-headline-sm text-headline-sm text-primary mb-1">4.2cm</div>
                                 <div class="font-title-md text-title-md text-on-surface">Thick-Cut Slabs</div>
                                 <p class="font-body-sm text-body-sm text-on-surface-variant">True to traditional street proportions for that signature bite.</p>
@@ -364,7 +332,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md" data-reveal-group>
                     <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded-DEFAULT overflow-hidden mb-space-sm">
+                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
                             <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Happy young university student laughing while biting into a large Singapore rainbow bread ice cream sandwich outdoors" src="/img/marketing/community-student.jpg" loading="lazy">
                         </div>
                         <div class="flex items-center gap-space-sm mb-space-xs">
@@ -383,7 +351,7 @@
                     </div>
 
                     <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded-DEFAULT overflow-hidden mb-space-sm">
+                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
                             <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Overhead flatlay of two Singapore style ice cream sandwiches on pastel plates next to iced matcha lattes" src="/img/marketing/community-flatlay.jpg" loading="lazy">
                         </div>
                         <div class="flex items-center gap-space-sm mb-space-xs">
@@ -402,7 +370,7 @@
                     </div>
 
                     <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded-DEFAULT overflow-hidden mb-space-sm">
+                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
                             <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Group of friends sharing a party box of assorted colorful Singapore ice cream sandwiches at an office celebration" src="/img/marketing/community-friends.jpg" loading="lazy">
                         </div>
                         <div class="flex items-center gap-space-sm mb-space-xs">
@@ -429,8 +397,8 @@
             :class="toastVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-32 scale-90 opacity-0'"
         >
             <div class="bg-primary-container text-on-primary-container px-space-md py-space-sm rounded-full shadow-[0_12px_28px_rgba(199,70,89,0.4)] flex items-center gap-space-sm">
-                <span class="material-symbols-outlined text-[20px]">done</span>
-                <span class="font-label-lg text-label-lg">Added to Sweet Cart!</span>
+                <span class="material-symbols-outlined text-[20px]" x-text="toastFailed ? 'error' : 'done'">done</span>
+                <span class="font-label-lg text-label-lg" role="status" x-text="toastMessage"></span>
             </div>
         </div>
 

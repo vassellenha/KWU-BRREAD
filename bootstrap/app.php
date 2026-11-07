@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserHasRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,10 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'role' => EnsureUserHasRole::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('staff.login'));
+
+        $middleware->redirectUsersTo(fn (Request $request) => route($request->user()->homeRouteName()));
 
         // Railway (and most PaaS hosts) terminate HTTPS at their edge and forward to the
         // app over plain HTTP, so without this Laravel thinks every request is HTTP and

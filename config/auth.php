@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Quick Login
+    |--------------------------------------------------------------------------
+    |
+    | Shows the one-click admin suggestion on /admin. Anyone who can open that
+    | page becomes an admin with one click, so it stays off outside local
+    | development unless ADMIN_QUICK_LOGIN=true is set on purpose.
+    |
+    */
+
+    'admin_quick_login' => env('ADMIN_QUICK_LOGIN', env('APP_ENV') === 'local'),
+
 ];

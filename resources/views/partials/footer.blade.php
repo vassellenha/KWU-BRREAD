@@ -35,7 +35,7 @@
                     Every slab is sliced from nostalgic recipe blocks: fresh coconut pandan, sweet yam,
                     creamy durian, and rich chocolate ganache wrapped inside soft swirl loaves.
                 </p>
-                <div class="p-space-md rounded-DEFAULT bg-surface-container">
+                <div class="p-space-md rounded bg-surface-container">
                     <p class="font-label-md text-label-md text-primary mb-1 flex items-center gap-1">
                         <span class="material-symbols-outlined text-[16px]">info</span>Allergen &amp; Dietary Advisory
                     </p>

@@ -15,26 +15,36 @@ export const INGREDIENT_IMAGES = {
 };
 window.INGREDIENT_IMAGES = INGREDIENT_IMAGES;
 
+const MAX_PER_CREATION = 20;
+const MAX_CART_LINES = 20;
+
+const SIGNATURE_PRESETS = [
+    { name: 'Classic Vanilla Slab', bread: 'Plain White Bread', flavor: 'Vanilla', toppings: [] },
+    { name: 'Strawberry Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Strawberry', toppings: ['Rainbow Sprinkles'] },
+    { name: 'Wholegrain Choco Crunch', bread: 'Whole Wheat Bread', flavor: 'Chocolate', toppings: [] },
+    { name: 'Wheat Vanilla Drizzle', bread: 'Whole Wheat Bread', flavor: 'Vanilla', toppings: ['Chocolate Sauce'] },
+];
+
+// Runs in the capture phase so x-model on the same input reads the cleaned value.
+const INPUT_FILTERS = {
+    name: (value) => value.replace(/[^\p{L}\s.'-]/gu, ''),
+    phone: (value) => value.replace(/[^0-9+\s-]/g, '').replace(/(?!^)\+/g, ''),
+    integer: (value) => value.replace(/\D/g, ''),
+};
+
+document.addEventListener(
+    'input',
+    (event) => {
+        const filter = INPUT_FILTERS[event.target.dataset?.filter];
+        if (!filter || event.isComposing) return;
+        const cleaned = filter(event.target.value);
+        if (cleaned !== event.target.value) event.target.value = cleaned;
+    },
+    true,
+);
+
 function prefersReducedMotion() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-// Count-up for rare/informational numbers (dashboard stats) — never for data a user
-// reads precisely in real time, and instant under reduced motion.
-function animateCounter(el, target, { duration = 900, formatter = (n) => Math.round(n).toLocaleString('id-ID') } = {}) {
-    if (!el) return;
-    if (prefersReducedMotion()) {
-        el.textContent = formatter(target);
-        return;
-    }
-    const start = performance.now();
-    const easeOut = (t) => 1 - (1 - t) ** 3;
-    function tick(now) {
-        const progress = Math.min(1, (now - start) / duration);
-        el.textContent = formatter(target * easeOut(progress));
-        if (progress < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
 }
 
 // Clones a small round thumbnail and flies it from sourceEl to targetEl along an arc,
@@ -92,17 +102,29 @@ function pop(el, className = 'cart-badge-pop') {
     el.classList.add(className);
 }
 
-window.__brreadFx = { flyClone, bounceBadge: pop, pop, animateCounter };
+window.__brreadFx = { flyClone, pop };
 
 function formatPrice(n) {
     return 'Rp ' + Math.round(Number(n)).toLocaleString('id-ID');
+}
+
+function isValidCartLine(line) {
+    return (
+        line &&
+        typeof line.uid === 'string' &&
+        line.bread?.id &&
+        line.flavor?.id &&
+        Array.isArray(line.toppings) &&
+        Number.isInteger(line.quantity) &&
+        line.quantity > 0
+    );
 }
 
 function loadCart() {
     try {
         const raw = localStorage.getItem('brreadCart');
         const items = raw ? JSON.parse(raw) : [];
-        return Array.isArray(items) ? items : [];
+        return Array.isArray(items) ? items.filter(isValidCartLine) : [];
     } catch (e) {
         return [];
     }
@@ -116,21 +138,105 @@ function saveCart(items) {
     }
 }
 
+function creationKey({ bread, flavor, toppings }) {
+    return [bread.id, flavor.id, ...toppings.map((t) => t.id).sort((a, b) => a - b)].join('|');
+}
+
+function creationComponents({ bread, flavor, toppings }) {
+    return [bread, flavor, ...toppings];
+}
+
+// Live ingredients, prices, and stock from the same table MRP manages. Shared so every
+// page sees the same numbers and can refresh them after a checkout changes stock.
+Alpine.store('catalog', {
+    components: { bread: [], ice_cream: [], topping: [] },
+    loaded: false,
+    failed: false,
+    pendingLoad: null,
+
+    load() {
+        this.pendingLoad ??= axios
+            .get('/api/components')
+            .then((response) => {
+                this.components = response.data;
+                this.loaded = true;
+                this.failed = false;
+                window.dispatchEvent(new CustomEvent('catalog-updated'));
+            })
+            .catch(() => {
+                this.failed = true;
+            })
+            .finally(() => {
+                this.pendingLoad = null;
+            });
+
+        return this.pendingLoad;
+    },
+
+    byId(id) {
+        return [...this.components.bread, ...this.components.ice_cream, ...this.components.topping].find((c) => c.id === id);
+    },
+
+    creationFromPreset(preset) {
+        const bread = this.components.bread.find((c) => c.name === preset.bread);
+        const flavor = this.components.ice_cream.find((c) => c.name === preset.flavor);
+        const toppings = preset.toppings.map((name) => this.components.topping.find((c) => c.name === name));
+
+        return bread && flavor && toppings.every(Boolean) ? { bread, flavor, toppings } : null;
+    },
+
+    presetNamed(name) {
+        return SIGNATURE_PRESETS.find((preset) => preset.name === name);
+    },
+});
+
 // One cart shared across every page (navbar badge, builder, checkout drawer) since there's
 // no customer auth to key a server-side cart to.
 Alpine.store('cart', {
     items: loadCart(),
     open: false,
 
+    unitsReserved(componentId) {
+        return this.items.reduce((sum, line) => (creationComponents(line).some((c) => c.id === componentId) ? sum + line.quantity : sum), 0);
+    },
+
+    // How many more of this creation fit, given live stock minus what the cart already holds.
+    // Unknown stock (catalog not loaded yet) falls back to the per-creation limit; the server still checks.
+    unitsAvailable(creation) {
+        const catalog = Alpine.store('catalog');
+        if (!catalog.loaded) return MAX_PER_CREATION;
+
+        return creationComponents(creation).reduce((limit, component) => {
+            const live = catalog.byId(component.id);
+            const left = live ? live.stock_quantity - this.unitsReserved(component.id) : 0;
+            return Math.min(limit, Math.max(0, left));
+        }, MAX_PER_CREATION);
+    },
+
+    // The same combination adds to its existing line, so one creation never takes up two lines.
     add({ bread, flavor, toppings, quantity }) {
-        this.items.push({
-            uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            bread: { id: bread.id, name: bread.name, price: bread.price },
-            flavor: { id: flavor.id, name: flavor.name, price: flavor.price },
-            toppings: toppings.map((t) => ({ id: t.id, name: t.name, price: t.price })),
-            quantity,
-        });
+        const creation = { bread, flavor, toppings };
+        const existing = this.items.find((line) => creationKey(line) === creationKey(creation));
+        const room = Math.min(this.unitsAvailable(creation), MAX_PER_CREATION - (existing?.quantity ?? 0));
+
+        if (room <= 0 || (!existing && this.items.length >= MAX_CART_LINES)) return 0;
+
+        const added = Math.min(quantity, room);
+
+        if (existing) {
+            existing.quantity += added;
+        } else {
+            this.items.push({
+                uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                bread: { id: bread.id, name: bread.name, price: bread.price },
+                flavor: { id: flavor.id, name: flavor.name, price: flavor.price },
+                toppings: toppings.map((t) => ({ id: t.id, name: t.name, price: t.price })),
+                quantity: added,
+            });
+        }
+
         saveCart(this.items);
+        return added;
     },
 
     remove(uid) {
@@ -138,15 +244,51 @@ Alpine.store('cart', {
         saveCart(this.items);
     },
 
+    canIncrease(line) {
+        return line.quantity < MAX_PER_CREATION && this.unitsAvailable(line) > 0;
+    },
+
     setQuantity(uid, quantity) {
         const item = this.items.find((i) => i.uid === uid);
-        if (item) item.quantity = Math.min(20, Math.max(1, quantity));
+        if (!item) return;
+        if (quantity > item.quantity && !this.canIncrease(item)) return;
+        item.quantity = Math.min(MAX_PER_CREATION, Math.max(1, quantity));
         saveCart(this.items);
     },
 
     clear() {
         this.items = [];
         saveCart(this.items);
+    },
+
+    // Prices can change while a cart sits in localStorage; the server charges the live price.
+    syncPrices() {
+        const catalog = Alpine.store('catalog');
+        this.items.forEach((line) => {
+            creationComponents(line).forEach((component) => {
+                const live = catalog.byId(component.id);
+                if (live) component.price = live.price;
+            });
+        });
+        saveCart(this.items);
+    },
+
+    lineProblem(line) {
+        const catalog = Alpine.store('catalog');
+        if (!catalog.loaded) return null;
+
+        for (const component of creationComponents(line)) {
+            const live = catalog.byId(component.id);
+            if (!live) return `${component.name} is no longer available.`;
+            if (live.stock_quantity <= 0) return `${component.name} just sold out.`;
+            if (live.stock_quantity < this.unitsReserved(component.id)) return `Only ${live.stock_quantity} ${component.name} left across your cart.`;
+        }
+
+        return null;
+    },
+
+    get hasProblem() {
+        return this.items.some((line) => this.lineProblem(line) !== null);
     },
 
     lineTotal(item) {
@@ -173,6 +315,10 @@ Alpine.store('cart', {
     },
 });
 
+window.addEventListener('storage', (event) => {
+    if (event.key === 'brreadCart') Alpine.store('cart').items = loadCart();
+});
+
 Alpine.data('cartDrawer', () => ({
     customerName: '',
     customerPhone: '',
@@ -182,14 +328,38 @@ Alpine.data('cartDrawer', () => ({
 
     formatPrice,
 
+    init() {
+        this.$watch('$store.cart.open', (isOpen) => {
+            document.documentElement.classList.toggle('overflow-hidden', isOpen);
+
+            if (isOpen) {
+                Alpine.store('catalog').load().then(() => Alpine.store('cart').syncPrices());
+                return;
+            }
+
+            // A finished order must not linger: reopening shows the cart, not the old receipt.
+            this.errorMessage = '';
+            if (this.orderSuccess) {
+                this.orderSuccess = null;
+                this.customerName = '';
+                this.customerPhone = '';
+            }
+        });
+    },
+
+    close() {
+        Alpine.store('cart').open = false;
+    },
+
     async checkout() {
+        const cart = Alpine.store('cart');
         this.errorMessage = '';
 
-        if (Alpine.store('cart').items.length === 0) {
+        if (cart.items.length === 0) {
             this.errorMessage = 'Your cart is empty — add a creation first.';
             return;
         }
-        if (!this.customerName || !this.customerPhone) {
+        if (!this.customerName.trim() || !this.customerPhone.trim()) {
             this.errorMessage = 'Please fill in your name and phone number.';
             return;
         }
@@ -200,41 +370,32 @@ Alpine.data('cartDrawer', () => ({
             const res = await axios.post('/api/orders', {
                 customer_name: this.customerName,
                 customer_phone: this.customerPhone,
-                items: Alpine.store('cart').toApiItems(),
+                items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
-            Alpine.store('cart').clear();
+            cart.clear();
         } catch (e) {
             const errors = e.response?.data?.errors ?? {};
             this.errorMessage =
-                errors.customer_name?.[0] ??
-                errors.customer_phone?.[0] ??
-                errors.items?.[0] ??
-                e.response?.data?.message ??
+                Object.values(errors)[0]?.[0] ??
+                (e.response?.status === 429 ? 'Too many orders in a row. Wait a minute and try again.' : null) ??
                 'Something went wrong. Please try again.';
         } finally {
             this.submitting = false;
+            // Either way stock just changed or proved stale, so every page's numbers need refreshing.
+            Alpine.store('catalog').load();
         }
-    },
-
-    closeAndReset() {
-        Alpine.store('cart').open = false;
-        this.orderSuccess = null;
-        this.customerName = '';
-        this.customerPhone = '';
-        this.errorMessage = '';
     },
 }));
 
 Alpine.data('brreadBuilder', () => ({
     loading: true,
-    activeTab: 'bread',
-    components: { bread: [], ice_cream: [], topping: [] },
     selectedBread: null,
     selectedFlavor: null,
     selectedToppings: [],
     creationQuantity: 1,
     justAdded: false,
+    justAddedTimer: null,
     errorMessage: '',
 
     // Undo/redo: a linear stack of {bread, flavor, toppings} id-snapshots, with historyIndex
@@ -249,16 +410,27 @@ Alpine.data('brreadBuilder', () => ({
         { key: 'topping', label: 'Add Toppings' },
     ],
 
+    presets: SIGNATURE_PRESETS,
+
+    get components() {
+        return Alpine.store('catalog').components;
+    },
+
     async init() {
-        try {
-            const res = await axios.get('/api/components');
-            this.components = res.data;
-        } catch (e) {
+        // Selections hold their own copy of each component, so re-read them when stock changes.
+        window.addEventListener('catalog-updated', () => {
+            this.restoreSnapshot(this.snapshotState());
+            this.clampQuantity();
+        });
+
+        await Alpine.store('catalog').load();
+
+        if (Alpine.store('catalog').failed) {
             this.errorMessage = 'Failed to load ingredients. Please refresh the page.';
-        } finally {
-            this.loading = false;
-            this.pushHistory();
         }
+
+        this.loading = false;
+        this.pushHistory();
     },
 
     snapshotState() {
@@ -270,8 +442,14 @@ Alpine.data('brreadBuilder', () => ({
     },
 
     pushHistory() {
+        const snapshot = this.snapshotState();
+        const current = this.history[this.historyIndex];
+
+        // Re-picking what is already picked changes nothing, and an entry for it would make Undo look broken.
+        if (current && JSON.stringify(current) === JSON.stringify(snapshot)) return;
+
         this.history = this.history.slice(0, this.historyIndex + 1);
-        this.history.push(this.snapshotState());
+        this.history.push(snapshot);
         this.historyIndex = this.history.length - 1;
     },
 
@@ -295,12 +473,14 @@ Alpine.data('brreadBuilder', () => ({
         if (!this.canUndo) return;
         this.historyIndex--;
         this.restoreSnapshot(this.history[this.historyIndex]);
+        this.clampQuantity();
     },
 
     redo() {
         if (!this.canRedo) return;
         this.historyIndex++;
         this.restoreSnapshot(this.history[this.historyIndex]);
+        this.clampQuantity();
     },
 
     get flavorLocked() {
@@ -311,25 +491,15 @@ Alpine.data('brreadBuilder', () => ({
         return !this.selectedBread || !this.selectedFlavor;
     },
 
-    presets: [
-        { name: 'Classic Vanilla Slab', bread: 'Plain White Bread', flavor: 'Vanilla', toppings: [] },
-        { name: 'Strawberry Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Strawberry', toppings: ['Rainbow Sprinkles'] },
-        { name: 'Wholegrain Choco Crunch', bread: 'Whole Wheat Bread', flavor: 'Chocolate', toppings: [] },
-        { name: 'Wheat Vanilla Drizzle', bread: 'Whole Wheat Bread', flavor: 'Vanilla', toppings: ['Chocolate Sauce'] },
-    ],
-
     isPresetUnavailable(preset) {
-        const bread = this.components.bread.find((c) => c.name === preset.bread);
-        const flavor = this.components.ice_cream.find((c) => c.name === preset.flavor);
-        return !bread || bread.stock_quantity <= 0 || !flavor || flavor.stock_quantity <= 0;
+        const creation = Alpine.store('catalog').creationFromPreset(preset);
+        return !creation || Alpine.store('cart').unitsAvailable(creation) <= 0;
     },
 
     applyPreset(preset, event) {
         if (this.isPresetUnavailable(preset)) return;
 
-        const bread = this.components.bread.find((c) => c.name === preset.bread);
-        const flavor = this.components.ice_cream.find((c) => c.name === preset.flavor);
-        const toppings = this.components.topping.filter((c) => preset.toppings.includes(c.name));
+        const { bread, flavor, toppings } = Alpine.store('catalog').creationFromPreset(preset);
 
         const btn = event?.currentTarget;
         const target = this.$refs?.stackPreview;
@@ -337,14 +507,16 @@ Alpine.data('brreadBuilder', () => ({
             window.__brreadFx?.flyClone({
                 sourceEl: btn,
                 targetEl: target,
-                imageSrc: INGREDIENT_IMAGES[flavor?.name],
+                imageSrc: INGREDIENT_IMAGES[flavor.name],
                 onLand: () => window.__brreadFx?.pop(target, 'pop-gentle'),
             });
         }
 
-        if (bread) this.selectedBread = bread;
-        if (flavor) this.selectedFlavor = flavor;
+        this.selectedBread = bread;
+        this.selectedFlavor = flavor;
         this.selectedToppings = toppings;
+        this.errorMessage = '';
+        this.clampQuantity();
         this.pushHistory();
     },
 
@@ -372,7 +544,6 @@ Alpine.data('brreadBuilder', () => ({
         this.selectedToppings = [];
         this.creationQuantity = 1;
         this.explodedView = false;
-        this.activeTab = 'bread';
         this.errorMessage = '';
         this.pushHistory();
     },
@@ -413,6 +584,8 @@ Alpine.data('brreadBuilder', () => ({
             }
         }
 
+        this.errorMessage = '';
+        this.clampQuantity();
         this.pushHistory();
     },
 
@@ -439,10 +612,29 @@ Alpine.data('brreadBuilder', () => ({
     isStepDone(tabKey) {
         if (tabKey === 'bread') return !!this.selectedBread;
         if (tabKey === 'ice_cream') return !!this.selectedFlavor;
-        // Toppings are optional, so this step is "done" once it's reachable — otherwise it
-        // would still show as pending even after Step 4 (Add to Cart) shows done, which reads
-        // as the stepper skipping ahead of itself.
+        // Toppings are optional, so this step is satisfied as soon as it can be reached.
         return !this.toppingLocked;
+    },
+
+    isStepLocked(tabKey) {
+        if (tabKey === 'ice_cream') return this.flavorLocked;
+        if (tabKey === 'topping' || tabKey === 'cart') return this.toppingLocked;
+        return false;
+    },
+
+    // The step the customer should act on next: it follows their progress, not their clicks.
+    get currentStep() {
+        if (!this.selectedBread) return 'bread';
+        if (!this.selectedFlavor) return 'ice_cream';
+        return 'cart';
+    },
+
+    goToStep(tabKey) {
+        if (this.isStepLocked(tabKey)) return;
+        document.getElementById(`step-${tabKey}`)?.scrollIntoView({
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            block: 'center',
+        });
     },
 
     isSelected(component) {
@@ -469,16 +661,35 @@ Alpine.data('brreadBuilder', () => ({
 
     formatPrice,
 
+    get currentCreation() {
+        if (!this.selectedBread || !this.selectedFlavor) return null;
+        return { bread: this.selectedBread, flavor: this.selectedFlavor, toppings: this.selectedToppings };
+    },
+
+    get maxQuantity() {
+        const creation = this.currentCreation;
+        return creation ? Alpine.store('cart').unitsAvailable(creation) : MAX_PER_CREATION;
+    },
+
     get canAddToCart() {
-        return (
-            this.selectedBread && this.selectedBread.stock_quantity > 0 &&
-            this.selectedFlavor && this.selectedFlavor.stock_quantity > 0 &&
-            this.selectedToppings.every((t) => t.stock_quantity > 0)
-        );
+        return !!this.currentCreation && this.maxQuantity > 0;
+    },
+
+    // Explains a disabled Add to Cart once the customer has made a full selection.
+    get stockNotice() {
+        const creation = this.currentCreation;
+        if (!creation) return '';
+        if (this.maxQuantity <= 0) return 'Your cart already holds the last of these ingredients. Change your picks or check out first.';
+        if (this.maxQuantity < MAX_PER_CREATION && this.creationQuantity >= this.maxQuantity) return `Only ${this.maxQuantity} more can be made with today's stock.`;
+        return '';
+    },
+
+    clampQuantity() {
+        this.creationQuantity = Math.max(1, Math.min(this.creationQuantity, this.maxQuantity));
     },
 
     incrementQty() {
-        this.creationQuantity = Math.min(20, this.creationQuantity + 1);
+        this.creationQuantity = Math.min(Math.max(1, this.maxQuantity), this.creationQuantity + 1);
     },
 
     decrementQty() {
@@ -493,36 +704,113 @@ Alpine.data('brreadBuilder', () => ({
             return;
         }
 
-        Alpine.store('cart').add({
+        const added = Alpine.store('cart').add({
             bread: this.selectedBread,
             flavor: this.selectedFlavor,
             toppings: this.selectedToppings,
             quantity: this.creationQuantity,
         });
 
+        if (added === 0) {
+            this.errorMessage = 'Your cart is full. Check out before adding more.';
+            return;
+        }
+
         const btn = event?.currentTarget;
-        const target = document.getElementById('nav-cart-icon');
+        const target = document.getElementById('nav-cart-badge');
         if (btn && target) {
             window.__brreadFx?.flyClone({
                 sourceEl: btn,
                 targetEl: target,
                 imageSrc: this.flavorImage,
-                onLand: () => window.__brreadFx?.pop(target, 'cart-badge-pop'),
+                onLand: () => window.__brreadFx?.pop(target),
             });
         }
 
         this.justAdded = true;
-        setTimeout(() => (this.justAdded = false), 1800);
+        clearTimeout(this.justAddedTimer);
+        this.justAddedTimer = setTimeout(() => (this.justAdded = false), 2400);
 
         // Reset the stage for the next creation — the cart itself keeps what was just added.
         this.selectedBread = null;
         this.selectedFlavor = null;
         this.selectedToppings = [];
         this.creationQuantity = 1;
-        this.activeTab = 'bread';
         this.explodedView = false;
         this.pushHistory();
     },
+}));
+
+// The quick-add cards on the home page sell the same signature combos as the Studio.
+Alpine.data('signatureMenu', (products) => ({
+    activeFilter: 'all',
+    toastVisible: false,
+    toastMessage: '',
+    toastFailed: false,
+    toastTimer: null,
+    products,
+
+    init() {
+        Alpine.store('catalog').load();
+    },
+
+    get filteredProducts() {
+        if (this.activeFilter === 'all') return this.products;
+        return this.products.filter((p) => p.category.includes(this.activeFilter));
+    },
+
+    creationFor(product) {
+        return Alpine.store('catalog').creationFromPreset(Alpine.store('catalog').presetNamed(product.name));
+    },
+
+    isSoldOut(product) {
+        const catalog = Alpine.store('catalog');
+        if (!catalog.loaded) return false;
+        const creation = this.creationFor(product);
+        return !creation || Alpine.store('cart').unitsAvailable(creation) <= 0;
+    },
+
+    priceOf(product) {
+        const creation = this.creationFor(product);
+        if (!creation) return product.price;
+        return creationComponents(creation).reduce((sum, component) => sum + parseFloat(component.price), 0);
+    },
+
+    showToast(message, failed = false) {
+        this.toastMessage = message;
+        this.toastFailed = failed;
+        this.toastVisible = true;
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => (this.toastVisible = false), 2400);
+    },
+
+    async addToCart(event, product) {
+        const btn = event.currentTarget;
+        const img = btn.closest('.product-card')?.querySelector('img');
+
+        await Alpine.store('catalog').load();
+
+        const creation = this.creationFor(product);
+        const added = creation ? Alpine.store('cart').add({ ...creation, quantity: 1 }) : 0;
+
+        if (added === 0) {
+            this.showToast(Alpine.store('catalog').failed ? 'Could not reach the kitchen. Try again.' : 'Not enough stock for another one.', true);
+            return;
+        }
+
+        const badge = document.getElementById('nav-cart-badge');
+        window.__brreadFx.flyClone({
+            sourceEl: btn,
+            targetEl: badge,
+            imageSrc: img?.src,
+            onLand: () => {
+                window.__brreadFx.pop(badge);
+                this.showToast('Added to Sweet Cart!');
+            },
+        });
+    },
+
+    formatPrice,
 }));
 
 window.Alpine = Alpine;

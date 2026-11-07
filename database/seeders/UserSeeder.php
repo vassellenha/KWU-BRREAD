@@ -9,44 +9,18 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::updateOrCreate(
-            ['email' => 'admin@brread.id'],
-            [
-                'name' => 'Brread! Admin',
-                'password' => 'brread-admin-2026',
-                'role' => User::ROLE_ADMIN,
-                'email_verified_at' => now(),
-            ]
-        );
+        $accounts = [
+            ['username' => 'admin', 'name' => 'Brread! Admin', 'email' => 'admin@brread.id', 'password' => 'brread-admin-2026', 'role' => User::ROLE_ADMIN],
+            ['username' => 'staffmrp', 'name' => 'MRP Staff', 'email' => 'staffmrp@brread.id', 'password' => '12345678', 'role' => User::ROLE_WAREHOUSE],
+            ['username' => 'staffhr', 'name' => 'HR Staff', 'email' => 'staffhr@brread.id', 'password' => '12345678', 'role' => User::ROLE_HR],
+            ['username' => 'staffacc', 'name' => 'Accounting Staff', 'email' => 'staffacc@brread.id', 'password' => '12345678', 'role' => User::ROLE_ACCOUNTANT],
+        ];
 
-        User::updateOrCreate(
-            ['email' => 'warehouse@brread.id'],
-            [
-                'name' => 'Warehouse Staff',
-                'password' => 'brread-warehouse-2026',
-                'role' => User::ROLE_WAREHOUSE,
-                'email_verified_at' => now(),
-            ]
-        );
-
-        User::updateOrCreate(
-            ['email' => 'hr@brread.id'],
-            [
-                'name' => 'HR Staff',
-                'password' => 'brread-hr-2026',
-                'role' => User::ROLE_HR,
-                'email_verified_at' => now(),
-            ]
-        );
-
-        User::updateOrCreate(
-            ['email' => 'accounting@brread.id'],
-            [
-                'name' => 'Accounting Staff',
-                'password' => 'brread-accounting-2026',
-                'role' => User::ROLE_ACCOUNTANT,
-                'email_verified_at' => now(),
-            ]
-        );
+        foreach ($accounts as $account) {
+            User::updateOrCreate(
+                ['username' => $account['username']],
+                $account + ['email_verified_at' => now()],
+            );
+        }
     }
 }

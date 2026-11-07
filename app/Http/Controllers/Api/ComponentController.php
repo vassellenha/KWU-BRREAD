@@ -12,6 +12,7 @@ class ComponentController extends Controller
     {
         $components = Component::where('is_active', true)
             ->orderBy('price')
+            ->orderBy('id')
             ->get()
             ->groupBy('category');
 

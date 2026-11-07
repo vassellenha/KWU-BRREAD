@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Component;
 use App\Models\Order;
 use App\Models\StockMovement;
+use App\Rules\PersonName;
+use App\Rules\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,12 +20,15 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'customer_name' => ['required', 'string', 'max:255', 'regex:/^[\p{L}][\p{L}\s.\'-]*$/u'],
-            'customer_phone' => ['required', 'string', 'max:30', 'regex:/^\+?[0-9][0-9\s-]*$/'],
+            'customer_name' => ['required', 'string', 'max:255', new PersonName],
+            'customer_phone' => ['required', 'string', 'max:30', new PhoneNumber],
             'items' => ['required', 'array', 'min:1', 'max:20'],
-            'items.*.component_ids' => ['required', 'array', 'min:1'],
+            'items.*.component_ids' => ['required', 'array', 'min:2', 'max:10'],
             'items.*.component_ids.*' => ['integer', 'exists:components,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
+        ], [
+            'items.max' => 'A cart can hold up to 20 different creations.',
+            'items.*.quantity.max' => 'Each creation can be ordered up to 20 at a time.',
         ]);
 
         $items = $validated['items'];
@@ -45,31 +51,11 @@ class OrderController extends Controller
                 ->keyBy('id');
 
             foreach ($items as $index => $item) {
-                $categories = collect($item['component_ids'])
-                    ->map(fn ($id) => $components->get($id)?->category)
-                    ->filter();
-
-                if (! $categories->contains('bread')) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Creation #'.($index + 1).' needs a bread or wafer base.',
-                    ]);
-                }
-
-                if (! $categories->contains('ice_cream')) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Creation #'.($index + 1).' needs an ice cream flavor.',
-                    ]);
-                }
+                $this->ensureCreationIsComplete($item['component_ids'], $components, $index + 1);
             }
 
             foreach ($quantityNeeded as $id => $needed) {
-                $component = $components->get($id);
-
-                if (! $component || $component->stock_quantity < $needed) {
-                    throw ValidationException::withMessages([
-                        'items' => ($component->name ?? 'One of your ingredients').' just sold out. Please pick something else.',
-                    ]);
-                }
+                $this->ensureStockCovers($components->get($id), $needed);
             }
 
             $totalPrice = 0;
@@ -114,5 +100,41 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'total_price' => $order->total_price,
         ], 201);
+    }
+
+    /**
+     * A sandwich is exactly one bread and one ice cream slab, each topping at most once.
+     *
+     * @param  list<int>  $componentIds
+     * @param  Collection<int, Component>  $components
+     */
+    private function ensureCreationIsComplete(array $componentIds, Collection $components, int $creationNumber): void
+    {
+        $categories = collect($componentIds)->map(fn (int $id) => $components->get($id)?->category);
+
+        $message = match (true) {
+            $categories->contains(null) => "Creation #{$creationNumber} uses an ingredient that is no longer available.",
+            count(array_unique($componentIds)) !== count($componentIds) => "Creation #{$creationNumber} lists the same ingredient twice.",
+            $categories->filter(fn (string $category) => $category === 'bread')->count() !== 1 => "Creation #{$creationNumber} needs exactly one bread base.",
+            $categories->filter(fn (string $category) => $category === 'ice_cream')->count() !== 1 => "Creation #{$creationNumber} needs exactly one ice cream flavor.",
+            default => null,
+        };
+
+        if ($message !== null) {
+            throw ValidationException::withMessages(['items' => $message]);
+        }
+    }
+
+    private function ensureStockCovers(?Component $component, int $needed): void
+    {
+        if ($component === null || $component->stock_quantity >= $needed) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'items' => $component->stock_quantity > 0
+                ? "Only {$component->stock_quantity} {$component->name} left, but this order needs {$needed}. Lower the quantity and try again."
+                : "{$component->name} just sold out. Remove it from your cart and try again.",
+        ]);
     }
 }

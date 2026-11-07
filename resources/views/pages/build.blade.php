@@ -45,17 +45,19 @@
                     <template x-for="(tab, index) in tabs" :key="tab.key">
                         <button
                             type="button"
-                            @click="activeTab = tab.key"
-                            class="press-scale flex items-center gap-space-sm p-space-sm rounded-DEFAULT text-left transition-colors duration-200"
-                            :class="activeTab === tab.key ? 'bg-primary-container/15 border border-primary-container' : 'border border-transparent hover:bg-surface-container'"
+                            @click="goToStep(tab.key)"
+                            :disabled="isStepLocked(tab.key)"
+                            :aria-current="currentStep === tab.key ? 'step' : null"
+                            class="press-scale flex items-center gap-space-sm p-space-sm rounded text-left border transition-colors duration-200 disabled:cursor-not-allowed"
+                            :class="currentStep === tab.key ? 'bg-primary-container/15 border-primary-container' : 'border-transparent enabled:hover:bg-surface-container'"
                         >
                             <span
                                 class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0"
-                                :class="isStepDone(tab.key) ? 'bg-primary text-on-primary' : (activeTab === tab.key ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-high text-on-surface-variant')"
+                                :class="isStepDone(tab.key) ? 'bg-primary text-on-primary' : (currentStep === tab.key ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-high text-on-surface-variant')"
                             >
                                 <span x-show="isStepDone(tab.key)" x-cloak class="material-symbols-outlined text-[16px]">check</span>
-                                <span x-show="!isStepDone(tab.key) && ((tab.key === 'ice_cream' && flavorLocked) || (tab.key === 'topping' && toppingLocked))" x-cloak class="material-symbols-outlined text-[14px]">lock</span>
-                                <span x-show="!isStepDone(tab.key) && !((tab.key === 'ice_cream' && flavorLocked) || (tab.key === 'topping' && toppingLocked))" x-text="index + 1"></span>
+                                <span x-show="!isStepDone(tab.key) && isStepLocked(tab.key)" x-cloak class="material-symbols-outlined text-[14px]">lock</span>
+                                <span x-show="!isStepDone(tab.key) && !isStepLocked(tab.key)" x-text="index + 1"></span>
                             </span>
                             <div class="flex flex-col leading-tight">
                                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Step <span x-text="index + 1"></span></span>
@@ -63,16 +65,23 @@
                             </div>
                         </button>
                     </template>
-                    <div class="flex items-center gap-space-sm p-space-sm rounded-DEFAULT border border-transparent">
-                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0" :class="canAddToCart ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'">
-                            <span x-show="canAddToCart" x-cloak class="material-symbols-outlined text-[16px]">check</span>
-                            <span x-show="!canAddToCart" x-cloak>4</span>
+                    <button
+                        type="button"
+                        @click="goToStep('cart')"
+                        :disabled="isStepLocked('cart')"
+                        :aria-current="currentStep === 'cart' ? 'step' : null"
+                        class="press-scale flex items-center gap-space-sm p-space-sm rounded text-left border transition-colors duration-200 disabled:cursor-not-allowed"
+                        :class="currentStep === 'cart' ? 'bg-primary-container/15 border-primary-container' : 'border-transparent'"
+                    >
+                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-label-lg text-label-lg shrink-0" :class="currentStep === 'cart' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-high text-on-surface-variant'">
+                            <span x-show="isStepLocked('cart')" x-cloak class="material-symbols-outlined text-[14px]">lock</span>
+                            <span x-show="!isStepLocked('cart')" x-cloak>4</span>
                         </span>
                         <div class="flex flex-col leading-tight">
                             <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Step 4</span>
                             <span class="font-label-lg text-label-lg text-on-surface">Add to Cart</span>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </div>
 
@@ -98,7 +107,7 @@
                                     type="button"
                                     :disabled="isPresetUnavailable(preset)"
                                     @click="applyPreset(preset, $event)"
-                                    class="press-scale hover-lift relative flex items-start gap-space-xs p-space-sm rounded-DEFAULT text-left transition-[background-color,border-color,box-shadow] duration-200 border-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                                    class="press-scale hover-lift relative flex items-start gap-space-xs p-space-sm rounded text-left transition-[background-color,border-color,box-shadow] duration-200 border-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isActivePreset(preset) ? 'bg-primary-container/15 border-primary shadow-[0_4px_14px_rgba(199,70,89,0.22)]' : 'bg-surface-container-lowest border-transparent hover:border-outline-variant'"
                                 >
                                     <span
@@ -122,7 +131,7 @@
                     </div>
 
                     {{-- Step 1: Bread --}}
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
+                    <div id="step-bread" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Bread &amp; Crust</h2>
                             <span class="font-label-md text-label-md text-primary px-2 py-0.5 rounded-full bg-primary-fixed">Required</span>
@@ -133,7 +142,7 @@
                                     type="button"
                                     :disabled="component.stock_quantity <= 0"
                                     @click="selectComponent(component, $event)"
-                                    class="press-scale hover-lift relative rounded-DEFAULT border-2 bg-surface-container-lowest p-space-sm text-left transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(113,59,44,0.04)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                                    class="press-scale hover-lift relative rounded border-2 bg-surface-container-lowest p-space-sm text-left transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(113,59,44,0.04)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary ring-2 ring-primary/30' : 'border-outline-variant/50'"
                                 >
                                     <img :src="window.INGREDIENT_IMAGES[component.name]" class="w-full h-16 object-contain mb-space-xs" :class="component.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
@@ -147,7 +156,7 @@
                     </div>
 
                     {{-- Step 2: Flavor --}}
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="flavorLocked ? 'opacity-60' : ''">
+                    <div id="step-ice_cream" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="flavorLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Ice Cream Slab</h2>
                             <span class="font-label-md text-label-md text-on-surface-variant">Thick Cut</span>
@@ -162,7 +171,7 @@
                                     type="button"
                                     :disabled="component.stock_quantity <= 0 || flavorLocked"
                                     @click="selectComponent(component, $event)"
-                                    class="press-scale hover-lift relative flex flex-col items-center p-space-sm rounded-DEFAULT text-center border-2 transition-[border-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                                    class="press-scale hover-lift relative flex flex-col items-center p-space-sm rounded text-center border-2 transition-[border-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary shadow-[0_2px_8px_rgba(199,70,89,0.2)]' : 'border-outline-variant/50'"
                                 >
                                     <span class="w-10 h-10 rounded-full mb-space-xs border border-outline-variant flex items-center justify-center" :style="{ backgroundColor: component.hex_color }">
@@ -177,10 +186,10 @@
                     </div>
 
                     {{-- Step 3: Toppings --}}
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="toppingLocked ? 'opacity-60' : ''">
+                    <div id="step-topping" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-sm transition-opacity duration-300" :class="toppingLocked ? 'opacity-60' : ''">
                         <div class="flex items-center justify-between mb-space-sm">
                             <h2 class="font-title-md text-title-md text-on-surface">Toppings &amp; Drizzle</h2>
-                            <span class="font-label-md text-label-md text-on-surface-variant">Multi-Select</span>
+                            <span class="font-label-md text-label-md text-on-surface-variant">Optional · Multi-Select</span>
                         </div>
                         <p x-show="toppingLocked" x-cloak class="flex items-center gap-1.5 mb-space-sm font-label-md text-label-md text-on-surface-variant">
                             <span class="material-symbols-outlined text-[16px]">lock</span>
@@ -270,20 +279,20 @@
 
                         <div class="w-full flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-lowest/95 backdrop-blur-md px-space-sm py-space-xs rounded-lg shadow-sm border border-outline-variant/30 z-10">
                             <div class="flex items-center gap-space-xs">
-                                <button type="button" @click="toggleExplodedView()" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" :class="explodedView ? 'bg-primary-container/20 text-primary' : ''">
+                                <button type="button" @click="toggleExplodedView()" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" :class="explodedView ? 'bg-primary-container/20 text-primary' : ''">
                                     <span class="material-symbols-outlined text-[16px] text-primary">unfold_more</span>
                                     Exploded View
                                 </button>
-                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" title="Clear everything and start over">
+                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" title="Clear everything and start over">
                                     <span class="material-symbols-outlined text-[16px]">restart_alt</span>
                                     Reset
                                 </button>
                                 <span class="w-px h-5 bg-outline-variant/40 mx-0.5"></span>
-                                <button type="button" @click="undo()" :disabled="!canUndo" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Undo">
+                                <button type="button" @click="undo()" :disabled="!canUndo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Undo">
                                     <span class="material-symbols-outlined text-[16px]">undo</span>
                                     <span class="hidden sm:inline">Undo</span>
                                 </button>
-                                <button type="button" @click="redo()" :disabled="!canRedo" class="press-scale px-space-sm py-1.5 rounded-DEFAULT hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Redo">
+                                <button type="button" @click="redo()" :disabled="!canRedo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Redo">
                                     <span class="material-symbols-outlined text-[16px]">redo</span>
                                     <span class="hidden sm:inline">Redo</span>
                                 </button>
@@ -302,7 +311,7 @@
 
                 {{-- RIGHT: Sticky order summary --}}
                 <div class="lg:col-span-3 lg:sticky lg:top-28">
-                    <div class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-[0_8px_24px_rgba(113,59,44,0.08)] flex flex-col gap-space-md">
+                    <div id="step-cart" class="bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-[0_8px_24px_rgba(113,59,44,0.08)] flex flex-col gap-space-md">
                         <div class="flex items-center justify-between pb-space-sm border-b border-outline-variant/30">
                             <div class="flex items-center gap-space-xs">
                                 <span class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-primary">
@@ -332,11 +341,11 @@
                         <div class="flex items-center justify-between border-t border-outline-variant/30 pt-space-sm">
                             <span class="font-label-md text-label-md text-on-surface-variant">Quantity</span>
                             <div class="flex items-center gap-1.5 bg-surface-container rounded-full p-0.5">
-                                <button type="button" @click="decrementQty()" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+                                <button type="button" @click="decrementQty()" :disabled="creationQuantity <= 1" aria-label="Decrease quantity" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[18px]">remove</span>
                                 </button>
-                                <span class="font-label-lg text-label-lg text-on-surface w-6 text-center" x-text="creationQuantity"></span>
-                                <button type="button" @click="incrementQty()" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+                                <span class="font-label-lg text-label-lg text-on-surface w-6 text-center tabular-nums" x-text="creationQuantity"></span>
+                                <button type="button" @click="incrementQty()" :disabled="creationQuantity >= maxQuantity" aria-label="Increase quantity" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[18px]">add</span>
                                 </button>
                             </div>
@@ -347,19 +356,22 @@
                             <span class="font-headline-sm text-headline-sm text-primary" x-text="formatPrice(totalPrice)"></span>
                         </div>
 
-                        <template x-if="justAdded">
-                            <div
-                                x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
-                                x-transition:enter-start="opacity-0 scale-90"
-                                x-transition:enter-end="opacity-100 scale-100"
-                                class="rounded-DEFAULT bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-md flex items-center gap-space-sm"
-                            >
-                                <span class="material-symbols-outlined text-[22px] text-on-primary-container">check_circle</span>
-                                <p class="font-label-lg text-label-lg text-on-primary-container">Added to your cart — build another one, or check out.</p>
-                            </div>
-                        </template>
+                        <div
+                            x-show="justAdded"
+                            x-cloak
+                            x-transition:enter="transition-[opacity,transform] duration-200 ease-[var(--ease-out)]"
+                            x-transition:enter-start="opacity-0 scale-95"
+                            x-transition:enter-end="opacity-100 scale-100"
+                            role="status"
+                            class="rounded bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-md flex items-center gap-space-sm"
+                        >
+                            <span class="material-symbols-outlined text-[22px] text-on-primary-container">check_circle</span>
+                            <p class="font-label-lg text-label-lg text-on-primary-container">Added to your cart — build another one, or check out.</p>
+                        </div>
 
-                        <p x-show="errorMessage" x-cloak class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
+                        <p x-show="stockNotice" x-cloak class="font-body-sm text-body-sm text-on-surface-variant" x-text="stockNotice"></p>
+
+                        <p x-show="errorMessage" x-cloak role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
 
                         <button
                             type="button"

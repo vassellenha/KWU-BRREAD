@@ -5,7 +5,7 @@
 @section('content')
 
     <div class="flex items-center gap-space-sm mb-space-lg">
-        <a href="{{ route('staff.mrp.index') }}" class="text-on-surface-variant hover:text-on-surface">
+        <a href="{{ route('staff.mrp.index') }}" aria-label="Back to stock" class="text-on-surface-variant hover:text-on-surface">
             <span class="material-symbols-outlined text-[22px]">arrow_back</span>
         </a>
         <div>

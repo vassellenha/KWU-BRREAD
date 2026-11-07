@@ -20,6 +20,19 @@
     display: none !important;
 }
 
+/* In the base layer so the focus:outline-none + focus:ring pair on inputs still wins. */
+@layer base {
+    ::selection {
+        background-color: #ffdadb;
+        color: #352f29;
+    }
+
+    :focus-visible {
+        outline: 2px solid #a62d42;
+        outline-offset: 2px;
+    }
+}
+
 /* Button / pressable feedback — scale() carries icons + label along for a physical press feel. */
 .press-scale {
     transition: transform 160ms var(--ease-out);
@@ -73,7 +86,9 @@
     .press-scale:active {
         transform: none;
     }
-    .cart-badge-pop {
+    .cart-badge-pop,
+    .animate-float,
+    .animate-float-delayed {
         animation: none;
     }
     [data-reveal],
