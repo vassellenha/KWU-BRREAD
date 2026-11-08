@@ -1,25 +1,24 @@
 <div align="center">
 
-<img src="./public/logo.png" width="300" alt="Brread! Ice cream sandwich, Singapore style" />
+<img src="./docs/readme/hero.svg" width="100%" alt="Brread! Your Bread. Your Scoop. Your Happiness. Ice cream sandwiches in the Singapore street-cart style, built in Jakarta, with a full staff portal behind them." />
 
-### Your Bread. Your Scoop. Your Happiness.
-
-Build-your-own ice cream sandwiches in the Singapore street-cart style, made in Jakarta,<br />with the staff portal that runs the shop behind them.
+<img src="./docs/readme/ticker.svg" width="100%" alt="Built with Laravel 13, PHP 8.3, Tailwind CSS 4, Alpine.js, Vite, Sanctum, PhpSpreadsheet, SQLite, Docker and PHPUnit" />
 
 <br />
 
-<img src="./docs/readme/badge-laravel.svg" height="28" alt="Laravel 13" />
-<img src="./docs/readme/badge-php.svg" height="28" alt="PHP 8.3" />
-<img src="./docs/readme/badge-tailwind.svg" height="28" alt="Tailwind CSS 4" />
-<img src="./docs/readme/badge-alpine.svg" height="28" alt="Alpine.js 3" />
-<img src="./docs/readme/badge-sqlite.svg" height="28" alt="SQLite default" />
-<img src="./docs/readme/badge-docker.svg" height="28" alt="Docker ready" />
+<a href="#build-it-layer-by-layer"><img src="./docs/readme/path-order.svg" width="32%" alt="Order a sandwich: browse the menu and the builder" /></a>
+<a href="#staff-manual"><img src="./docs/readme/path-shop.svg" width="32%" alt="Run the shop: stock, people, cash and sales" /></a>
+<a href="#run-it-locally"><img src="./docs/readme/path-code.svg" width="32%" alt="Run the code: local and Docker setup" /></a>
 
-<br /><br />
+<img src="./docs/readme/stats.svg" width="100%" alt="24 sandwich combinations, 7 ingredients, 4 staff modules and 4 roles" />
 
-<img src="./docs/readme/strip.png" width="100%" alt="Four Brread! sandwiches: vanilla on white bread, strawberry with rainbow sprinkles, chocolate on wheat bread, and vanilla with chocolate sauce on wheat bread" />
+<img src="./docs/readme/marquee.svg" width="100%" alt="Bread, scoop, happiness, scrolling in two directions" />
+
+<sub><a href="#what-it-is">What it is</a> &nbsp;·&nbsp; <a href="#build-it-layer-by-layer">Builder</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp; <a href="#what-happens-at-checkout">Checkout</a> &nbsp;·&nbsp; <a href="#staff-manual">Staff manual</a> &nbsp;·&nbsp; <a href="#tech-stack">Tech stack</a> &nbsp;·&nbsp; <a href="#run-it-locally">Run it</a></sub>
 
 </div>
+
+<img src="./docs/readme/banner-01.svg" width="100%" alt="Section 1: The Shop" />
 
 ## What it is
 
@@ -28,6 +27,10 @@ Brread! sells ice cream sandwiches: two slices of soft bread around a slab of ic
 The same app contains the back office. Staff sign in to a portal that tracks ingredient stock, employees, cash flow and sales, and every order a customer places feeds all four.
 
 ### From bread to doorstep
+
+<div align="center">
+<img src="./docs/readme/delivery.svg" width="100%" alt="A delivery rider with a pink insulated Brread! box rides through a Jakarta street at sunset" />
+</div>
 
 <table>
 <tr>
@@ -49,9 +52,21 @@ Every order goes into insulated foil for delivery across Jakarta.
 </tr>
 </table>
 
+### Meet the sandwiches
+
+<div align="center">
+<img src="./docs/readme/gallery.svg" width="100%" alt="Slideshow: the Singapore street cart, a hand-held strawberry sandwich, and the strawberry, chocolate, vanilla and vanilla with chocolate sauce sandwiches" />
+</div>
+
+<img src="./docs/readme/banner-02.svg" width="100%" alt="Section 2: The Builder" />
+
 ## Build it layer by layer
 
-<img src="./docs/readme/layers-to-sandwich.png" width="100%" alt="Three ingredient layers, white bread, strawberry ice cream with sprinkles and white bread, turning into a finished sandwich held in a hand" />
+<div align="center">
+<img src="./docs/readme/builder-demo.svg" width="100%" alt="Animated builder: the stacked preview changes as bread, ice cream and toppings are picked, and the total updates from Rp 14,000 to Rp 21,000" />
+</div>
+
+<sub>The loop above steps through six sandwiches, from Rp 14,000 (white bread and vanilla) to Rp 21,000 (wheat bread, chocolate, both toppings).</sub>
 
 The builder stacks a photo of every ingredient you pick and shows the result as you go. **Exploded View** pulls the layers apart, and the signature combos fill a whole sandwich in one click.
 
@@ -75,6 +90,73 @@ The builder stacks a photo of every ingredient you pick and shows the result as 
 </table>
 
 A sandwich takes exactly one bread and one ice cream, and each topping at most once.
+
+### Flavor lab
+
+Open a flavor to see what the seeded catalog says about it.
+
+<details>
+<summary><b>Vanilla</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./docs/readme/flavor-vanilla.jpg" width="100%" alt="A vanilla ice cream sandwich on white bread" /></td>
+<td valign="top">
+
+Rp 8,000 per sandwich.<br />Seeded with **120** in stock and a reorder point of **40**.<br />The photo shows it on plain white bread.
+
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><b>Strawberry</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./docs/readme/flavor-strawberry.jpg" width="100%" alt="A strawberry ice cream sandwich on white bread with rainbow sprinkles" /></td>
+<td valign="top">
+
+Rp 8,000 per sandwich.<br />Seeded with **120** in stock and a reorder point of **40**.<br />The photo adds Rainbow Sprinkles, which are Rp 3,000 more.
+
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><b>Chocolate</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./docs/readme/flavor-chocolate.jpg" width="100%" alt="A chocolate ice cream sandwich on whole wheat bread" /></td>
+<td valign="top">
+
+Rp 8,000 per sandwich.<br />Seeded with only **35** in stock against a reorder point of **40**, so a fresh install shows a low-stock alert for it in MRP right away.<br />The photo shows it on whole wheat bread.
+
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><b>Chocolate Sauce</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./docs/readme/flavor-sauce.jpg" width="100%" alt="A vanilla sandwich on whole wheat bread with chocolate sauce drizzled over the top" /></td>
+<td valign="top">
+
+A Rp 3,000 topping, seeded with **300** in stock and a reorder point of **60**.<br />Each topping can be added once, and the sauce and the sprinkles can be combined.
+
+</td>
+</tr>
+</table>
+</details>
+
+
+<img src="./docs/readme/banner-03.svg" width="100%" alt="Section 3: The Features" />
 
 ## Features
 
@@ -126,11 +208,15 @@ Best-selling combinations, rankings for breads, flavors and toppings (including 
 </tr>
 </table>
 
+<img src="./docs/readme/banner-04.svg" width="100%" alt="Section 4: The Checkout" />
+
 ## What happens at checkout
 
 <img src="./docs/readme/checkout-flow.svg" width="100%" alt="Checkout in six steps: check out, lock rows, check the cart, save the order, deduct stock, update reports" />
 
 The ingredient rows stay locked for the whole database transaction, so two customers racing for the last unit can't both get it. If an ingredient runs short, the customer sees how many are left. The order endpoint accepts 30 requests per minute per IP address, and the login forms accept 10 attempts per minute per username and IP address.
+
+<img src="./docs/readme/banner-05.svg" width="100%" alt="Section 5: The Staff Manual" />
 
 ## Staff manual
 
@@ -205,6 +291,8 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 
 </details>
 
+<img src="./docs/readme/banner-06.svg" width="100%" alt="Section 6: The Tech Stack" />
+
 ## Tech stack
 
 <b>Backend</b><br />
@@ -224,9 +312,17 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 
 The Dockerfile builds the assets, migrates, seeds and serves the app.
 
+<img src="./docs/readme/banner-07.svg" width="100%" alt="Section 7: Run It Locally" />
+
 ## Run it locally
 
 You need PHP 8.3 with the `sqlite`, `zip` and `gd` extensions, Composer 2 and Node.js 22.
+
+<div align="center">
+<img src="./docs/readme/terminal.svg" width="100%" alt="A terminal typing the setup commands, ending with the server running on http://127.0.0.1:8000" />
+</div>
+
+The same commands, ready to copy:
 
 ```bash
 git clone https://github.com/vassellenha/KWU-BRREAD.git
@@ -252,6 +348,8 @@ php artisan serve
 
 While you work on the frontend, run `npm run dev` in a second terminal instead of `npm run build`.
 
+<img src="./docs/readme/banner-08.svg" width="100%" alt="Section 8: Run It In Docker" />
+
 ## Run it with Docker
 
 ```bash
@@ -261,6 +359,8 @@ docker run -p 8080:8080 -e APP_KEY="base64:$(openssl rand -base64 32)" brread
 
 Open http://localhost:8080. The container migrates and seeds the database every time it starts, and it listens on the port in the `PORT` variable (8080 by default). The data lives in a SQLite file inside the container, so it resets when you replace the container.
 
+<img src="./docs/readme/banner-09.svg" width="100%" alt="Section 9: Test It" />
+
 ## Tests
 
 ```bash
@@ -268,6 +368,8 @@ php artisan test
 ```
 
 The feature tests cover both login portals, role access, ordering with stock deduction, and the MRP, HR, accounting and sales modules.
+
+<img src="./docs/readme/banner-10.svg" width="100%" alt="Section 10: The Layout" />
 
 ## Project layout
 
@@ -284,6 +386,12 @@ docs/                        staff guide
 tests/                       feature and unit tests
 ```
 
+<img src="./docs/readme/banner-11.svg" width="100%" alt="Section 11: The Maker" />
+
 ## Author
 
 Built by [Vassell Enha Atthayya](https://github.com/vassellenha).
+
+<div align="center">
+<img src="./docs/readme/footer.svg" width="100%" alt="Built in Jakarta. Your Bread. Your Scoop. Your Happiness." />
+</div>
