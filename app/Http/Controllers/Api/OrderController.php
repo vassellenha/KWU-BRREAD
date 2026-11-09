@@ -22,6 +22,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'customer_name' => ['required', 'string', 'max:255', new PersonName],
             'customer_phone' => ['required', 'string', 'max:30', new PhoneNumber],
+            'fulfillment_type' => ['nullable', 'string', 'in:pickup,delivery'],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.component_ids' => ['required', 'array', 'min:2', 'max:10'],
             'items.*.component_ids.*' => ['integer', 'exists:components,id'],
@@ -32,6 +33,8 @@ class OrderController extends Controller
         ]);
 
         $items = $validated['items'];
+        $userId = $request->user()?->id ?? auth()->id();
+        $fulfillmentType = $validated['fulfillment_type'] ?? 'pickup';
 
         // Tally total units needed per component across every creation, multiplied by its cart quantity.
         $quantityNeeded = [];
@@ -41,7 +44,7 @@ class OrderController extends Controller
             }
         }
 
-        $order = DB::transaction(function () use ($validated, $items, $quantityNeeded) {
+        $order = DB::transaction(function () use ($validated, $items, $quantityNeeded, $userId, $fulfillmentType) {
             // Lock the rows for the duration of the transaction so two customers racing
             // for the last unit of something can never both succeed.
             $components = Component::whereIn('id', array_keys($quantityNeeded))
@@ -66,9 +69,11 @@ class OrderController extends Controller
             }
 
             $order = Order::create([
+                'user_id' => $userId,
                 'order_number' => 'BRREAD-'.strtoupper(Str::random(8)),
                 'total_price' => $totalPrice,
                 'status' => 'pending',
+                'fulfillment_type' => $fulfillmentType,
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
             ]);

@@ -18,7 +18,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
         ]);
 
-        $middleware->redirectGuestsTo(fn () => route('staff.login'));
+        $middleware->statefulApi();
+
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('staff*') || $request->is('admin*')) {
+                return route('staff.login');
+            }
+            return route('login');
+        });
 
         $middleware->redirectUsersTo(fn (Request $request) => route($request->user()->homeRouteName()));
 
@@ -34,3 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();
+
+if (isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL'])) {
+    $app->useStoragePath('/tmp/storage');
+}
+
+return $app;

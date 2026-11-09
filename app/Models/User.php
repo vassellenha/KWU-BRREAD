@@ -7,10 +7,11 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'username', 'email', 'password', 'role'])]
+#[Fillable(['name', 'username', 'email', 'phone', 'avatar', 'address', 'password', 'role'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -25,11 +26,14 @@ class User extends Authenticatable
 
     public const ROLE_ACCOUNTANT = 'accountant';
 
+    public const ROLE_CUSTOMER = 'customer';
+
     public const ROLES = [
         self::ROLE_ADMIN => 'Admin',
         self::ROLE_WAREHOUSE => 'MRP Staff',
         self::ROLE_HR => 'HR Staff',
         self::ROLE_ACCOUNTANT => 'Accounting Staff',
+        self::ROLE_CUSTOMER => 'Customer',
     ];
 
     public const MODULE_MRP = 'mrp';
@@ -82,6 +86,10 @@ class User extends Authenticatable
      */
     public function homeRouteName(): string
     {
+        if ($this->isCustomer()) {
+            return 'home';
+        }
+
         foreach (self::MODULE_HOME_ROUTES as $module => $routeName) {
             if ($this->canAccessModule($module)) {
                 return $routeName;
@@ -91,9 +99,38 @@ class User extends Authenticatable
         abort(403);
     }
 
+    public function isCustomer(): bool
+    {
+        return $this->hasRole(self::ROLE_CUSTOMER);
+    }
+
     public function loginRouteName(): string
     {
-        return $this->isAdmin() ? 'admin.login' : 'staff.login';
+        if ($this->isAdmin()) {
+            return 'admin.login';
+        }
+        if ($this->isCustomer()) {
+            return 'login';
+        }
+        return 'staff.login';
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function avatarUrl(): string
+    {
+        if ($this->avatar) {
+            return $this->avatar;
+        }
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&color=C74659&background=FFD9DF';
     }
 
     /**

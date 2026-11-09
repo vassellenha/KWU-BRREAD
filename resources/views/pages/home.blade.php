@@ -331,62 +331,91 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md" data-reveal-group>
-                    <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
-                            <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Happy young university student laughing while biting into a large Singapore rainbow bread ice cream sandwich outdoors" src="/img/marketing/community-student.jpg" loading="lazy">
-                        </div>
-                        <div class="flex items-center gap-space-sm mb-space-xs">
-                            <div class="w-8 h-8 rounded-full bg-secondary-fixed text-primary flex items-center justify-center font-bold text-xs">CS</div>
-                            <div>
-                                <span class="font-title-md text-title-md text-on-surface block text-sm">Clarissa S.</span>
-                                <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Sweet Corn Cloud"</span>
+                    @if (isset($customerReviews) && $customerReviews->isNotEmpty())
+                        @foreach ($customerReviews as $review)
+                            <div class="bg-surface-container-lowest p-space-md rounded-2xl shadow-[0_4px_16px_rgba(113,59,44,0.06)] border border-outline-variant/20 flex flex-col" data-reveal>
+                                <div class="w-full h-56 rounded-xl overflow-hidden mb-space-sm bg-surface-container-low">
+                                    @if ($review->image_path)
+                                        <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Foto ulasan {{ $review->user->name }}" src="{{ $review->imageUrl() }}" loading="lazy">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center bg-primary-container/20 text-primary">
+                                            <span class="material-symbols-outlined text-[48px]">icecream</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex items-center gap-space-sm mb-space-xs">
+                                    <img src="{{ $review->user->avatarUrl() }}" alt="{{ $review->user->name }}" class="w-8 h-8 rounded-full object-cover border border-primary/20">
+                                    <div class="min-w-0 flex-1">
+                                        <span class="font-title-md text-title-md text-on-surface block text-sm truncate">{{ $review->user->name }}</span>
+                                        <span class="font-body-sm text-body-sm text-on-surface-variant block text-xs truncate">Order #{{ $review->order?->order_number ?? 'BRREAD' }}</span>
+                                    </div>
+                                    <div class="ml-auto flex text-primary shrink-0">
+                                        @for ($i = 0; $i < 5; $i++)
+                                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' {{ $i < $review->rating ? 1 : 0 }};">star</span>
+                                        @endfor
+                                    </div>
+                                </div>
+                                <p class="font-body-sm text-body-sm text-on-surface-variant italic">"{{ $review->comment }}"</p>
                             </div>
-                            <div class="ml-auto flex text-primary">
-                                @for ($i = 0; $i < 5; $i++)
-                                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                @endfor
+                        @endforeach
+                    @else
+                        <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
+                            <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
+                                <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Happy young university student laughing while biting into a large Singapore rainbow bread ice cream sandwich outdoors" src="/img/marketing/community-student.jpg" loading="lazy">
                             </div>
+                            <div class="flex items-center gap-space-sm mb-space-xs">
+                                <div class="w-8 h-8 rounded-full bg-secondary-fixed text-primary flex items-center justify-center font-bold text-xs">CS</div>
+                                <div>
+                                    <span class="font-title-md text-title-md text-on-surface block text-sm">Clarissa S.</span>
+                                    <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Sweet Corn Cloud"</span>
+                                </div>
+                                <div class="ml-auto flex text-primary">
+                                    @for ($i = 0; $i < 5; $i++)
+                                        <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                    @endfor
+                                </div>
+                            </div>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Literally transported me back to Orchard Road during high school holidays. The bread stays super soft even when cold!"</p>
                         </div>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Literally transported me back to Orchard Road during high school holidays. The bread stays super soft even when cold!"</p>
-                    </div>
 
-                    <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
-                            <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Overhead flatlay of two Singapore style ice cream sandwiches on pastel plates next to iced matcha lattes" src="/img/marketing/community-flatlay.jpg" loading="lazy">
-                        </div>
-                        <div class="flex items-center gap-space-sm mb-space-xs">
-                            <div class="w-8 h-8 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center font-bold text-xs">DA</div>
-                            <div>
-                                <span class="font-title-md text-title-md text-on-surface block text-sm">Dion A.</span>
-                                <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Matcha Wafer Crunch"</span>
+                        <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
+                            <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
+                                <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Overhead flatlay of two Singapore style ice cream sandwiches on pastel plates next to iced matcha lattes" src="/img/marketing/community-flatlay.jpg" loading="lazy">
                             </div>
-                            <div class="ml-auto flex text-primary">
-                                @for ($i = 0; $i < 5; $i++)
-                                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                @endfor
+                            <div class="flex items-center gap-space-sm mb-space-xs">
+                                <div class="w-8 h-8 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center font-bold text-xs">DA</div>
+                                <div>
+                                    <span class="font-title-md text-title-md text-on-surface block text-sm">Dion A.</span>
+                                    <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Matcha Wafer Crunch"</span>
+                                </div>
+                                <div class="ml-auto flex text-primary">
+                                    @for ($i = 0; $i < 5; $i++)
+                                        <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                    @endfor
+                                </div>
                             </div>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Arrived in SCBD within 18 minutes in an insulated dry ice pouch. The wafer was 100% crispy, not soggy at all."</p>
                         </div>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Arrived in SCBD within 18 minutes in an insulated dry ice pouch. The wafer was 100% crispy, not soggy at all."</p>
-                    </div>
 
-                    <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
-                        <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
-                            <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Group of friends sharing a party box of assorted colorful Singapore ice cream sandwiches at an office celebration" src="/img/marketing/community-friends.jpg" loading="lazy">
-                        </div>
-                        <div class="flex items-center gap-space-sm mb-space-xs">
-                            <div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold text-xs">MT</div>
-                            <div>
-                                <span class="font-title-md text-title-md text-on-surface block text-sm">Maya T.</span>
-                                <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Double Choc Monster"</span>
+                        <div class="bg-surface-container-lowest p-space-md rounded-lg shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col" data-reveal>
+                            <div class="w-full h-56 rounded overflow-hidden mb-space-sm">
+                                <img class="w-full h-full object-cover hover:scale-105 transition-transform" alt="Group of friends sharing a party box of assorted colorful Singapore ice cream sandwiches at an office celebration" src="/img/marketing/community-friends.jpg" loading="lazy">
                             </div>
-                            <div class="ml-auto flex text-primary">
-                                @for ($i = 0; $i < 5; $i++)
-                                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                @endfor
+                            <div class="flex items-center gap-space-sm mb-space-xs">
+                                <div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold text-xs">MT</div>
+                                <div>
+                                    <span class="font-title-md text-title-md text-on-surface block text-sm">Maya T.</span>
+                                    <span class="font-body-sm text-body-sm text-on-surface-variant">Created: "Double Choc Monster"</span>
+                                </div>
+                                <div class="ml-auto flex text-primary">
+                                    @for ($i = 0; $i < 5; $i++)
+                                        <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                    @endfor
+                                </div>
                             </div>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Ordered 20 boxes for our agency Friday treats. Team was obsessed. The durian and dark chocolate are unbelievable."</p>
                         </div>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant italic">"Ordered 20 boxes for our agency Friday treats. Team was obsessed. The durian and dark chocolate are unbelievable."</p>
-                    </div>
+                    @endif
                 </div>
             </div>
         </section>

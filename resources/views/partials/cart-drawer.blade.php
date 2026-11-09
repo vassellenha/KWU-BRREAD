@@ -1,4 +1,4 @@
-<div x-data="cartDrawer()" @keydown.escape.window="close()" x-cloak class="font-plus-jakarta">
+<div x-data="cartDrawer({{ auth()->check() ? json_encode(['id' => auth()->user()->id, 'name' => auth()->user()->name, 'phone' => auth()->user()->phone ?? '']) : 'null' }})" @keydown.escape.window="close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
@@ -41,16 +41,28 @@
             <div
                 x-show="orderSuccess"
                 role="status"
-                class="rounded-lg bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-lg text-center"
+                class="rounded-2xl bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-lg text-center"
             >
-                <span class="material-symbols-outlined text-[32px] text-on-primary-container">celebration</span>
-                <p class="font-title-md text-title-md text-on-primary-container mt-1">Order placed!</p>
+                <span class="material-symbols-outlined text-[36px] text-on-primary-container">celebration</span>
+                <p class="font-title-md text-title-md text-on-primary-container mt-1">Pesanan Berhasil Dibuat!</p>
                 <p class="font-body-sm text-body-sm text-on-primary-container/90 mt-1">
-                    Order number: <span class="font-mono font-bold" x-text="orderSuccess"></span>
+                    Nomor Pesanan: <span class="font-mono font-bold" x-text="orderSuccess"></span>
                 </p>
-                <button type="button" @click="close()" class="mt-space-md font-label-lg text-label-lg text-on-primary-container underline decoration-on-primary-container/50 underline-offset-2 hover:decoration-on-primary-container transition-colors duration-200">
-                    Keep browsing
-                </button>
+                <p class="font-body-sm text-body-sm text-on-primary-container/80 mt-1">
+                    Silakan ambil pesanan Anda di Booth Brread! Kampus.
+                </p>
+                <div class="mt-space-md flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <a
+                        href="{{ route('orders.index') }}"
+                        class="press-scale inline-flex items-center gap-1.5 rounded-full bg-surface-container-lowest text-primary font-bold text-xs px-4 py-2 shadow-sm hover:opacity-95 transition-opacity"
+                    >
+                        <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+                        <span>Lihat Riwayat Transaksi</span>
+                    </a>
+                    <button type="button" @click="close()" class="font-label-md text-label-md text-on-primary-container underline decoration-on-primary-container/50 underline-offset-2 hover:decoration-on-primary-container transition-colors duration-200">
+                        Lanjut Belanja
+                    </button>
+                </div>
             </div>
 
             <div x-show="!orderSuccess && $store.cart.items.length === 0" class="flex flex-col items-center justify-center text-center gap-space-sm py-space-xl">
@@ -99,54 +111,115 @@
             </div>
         </div>
 
-        <form
-            x-show="!orderSuccess && $store.cart.items.length > 0"
-            @submit.prevent="checkout()"
-            class="p-space-md border-t border-outline-variant/30 flex flex-col gap-space-sm shrink-0"
-        >
-            <div class="flex justify-between items-center">
-                <span class="font-title-md text-title-md text-on-surface">Total</span>
-                <span class="font-headline-sm text-headline-sm text-primary tabular-nums" x-text="formatPrice($store.cart.total)"></span>
-            </div>
-            <div>
-                <label for="cart-name" class="block font-label-md text-label-md text-on-surface-variant mb-1">Name</label>
-                <input
-                    id="cart-name"
-                    type="text"
-                    x-model="customerName"
-                    data-filter="name"
-                    autocomplete="name"
-                    maxlength="255"
-                    placeholder="Your name"
-                    class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-            </div>
-            <div>
-                <label for="cart-phone" class="block font-label-md text-label-md text-on-surface-variant mb-1">Phone Number</label>
-                <input
-                    id="cart-phone"
-                    type="tel"
-                    inputmode="tel"
-                    x-model="customerPhone"
-                    data-filter="phone"
-                    autocomplete="tel"
-                    maxlength="30"
-                    placeholder="+62 812 3456 7890"
-                    class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-            </div>
-            <p x-show="errorMessage" role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
-            <button
-                type="submit"
-                :disabled="submitting || $store.cart.hasProblem"
-                class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
+        {{-- Authenticated Checkout Form --}}
+        <template x-if="currentUser">
+            <form
+                x-show="!orderSuccess && $store.cart.items.length > 0"
+                @submit.prevent="checkout()"
+                class="p-space-md border-t border-outline-variant/30 flex flex-col gap-space-sm shrink-0"
             >
-                <span x-show="!submitting" class="flex items-center gap-space-xs">
-                    <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-                    Checkout
-                </span>
-                <span x-show="submitting">Placing order...</span>
-            </button>
-        </form>
+                <div class="flex justify-between items-center">
+                    <span class="font-title-md text-title-md text-on-surface">Total</span>
+                    <span class="font-headline-sm text-headline-sm text-primary tabular-nums" x-text="formatPrice($store.cart.total)"></span>
+                </div>
+
+                {{-- Fulfillment Method --}}
+                <div class="space-y-1">
+                    <span class="block font-label-md text-label-md text-on-surface-variant">Metode Pengambilan</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 p-2 rounded-xl border-2 border-primary bg-primary-fixed/20 cursor-pointer">
+                            <input type="radio" name="fulfillment" value="pickup" checked class="text-primary focus:ring-primary">
+                            <div class="min-w-0">
+                                <span class="font-label-sm text-label-sm font-bold text-on-surface block truncate">Pickup Kampus</span>
+                                <span class="text-[10px] text-on-surface-variant block truncate">Ambil di booth</span>
+                            </div>
+                        </label>
+                        <div class="flex items-center gap-2 p-2 rounded-xl border border-outline-variant/40 bg-surface-container/50 opacity-60 cursor-not-allowed">
+                            <input type="radio" disabled class="opacity-50">
+                            <div class="min-w-0">
+                                <span class="font-label-sm text-label-sm text-on-surface-variant block truncate">Delivery</span>
+                                <span class="text-[10px] text-primary font-semibold block truncate">Segera Hadir</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="cart-name" class="block font-label-md text-label-md text-on-surface-variant mb-1">Nama Pemesan</label>
+                    <input
+                        id="cart-name"
+                        type="text"
+                        x-model="customerName"
+                        data-filter="name"
+                        autocomplete="name"
+                        maxlength="255"
+                        placeholder="Nama Anda"
+                        class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                </div>
+                <div>
+                    <label for="cart-phone" class="block font-label-md text-label-md text-on-surface-variant mb-1">No. WhatsApp / HP</label>
+                    <input
+                        id="cart-phone"
+                        type="tel"
+                        inputmode="tel"
+                        x-model="customerPhone"
+                        data-filter="phone"
+                        autocomplete="tel"
+                        maxlength="30"
+                        placeholder="081234567890"
+                        class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                </div>
+                <p x-show="errorMessage" role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
+                <button
+                    type="submit"
+                    :disabled="submitting || $store.cart.hasProblem"
+                    class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    <span x-show="!submitting" class="flex items-center gap-space-xs">
+                        <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+                        <span>Pesan Sekarang (Pickup Kampus)</span>
+                    </span>
+                    <span x-show="submitting">Memproses Pesanan...</span>
+                </button>
+            </form>
+        </template>
+
+        {{-- Guest Must Sign In First Prompt --}}
+        <template x-if="!currentUser">
+            <div
+                x-show="!orderSuccess && $store.cart.items.length > 0"
+                class="p-space-md border-t border-outline-variant/30 flex flex-col gap-space-sm shrink-0 bg-surface-container-low"
+            >
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-title-md text-title-md text-on-surface">Total</span>
+                    <span class="font-headline-sm text-headline-sm text-primary tabular-nums" x-text="formatPrice($store.cart.total)"></span>
+                </div>
+
+                <div class="bg-surface-container-lowest p-3 rounded-2xl border border-primary/20 flex items-start gap-2.5">
+                    <span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">account_circle</span>
+                    <div class="text-xs text-on-surface-variant">
+                        <strong class="text-on-surface block font-semibold mb-0.5">Masuk untuk Menyelesaikan Pesanan</strong>
+                        Masuk ke akun Anda agar pesanan tersimpan di riwayat transaksi dan Anda dapat memantau status pesanan.
+                    </div>
+                </div>
+
+                <a
+                    href="{{ route('login') }}"
+                    class="press-scale w-full flex items-center justify-center gap-2 rounded-full bg-primary-container px-space-lg py-2.5 font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.25)] hover:opacity-95 transition-all text-center"
+                >
+                    <span class="material-symbols-outlined text-[20px]">login</span>
+                    <span>Masuk ke Akun</span>
+                </a>
+
+                <a
+                    href="{{ route('register') }}"
+                    class="w-full text-center text-xs font-semibold text-primary hover:underline py-1"
+                >
+                    Belum punya akun? Daftar sekarang
+                </a>
+            </div>
+        </template>
     </aside>
 </div>
