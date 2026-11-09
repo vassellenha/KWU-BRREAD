@@ -319,11 +319,9 @@ window.addEventListener('storage', (event) => {
     if (event.key === 'brreadCart') Alpine.store('cart').items = loadCart();
 });
 
-Alpine.data('cartDrawer', (currentUser = null) => ({
-    currentUser: currentUser,
-    customerName: currentUser?.name || '',
-    customerPhone: currentUser?.phone || '',
-    fulfillmentType: 'pickup',
+Alpine.data('cartDrawer', () => ({
+    customerName: '',
+    customerPhone: '',
     submitting: false,
     errorMessage: '',
     orderSuccess: null,
@@ -343,10 +341,8 @@ Alpine.data('cartDrawer', (currentUser = null) => ({
             this.errorMessage = '';
             if (this.orderSuccess) {
                 this.orderSuccess = null;
-                if (!this.currentUser) {
-                    this.customerName = '';
-                    this.customerPhone = '';
-                }
+                this.customerName = '';
+                this.customerPhone = '';
             }
         });
     },
@@ -360,11 +356,11 @@ Alpine.data('cartDrawer', (currentUser = null) => ({
         this.errorMessage = '';
 
         if (cart.items.length === 0) {
-            this.errorMessage = 'Keranjang Anda masih kosong — tambahkan kreasi sandwich terlebih dahulu.';
+            this.errorMessage = 'Your cart is empty — add a creation first.';
             return;
         }
         if (!this.customerName.trim() || !this.customerPhone.trim()) {
-            this.errorMessage = 'Silakan lengkapi nama dan nomor WhatsApp / telepon.';
+            this.errorMessage = 'Please fill in your name and phone number.';
             return;
         }
 
@@ -374,7 +370,6 @@ Alpine.data('cartDrawer', (currentUser = null) => ({
             const res = await axios.post('/api/orders', {
                 customer_name: this.customerName,
                 customer_phone: this.customerPhone,
-                fulfillment_type: this.fulfillmentType,
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
@@ -383,8 +378,8 @@ Alpine.data('cartDrawer', (currentUser = null) => ({
             const errors = e.response?.data?.errors ?? {};
             this.errorMessage =
                 Object.values(errors)[0]?.[0] ??
-                (e.response?.status === 429 ? 'Terlalu banyak pesanan dalam waktu singkat. Tunggu sebentar dan coba lagi.' : null) ??
-                'Terjadi kesalahan. Silakan coba lagi.';
+                (e.response?.status === 429 ? 'Too many orders in a row. Wait a minute and try again.' : null) ??
+                'Something went wrong. Please try again.';
         } finally {
             this.submitting = false;
             // Either way stock just changed or proved stale, so every page's numbers need refreshing.

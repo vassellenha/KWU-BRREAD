@@ -1,41 +1,14 @@
 <?php
 
-use App\Http\Controllers\Customer\AuthController as CustomerAuthController;
-use App\Http\Controllers\Customer\OrderController as CustomerOrderController;
-use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\SalesController;
-use App\Models\Review;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 $rolesFor = fn (string $module): string => 'role:'.implode(',', User::MODULE_ROLES[$module]);
-
-// Customer Guest Routes
-Route::middleware('guest')->group(function () {
-    Route::get('/login', [CustomerAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:login')->name('login.attempt');
-    Route::get('/register', [CustomerAuthController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:login')->name('register.attempt');
-});
-
-// Customer Authenticated Routes
-Route::middleware('auth')->group(function () {
-    Route::post('/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout');
-
-    Route::get('/profile', [CustomerProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
-    Route::put('/profile/password', [CustomerProfileController::class, 'updatePassword'])->name('profile.password');
-
-    Route::get('/orders', [CustomerOrderController::class, 'index'])->name('orders.index');
-    Route::post('/orders/{order}/receive', [CustomerOrderController::class, 'markReceived'])->name('orders.receive');
-    Route::post('/orders/{order}/review', [CustomerOrderController::class, 'storeReview'])->name('orders.review');
-});
-
-// Staff / Admin Guest Routes
 
 Route::middleware('guest')->group(function () {
     Route::get('/staff', [AuthController::class, 'showStaffLogin'])->name('staff.login');
@@ -77,15 +50,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 });
 
 Route::get('/', function () {
-    $customerReviews = Review::with(['user', 'order'])
-        ->where('is_featured', true)
-        ->latest('id')
-        ->take(6)
-        ->get();
-
-    return view('pages.home', [
-        'customerReviews' => $customerReviews,
-    ]);
+    return view('pages.home');
 })->name('home');
 
 Route::get('/builder', function () {

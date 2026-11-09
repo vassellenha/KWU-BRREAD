@@ -18,14 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
         ]);
 
-        $middleware->statefulApi();
-
-        $middleware->redirectGuestsTo(function (Request $request) {
-            if ($request->is('staff*') || $request->is('admin*')) {
-                return route('staff.login');
-            }
-            return route('login');
-        });
+        $middleware->redirectGuestsTo(fn () => route('staff.login'));
 
         $middleware->redirectUsersTo(fn (Request $request) => route($request->user()->homeRouteName()));
 
