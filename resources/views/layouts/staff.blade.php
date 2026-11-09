@@ -4,6 +4,7 @@
     $currentUser = auth()->user();
 
     $navLinks = collect([
+        ['module' => User::MODULE_ORDERS, 'route' => 'staff.orders.index', 'active' => 'staff.orders.*', 'icon' => 'receipt_long', 'label' => 'Orders'],
         ['module' => User::MODULE_MRP, 'route' => 'staff.mrp.index', 'active' => 'staff.mrp.index', 'icon' => 'inventory_2', 'label' => 'Stock (MRP)'],
         ['module' => User::MODULE_MRP, 'route' => 'staff.mrp.movements', 'active' => 'staff.mrp.movements', 'icon' => 'history', 'label' => 'Stock Movements'],
         ['module' => User::MODULE_HR, 'route' => 'staff.hr.index', 'active' => 'staff.hr.*', 'icon' => 'groups', 'label' => 'HR'],

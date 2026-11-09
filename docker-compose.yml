@@ -20,6 +20,9 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+    volumes:
+      - .:/app
+      - /app/vendor
     env_file:
       - .env
     environment:
