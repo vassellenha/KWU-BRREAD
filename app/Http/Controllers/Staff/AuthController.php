@@ -15,6 +15,9 @@ class AuthController extends Controller
 {
     public const QUICK_LOGIN_USERNAME = 'admin';
 
+    /** Must match the admin password in UserSeeder. Only rendered while quick login is enabled. */
+    public const QUICK_LOGIN_PASSWORD = 'brread-admin-2026';
+
     public function showStaffLogin(): View
     {
         return view('staff.auth.login', [
@@ -31,6 +34,7 @@ class AuthController extends Controller
             'attemptRoute' => 'admin.login.attempt',
             'quickLoginEnabled' => $this->quickLoginEnabled(),
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
+            'quickLoginPassword' => self::QUICK_LOGIN_PASSWORD,
         ]);
     }
 
@@ -45,8 +49,8 @@ class AuthController extends Controller
     }
 
     /**
-     * Signs in without a password in the page source, so the suggestion on /admin never
-     * leaks the credential. The route answers 404 unless ADMIN_QUICK_LOGIN allows it.
+     * Signs in as the admin with one click from the suggestion on /admin. The route
+     * answers 404 unless ADMIN_QUICK_LOGIN allows it.
      */
     public function adminQuickLogin(Request $request): RedirectResponse
     {

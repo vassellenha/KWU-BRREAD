@@ -16,7 +16,10 @@
 </head>
 <body class="bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
 
-    <main class="w-full max-w-sm" x-data="{ username: @js(old('username', '')) }">
+    <main class="w-full max-w-sm" x-data="{
+        username: @js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')),
+        password: @js($quickLoginEnabled ? $quickLoginPassword : ''),
+    }">
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-14 w-auto object-contain mb-space-sm">
             <h1 class="font-title-md text-title-md text-on-surface">{{ $portalName }}</h1>
@@ -78,6 +81,7 @@
                         id="password"
                         type="password"
                         name="password"
+                        x-model="password"
                         required
                         autocomplete="new-password"
                         class="{{ $fieldClasses }}"

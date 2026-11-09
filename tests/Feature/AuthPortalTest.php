@@ -95,14 +95,22 @@ class AuthPortalTest extends TestCase
         $this->assertAuthenticated();
     }
 
-    public function test_the_admin_portal_suggests_quick_login_without_exposing_the_password(): void
+    public function test_the_admin_portal_prefills_the_credentials_when_quick_login_is_on(): void
     {
         config(['auth.admin_quick_login' => true]);
 
         $this->get('/admin')
             ->assertOk()
             ->assertSee('Quick login')
-            ->assertDontSee('brread-admin-2026');
+            ->assertSee('brread-admin-2026');
+    }
+
+    public function test_the_admin_portal_never_exposes_the_password_when_quick_login_is_off(): void
+    {
+        config(['auth.admin_quick_login' => false]);
+
+        $this->get('/admin')->assertOk()->assertDontSee('brread-admin-2026');
+        $this->get('/staff')->assertOk()->assertDontSee('brread-admin-2026');
     }
 
     public function test_quick_login_signs_in_as_the_admin(): void
