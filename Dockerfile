@@ -1,26 +1,72 @@
-FROM php:8.3-cli
+# =========================================================
+# Stage 1: Build Frontend Assets (Vite + Tailwind CSS v4)
+# =========================================================
+FROM node:22-alpine AS frontend
+WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-        git unzip curl libsqlite3-dev libzip-dev libonig-dev libpng-dev \
-    && docker-php-ext-install pdo pdo_sqlite zip mbstring bcmath gd opcache \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+COPY package*.json ./
+RUN npm ci
 
+COPY resources resources
+COPY tailwind.config.js vite.config.js ./
+RUN npm run build
+
+# =========================================================
+# Stage 2: Install Composer Dependencies
+# =========================================================
+FROM composer:2 AS vendor
+WORKDIR /app
+
+COPY composer.json composer.lock* ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts \
+    --ignore-platform-reqs
+
+# =========================================================
+# Stage 3: Production PHP Runtime
+# =========================================================
+FROM php:8.4-cli-bookworm AS runtime
+
+# Install PHP extensions required by Laravel, Supabase PgSQL, SQLite, PhpSpreadsheet (gd, zip)
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+RUN install-php-extensions \
+    pdo_sqlite \
+    pdo_pgsql \
+    pgsql \
+    pdo_mysql \
+    zip \
+    gd \
+    bcmath \
+    opcache
+
+# Copy composer binary for autoloader generation & artisan
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
+
+# Copy application source code
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction \
-    && npm ci \
-    && npm run build \
-    && npm prune --omit=dev \
-    && mkdir -p database \
-    && touch database/database.sqlite \
-    && chmod -R 775 storage bootstrap/cache database
+# Copy vendor from vendor build stage
+COPY --from=vendor /app/vendor /app/vendor
 
+# Copy compiled frontend assets from frontend build stage
+COPY --from=frontend /app/public/build /app/public/build
+
+# Finish autoloader optimization and Laravel package discovery
+RUN composer dump-autoload --optimize --no-dev \
+    && mkdir -p database storage bootstrap/cache \
+    && touch database/database.sqlite \
+    && chmod -R 775 storage bootstrap/cache database \
+    && chmod +x docker-entrypoint.sh
+
+ENV PORT=8080
 ENV PHP_CLI_SERVER_WORKERS=4
 
 EXPOSE 8080
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080} --no-reload"]
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

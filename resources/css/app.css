@@ -113,6 +113,19 @@
     -webkit-font-feature-settings: 'liga';
     -webkit-font-smoothing: antialiased;
     font-feature-settings: 'liga';
+    vertical-align: middle;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.symbol-fill,
+.material-symbols-outlined.fill {
+    font-variation-settings: 'FILL' 1;
+}
+
+.symbol-outline,
+.material-symbols-outlined.outline {
+    font-variation-settings: 'FILL' 0;
 }
 
 @keyframes float {

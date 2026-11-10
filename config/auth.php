@@ -125,6 +125,6 @@ return [
     |
     */
 
-    'admin_quick_login' => env('ADMIN_QUICK_LOGIN', env('APP_ENV') === 'local'),
+    'admin_quick_login' => env('ADMIN_QUICK_LOGIN', true),
 
 ];

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\PublicOrderController;
 use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
+use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +25,12 @@ Route::redirect('/staff/login', '/staff', 301);
 
 Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () use ($rolesFor) {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::middleware($rolesFor(User::MODULE_ORDERS))->prefix('orders')->name('orders.')->group(function () {
+        Route::get('/', [OrderManagementController::class, 'index'])->name('index');
+        Route::post('/{order}/confirm', [OrderManagementController::class, 'confirm'])->name('confirm');
+        Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
+    });
 
     Route::middleware($rolesFor(User::MODULE_MRP))->prefix('mrp')->name('mrp.')->group(function () {
         Route::get('/', [MrpController::class, 'index'])->name('index');
@@ -64,3 +72,6 @@ Route::get('/menu', function () {
 Route::get('/contact', function () {
     return view('pages.contact');
 })->name('contact');
+
+Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
+Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->name('order.review');

@@ -34,6 +34,8 @@ class User extends Authenticatable
 
     public const MODULE_MRP = 'mrp';
 
+    public const MODULE_ORDERS = 'orders';
+
     public const MODULE_HR = 'hr';
 
     public const MODULE_ACCOUNTING = 'accounting';
@@ -47,6 +49,7 @@ class User extends Authenticatable
      */
     public const MODULE_ROLES = [
         self::MODULE_MRP => [self::ROLE_ADMIN, self::ROLE_WAREHOUSE],
+        self::MODULE_ORDERS => [self::ROLE_ADMIN, self::ROLE_WAREHOUSE],
         self::MODULE_HR => [self::ROLE_ADMIN, self::ROLE_HR],
         self::MODULE_ACCOUNTING => [self::ROLE_ADMIN, self::ROLE_ACCOUNTANT],
         self::MODULE_SALES => [self::ROLE_ADMIN],
@@ -56,6 +59,7 @@ class User extends Authenticatable
      * @var array<string, string>
      */
     private const MODULE_HOME_ROUTES = [
+        self::MODULE_ORDERS => 'staff.orders.index',
         self::MODULE_MRP => 'staff.mrp.index',
         self::MODULE_HR => 'staff.hr.index',
         self::MODULE_ACCOUNTING => 'staff.accounting.index',
