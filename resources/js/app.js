@@ -15,6 +15,10 @@ export const INGREDIENT_IMAGES = {
 };
 window.INGREDIENT_IMAGES = INGREDIENT_IMAGES;
 
+// The Studio's three.js scene. Kept at module level, never on the Alpine component:
+// Alpine would wrap it in a reactive proxy, which three.js objects do not survive.
+let studio3d = null;
+
 const MAX_PER_CREATION = 20;
 const MAX_CART_LINES = 20;
 
@@ -438,6 +442,59 @@ Alpine.data('brreadBuilder', () => ({
 
         this.loading = false;
         this.pushHistory();
+        this.mountStudio3d();
+    },
+
+    // 3D preview. three.js is a separate chunk fetched only here, so the other pages stay light.
+    // If it cannot start (no WebGL, chunk failed to load) studio3dReady stays false and the
+    // flat photo stack in the template keeps working.
+    studio3dReady: false,
+    studio3dTouched: false,
+
+    get studio3dState() {
+        return {
+            bread: this.selectedBread?.name ?? null,
+            flavor: this.selectedFlavor?.name ?? null,
+            flavorColor: this.selectedFlavor?.hex_color ?? null,
+            sauce: this.hasChocolateSauce,
+            sprinkles: this.hasSprinkles,
+            exploded: this.explodedView,
+        };
+    },
+
+    async mountStudio3d() {
+        const host = this.$refs?.studio3d;
+        if (!host || studio3d) return;
+
+        try {
+            const { createStudio3D, supportsWebGL } = await import('./studio3d.js');
+            if (!supportsWebGL()) return;
+
+            studio3d = createStudio3D(host, {
+                reducedMotion: prefersReducedMotion(),
+                onInteract: () => (this.studio3dTouched = true),
+            });
+            await studio3d.setState(this.studio3dState);
+            this.studio3dReady = true;
+
+            Alpine.effect(() => {
+                const state = this.studio3dState;
+                studio3d?.setState(state).catch(() => {});
+            });
+        } catch (error) {
+            console.warn('3D preview unavailable, using the flat preview instead.', error);
+            studio3d?.dispose();
+            studio3d = null;
+            this.studio3dReady = false;
+        }
+    },
+
+    studio3dZoom(factor) {
+        studio3d?.zoomBy(factor);
+    },
+
+    studio3dResetView() {
+        studio3d?.resetView();
     },
 
     snapshotState() {

@@ -264,12 +264,19 @@
                             </span>
                         </div>
 
-                        <div class="relative w-full flex-1 flex flex-col items-center justify-center my-space-md select-none">
+                        <div x-ref="stackPreview" class="relative w-full flex-1 min-h-[340px] flex flex-col items-center justify-center my-space-md select-none">
                             <div class="absolute w-72 h-72 rounded-full bg-secondary-fixed/40 blur-3xl pointer-events-none"></div>
 
-                            <div class="animate-float" style="width: 280px;">
+                            {{-- 3D stage: resources/js/studio3d.js mounts its canvas here. Drag to orbit the sandwich a full 360°. --}}
+                            <div
+                                x-ref="studio3d"
+                                class="absolute inset-0 transition-opacity duration-500"
+                                :class="studio3dReady ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                            ></div>
+
+                            {{-- Flat photo stack: shown while the 3D scene loads, and kept as the fallback where WebGL is unavailable. --}}
+                            <div x-show="!studio3dReady" class="animate-float" style="width: 280px;">
                                 <div
-                                    x-ref="stackPreview"
                                     class="relative mx-auto flex flex-col items-center"
                                     style="width: 280px; min-height: 320px;"
                                 >
@@ -305,11 +312,32 @@
                                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                                     >
                                     <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high transition-all duration-500" :class="explodedView ? '-mt-2' : '-mt-8'"></div>
-
-                                    <div x-show="!selectedBread" x-cloak class="absolute inset-0 flex items-center justify-center text-center font-body-sm text-body-sm text-on-surface-variant px-space-lg">
-                                        Pick a bread base to start stacking →
-                                    </div>
                                 </div>
+                            </div>
+
+                            <div x-show="!selectedBread" x-cloak class="absolute inset-0 flex items-center justify-center text-center font-body-sm text-body-sm text-on-surface-variant px-space-lg pointer-events-none">
+                                Pick a bread base to start stacking →
+                            </div>
+
+                            <div
+                                x-show="studio3dReady && selectedBread && !studio3dTouched" x-cloak
+                                x-transition:leave="transition-opacity duration-300" x-transition:leave-end="opacity-0"
+                                class="absolute bottom-1 left-1/2 -translate-x-1/2 px-space-md py-1 rounded-full bg-surface-container-lowest/95 backdrop-blur-md shadow-sm font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5 pointer-events-none whitespace-nowrap"
+                            >
+                                <span class="material-symbols-outlined text-[16px] text-primary">view_in_ar</span>
+                                Drag to rotate
+                            </div>
+
+                            <div x-show="studio3dReady && selectedBread" x-cloak class="absolute right-0 bottom-0 flex flex-col gap-1 bg-surface-container-lowest/95 backdrop-blur-md p-1 rounded-lg shadow-sm border border-outline-variant/30">
+                                <button type="button" @click="studio3dZoom(1.25)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Zoom in" aria-label="Zoom in">
+                                    <span class="material-symbols-outlined text-[18px]">zoom_in</span>
+                                </button>
+                                <button type="button" @click="studio3dZoom(0.8)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Zoom out" aria-label="Zoom out">
+                                    <span class="material-symbols-outlined text-[18px]">zoom_out</span>
+                                </button>
+                                <button type="button" @click="studio3dResetView()" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Reset view" aria-label="Reset view">
+                                    <span class="material-symbols-outlined text-[18px]">center_focus_strong</span>
+                                </button>
                             </div>
                         </div>
 

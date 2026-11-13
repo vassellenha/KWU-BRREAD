@@ -31,6 +31,7 @@ return [
         'cancel',
         'category',
         'celebration',
+        'center_focus_strong',
         'check',
         'check_circle',
         'close',
@@ -94,8 +95,11 @@ return [
         'unfold_more',
         'verified',
         'verified_user',
+        'view_in_ar',
         'warning',
         'water_drop',
+        'zoom_in',
+        'zoom_out',
     ],
 
 ];

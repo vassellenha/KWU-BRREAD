@@ -167,7 +167,7 @@ A Rp 3,000 topping, seeded with **300** in stock and a reorder point of **60**.<
 <td width="50%" valign="top">
 <img src="./docs/readme/card-studio.svg" width="100%" alt="A sandwich preview stacked from layers beside bread, flavor and topping pickers" /><br />
 <img src="./docs/readme/icon-studio.svg" width="22" height="22" align="absmiddle" alt="" />&nbsp; <b>Brread! Studio</b><br />
-Pick a base, a flavor and toppings, and the preview updates live. Ingredients unlock in order, so you can't build an invalid sandwich.
+Pick a base, a flavor and toppings, and the preview updates live in 3D: drag to turn the sandwich a full 360°, zoom in on the crumb, or open the exploded view to see every layer. Ingredients unlock in order, so you can't build an invalid sandwich.
 </td>
 <td width="50%" valign="top">
 <img src="./docs/readme/card-cart.svg" width="100%" alt="A cart drawer with two sandwiches, quantity pickers and a total" /><br />
@@ -301,6 +301,8 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 <b>Frontend</b><br />
 <img src="./docs/readme/chip-blade.svg" height="32" alt="Blade" /> <img src="./docs/readme/chip-tailwind-css-4.svg" height="32" alt="Tailwind CSS 4" /> <img src="./docs/readme/chip-alpinejs.svg" height="32" alt="Alpine.js" /> <img src="./docs/readme/chip-axios.svg" height="32" alt="Axios" /> <img src="./docs/readme/chip-vite.svg" height="32" alt="Vite" />
 
+The Studio's 3D preview runs on <b>three.js</b>, loaded as its own chunk only on `/builder`. Browsers without WebGL fall back to the flat photo preview.
+
 <b>Data</b><br />
 <img src="./docs/readme/chip-sqlite.svg" height="32" alt="SQLite" /> <img src="./docs/readme/chip-database-sessions.svg" height="32" alt="Database sessions" /> <img src="./docs/readme/chip-database-queue.svg" height="32" alt="Database queue" />
 
@@ -381,6 +383,9 @@ app/
   Services/                  CashflowExporter, SalesReport, ShiftScheduler
 database/                    migrations and seeders
 resources/views/             storefront pages, staff portal, shared partials
+resources/js/studio3d.js     the Studio's 3D scene: slab models, toppings, lighting, orbit controls
+public/img/studio3d/         baked PBR textures (colour and normal maps) for breads and ice creams
+scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients
 routes/                      web.php and api.php
 docs/                        staff guide
 tests/                       feature and unit tests
