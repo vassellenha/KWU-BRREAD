@@ -434,7 +434,12 @@ export function supportsWebGL() {
     }
 }
 
-export function createStudio3D(host, { textureBase = '/img/studio3d', reducedMotion = false, onInteract } = {}) {
+// autoRotate: false keeps the camera still until setView() is called (the About page drives it
+// from scroll). interactive: false turns dragging off so the canvas never competes with scrolling.
+export function createStudio3D(
+    host,
+    { textureBase = '/img/studio3d', reducedMotion = false, autoRotate = true, interactive = true, onInteract } = {},
+) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
@@ -604,7 +609,9 @@ export function createStudio3D(host, { textureBase = '/img/studio3d', reducedMot
     controls.rotateSpeed = 0.85;
     controls.minPolarAngle = THREE.MathUtils.degToRad(12);
     controls.maxPolarAngle = THREE.MathUtils.degToRad(158);
-    controls.autoRotate = !reducedMotion;
+    controls.autoRotate = autoRotate && !reducedMotion;
+    controls.enabled = interactive;
+    if (!interactive) canvas.style.pointerEvents = 'none';
     controls.autoRotateSpeed = 1.1;
     canvas.style.touchAction = 'pan-y'; // a vertical swipe still scrolls the page on phones
 
@@ -617,7 +624,7 @@ export function createStudio3D(host, { textureBase = '/img/studio3d', reducedMot
     });
     controls.addEventListener('end', () => {
         canvas.style.cursor = 'grab';
-        if (reducedMotion) return;
+        if (reducedMotion || !autoRotate) return;
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => (controls.autoRotate = true), 6000);
     });

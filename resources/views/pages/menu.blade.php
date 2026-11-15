@@ -1,14 +1,27 @@
 @extends('layouts.app')
 
-@section('title', 'Explore Menu')
+@section('title', 'Menu')
 
 @section('content')
 
-    <section
+    <div
         x-data="{
             loading: true,
             loadFailed: false,
             components: { bread: [], ice_cream: [], topping: [] },
+            {{-- How each ingredient is dressed on this page. Anything new in the catalog falls back to a plain tile. --}}
+            looks: {
+                'Plain White Bread': { cut: 'bread-white', bg: '#fbe9d0', ink: '#5a3a12', note: 'the classic', desc: 'Soft, a little sweet, and it soaks up the first melt.', tilt: '-5deg' },
+                'Whole Wheat Bread': { cut: 'bread-wheat', bg: '#e9c9a0', ink: '#4a2c0c', note: 'less sweet', desc: 'Nutty and a bit firmer. Holds up to chocolate.', tilt: '4deg' },
+                'Vanilla': { cut: 'ice-vanilla', bg: '#f6e7bd', ink: '#4d3a05', note: 'flavor no. 1', desc: 'Speckled with real vanilla.', tilt: '-6deg' },
+                'Strawberry': { cut: 'ice-strawberry', bg: '#f7a3b6', ink: '#5b0f22', note: 'flavor no. 2', desc: 'A little tart, with real fruit in it.', tilt: '5deg' },
+                'Chocolate': { cut: 'ice-chocolate', bg: '#4a2c1a', ink: '#f6e3cf', note: 'flavor no. 3', desc: 'Dark and not too sweet.', tilt: '-4deg' },
+                'Chocolate Sauce': { cut: 'ice-vanilla', top: 'top-sauce', bg: '#d9b38c', ink: '#3d1b13', note: 'drizzled on', desc: 'Glossy dark chocolate, poured over the top.', tilt: '4deg' },
+                'Rainbow Sprinkles': { cut: 'ice-strawberry', top: 'top-sprinkles', bg: '#cfe6ea', ink: '#1f4a52', note: 'for the crunch', desc: 'A handful of colour on every bite.', tilt: '-5deg' },
+            },
+            lookFor(item) {
+                return this.looks[item.name] ?? { bg: '#f7ece2', ink: '#201b15', note: '', desc: '', tilt: '0deg' };
+            },
             async init() {
                 try {
                     const res = await axios.get('/api/components');
@@ -19,88 +32,106 @@
                     this.loading = false;
                 }
             },
+            get startsAt() {
+                const cheapest = (list) => Math.min(...list.map((item) => Number(item.price)));
+                if (!this.components.bread.length || !this.components.ice_cream.length) return null;
+                return cheapest(this.components.bread) + cheapest(this.components.ice_cream);
+            },
             formatPrice(n) {
                 return 'Rp ' + Math.round(Number(n)).toLocaleString('id-ID');
             },
         }"
-        class="w-full font-plus-jakarta py-space-xl"
+        class="w-full font-plus-jakarta"
     >
-        <div class="max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop">
-            <div class="text-center mb-space-xl" data-reveal>
-                <span class="inline-flex items-center gap-1.5 bg-primary-container text-on-primary-container px-space-md py-space-xs rounded-full font-label-lg text-label-lg mb-space-md">
-                    <span class="material-symbols-outlined text-[18px]">restaurant_menu</span>
-                    Explore Menu
-                </span>
-                <h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface tracking-tight">Every Ingredient, In One Place</h1>
-                <p class="mt-space-sm font-body-lg text-body-lg text-on-surface-variant max-w-xl mx-auto">
-                    Every base, flavor, and topping available in the builder — browse before you build.
-                </p>
-            </div>
-
-            <div x-show="loading" class="text-center font-body-lg text-body-lg text-on-surface-variant py-space-xl">Loading menu...</div>
-
-            <div x-show="loadFailed" x-cloak role="alert" class="text-center font-body-lg text-body-lg text-on-surface-variant py-space-xl">The menu could not load. Please refresh the page.</div>
-
-            <div x-show="!loading && !loadFailed" x-cloak class="space-y-space-xl">
-                <div data-reveal>
-                    <h2 class="flex items-center gap-space-xs font-title-md text-title-md text-on-surface mb-space-lg">
-                        <span class="material-symbols-outlined hover-wiggle text-[22px] text-primary">bakery_dining</span>
-                        Bread Bases
-                    </h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
-                        <template x-for="item in components.bread" :key="item.id">
-                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
-                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
-                                <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
-                                <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
-                            </div>
-                        </template>
-                    </div>
+        {{-- OPENING --}}
+        <section class="doodle relative bg-surface-container-low pt-44 pb-space-xl">
+            <div class="max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-end">
+                <div class="lg:col-span-7" data-reveal>
+                    <p class="font-hand text-[30px] leading-none text-primary -rotate-2 origin-left mb-space-sm">the menu</p>
+                    <h1 class="font-headline-lg font-extrabold text-on-surface tracking-tight text-[clamp(3rem,9vw,7rem)] leading-[0.92]">
+                        Short on
+                        <span class="relative inline-block text-primary italic">purpose.
+                            <svg class="scribble absolute left-0 -bottom-[0.1em] w-full h-[0.2em]" viewBox="0 0 400 22" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false">
+                                <path d="M4 14C70 4 120 20 190 11s130-8 206 2" stroke="#f3c969" stroke-width="7" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                    </h1>
                 </div>
-
-                <div data-reveal>
-                    <h2 class="flex items-center gap-space-xs font-title-md text-title-md text-on-surface mb-space-lg">
-                        <span class="material-symbols-outlined hover-wiggle text-[22px] text-primary">icecream</span>
-                        Ice Cream Flavors
-                    </h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
-                        <template x-for="item in components.ice_cream" :key="item.id">
-                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
-                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
-                                <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
-                                <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-
-                <div data-reveal>
-                    <h2 class="flex items-center gap-space-xs font-title-md text-title-md text-on-surface mb-space-lg">
-                        <span class="material-symbols-outlined hover-wiggle text-[22px] text-primary">cookie</span>
-                        Toppings
-                    </h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md" data-reveal-group>
-                        <template x-for="item in components.topping" :key="item.id">
-                            <div class="hover-lift relative rounded border border-outline-variant/40 bg-surface-container-lowest p-space-md text-center shadow-[0_2px_8px_rgba(113,59,44,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(113,59,44,0.1)]" :class="item.stock_quantity <= 0 ? 'opacity-60' : ''" data-reveal>
-                                <span x-show="item.stock_quantity <= 0" x-cloak class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-on-surface/80 text-surface font-label-md text-label-md z-10">Sold Out</span>
-                                <img :src="window.INGREDIENT_IMAGES[item.name]" class="w-full h-20 object-contain mb-space-sm" :class="item.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
-                                <p class="font-label-lg text-label-lg text-on-surface" x-text="item.name"></p>
-                                <p class="font-price-tag text-price-tag text-primary" x-text="formatPrice(item.price)"></p>
-                            </div>
-                        </template>
-                    </div>
+                <div class="lg:col-span-5" data-reveal>
+                    <p class="font-body-lg text-[18px] leading-[28px] text-on-surface-variant">
+                        Two breads, three ice creams, two toppings. Pick a bread and an ice cream, add a topping
+                        if you want one, and that's your sandwich.
+                    </p>
+                    <p x-show="startsAt" x-cloak class="mt-space-md inline-flex items-baseline gap-2 bg-surface-container-lowest border border-outline-variant rounded-full pl-space-md pr-space-lg py-2 -rotate-1">
+                        <span class="font-hand text-[24px] leading-none text-primary">starts at</span>
+                        <span class="font-headline-sm text-[24px] leading-none font-extrabold text-on-surface" x-text="formatPrice(startsAt)"></span>
+                    </p>
                 </div>
             </div>
+        </section>
 
-            <div class="text-center mt-space-xl" data-reveal>
-                <a href="{{ route('build') }}" class="press-scale inline-flex items-center gap-space-xs justify-center rounded-full bg-primary-container text-on-primary-container px-space-lg py-space-sm font-label-lg text-label-lg shadow-[0_4px_12px_rgba(199,70,89,0.3)] hover:opacity-95 transition-[opacity,transform] duration-200">
-                    <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
-                    Start Building Your Own
-                </a>
-            </div>
+        <div x-show="loading" class="text-center font-body-lg text-body-lg text-on-surface-variant py-24">Loading menu…</div>
+        <div x-show="loadFailed" x-cloak role="alert" class="text-center font-body-lg text-body-lg text-on-surface-variant py-24">The menu could not load. Please refresh the page.</div>
+
+        <div x-show="!loading && !loadFailed" x-cloak>
+            @foreach ([
+                ['key' => 'bread', 'n' => '1', 'title' => 'Pick a bread', 'note' => 'choose one', 'grid' => 'md:grid-cols-2', 'bg' => 'bg-surface', 'drip' => 'chocolate', 'seed' => 0],
+                ['key' => 'ice_cream', 'n' => '2', 'title' => 'Pick an ice cream', 'note' => 'choose one', 'grid' => 'md:grid-cols-3', 'bg' => 'bg-surface-container-low doodle', 'drip' => 'vanilla', 'seed' => 1],
+                ['key' => 'topping', 'n' => '3', 'title' => 'Top it off', 'note' => 'optional, take both if you like', 'grid' => 'md:grid-cols-2', 'bg' => 'bg-surface', 'drip' => 'strawberry', 'seed' => 2],
+            ] as $group)
+                <section class="relative {{ $group['bg'] }} pt-44 pb-space-xl">
+                    @include('partials.drip', ['flavor' => $group['drip'], 'seed' => $group['seed']])
+                    <div class="max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop">
+                        <div class="flex items-end gap-space-md mb-space-lg" data-reveal>
+                            <span class="font-hand text-[96px] leading-[0.7] text-primary-container -rotate-6" aria-hidden="true">{{ $group['n'] }}</span>
+                            <div>
+                                <h2 class="font-headline-lg text-[clamp(2rem,5vw,3.25rem)] leading-none font-extrabold text-on-surface">{{ $group['title'] }}</h2>
+                                <p class="font-hand text-[24px] leading-none text-primary mt-1">{{ $group['note'] }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 {{ $group['grid'] }} gap-space-lg" data-reveal-group>
+                            <template x-for="item in components.{{ $group['key'] }}" :key="item.id">
+                                <a
+                                    href="{{ route('build') }}"
+                                    class="menu-tile"
+                                    :class="item.stock_quantity <= 0 ? 'is-sold-out' : ''"
+                                    :style="{ '--bg': lookFor(item).bg, '--ink': lookFor(item).ink, '--tilt': lookFor(item).tilt }"
+                                    :data-tip="item.stock_quantity <= 0 ? 'Out of stock right now. Check back soon.' : 'Build a sandwich with ' + item.name"
+                                    data-reveal
+                                >
+                                    <span class="menu-tile-price" x-text="formatPrice(item.price)"></span>
+                                    <span x-show="item.stock_quantity <= 0" x-cloak class="menu-tile-stamp font-hand">sold out</span>
+                                    <span class="menu-tile-art">
+                                        <img x-show="lookFor(item).cut" :src="lookFor(item).cut ? '/img/cutout/' + lookFor(item).cut + '.webp' : window.INGREDIENT_IMAGES[item.name]" alt="" loading="lazy">
+                                        <img x-show="!lookFor(item).cut" :src="window.INGREDIENT_IMAGES[item.name]" alt="" loading="lazy">
+                                        <template x-if="lookFor(item).top">
+                                            <img class="menu-tile-top" :src="'/img/cutout/' + lookFor(item).top + '.webp'" alt="">
+                                        </template>
+                                    </span>
+                                    <span class="menu-tile-text">
+                                        <span class="font-hand text-[24px] leading-none opacity-80" x-text="lookFor(item).note"></span>
+                                        <span class="menu-tile-name" x-text="item.name"></span>
+                                        <span class="menu-tile-desc" x-text="lookFor(item).desc"></span>
+                                    </span>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                </section>
+            @endforeach
         </div>
-    </section>
+
+        {{-- CLOSING --}}
+        <section class="relative bg-primary text-on-primary pt-48 pb-24 text-center overflow-hidden">
+            @include('partials.drip', ['flavor' => 'cream', 'seed' => 1])
+            <div class="max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop" data-reveal>
+                <p class="font-hand text-[30px] leading-none text-secondary-fixed -rotate-2 mb-space-sm">picked your three?</p>
+                <h2 class="font-headline-lg font-extrabold tracking-tight text-[clamp(2.75rem,8vw,6rem)] leading-[0.95]">Stack it in 3D.</h2>
+                <p class="mt-space-sm font-body-lg text-body-lg text-on-primary/85 max-w-md mx-auto">The Studio shows your sandwich as you build it. Turn it around, pull the layers apart, then order.</p>
+                <a href="{{ route('build') }}" class="btn-chunky inline-flex mt-space-lg bg-surface-container-lowest text-primary px-space-xl py-4 rounded-full font-label-lg text-[16px]" style="--chunk: #6f1326">Open the Studio</a>
+            </div>
+        </section>
+    </div>
 
 @endsection

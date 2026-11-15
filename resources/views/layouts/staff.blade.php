@@ -25,40 +25,41 @@
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-surface-container-low text-on-surface antialiased font-plus-jakarta">
+<body class="staff text-on-surface antialiased font-plus-jakarta">
 
     <div class="min-h-screen flex">
         {{-- SIDEBAR --}}
-        <aside class="hidden md:flex md:w-60 md:flex-col md:sticky md:top-0 md:h-screen bg-surface-container-lowest border-r border-outline-variant/30 shrink-0">
-            <div class="h-16 flex items-center gap-space-sm px-space-md border-b border-outline-variant/30">
-                <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-8 w-auto object-contain">
-                <span class="font-label-lg text-label-lg text-on-surface-variant">{{ $portalName }}</span>
+        <aside class="staff-side hidden md:flex md:w-64 md:flex-col md:sticky md:top-0 md:h-screen shrink-0">
+            <div class="staff-side-brand">
+                <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239">
+                <p class="staff-side-role font-hand">{{ strtolower($portalName) }}</p>
+                @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 1, 'drops' => false])
             </div>
-            <nav class="flex-1 p-space-sm space-y-1 overflow-y-auto" aria-label="Modules">
+            <nav class="flex-1 px-3 pt-12 pb-3 space-y-1 overflow-y-auto" aria-label="Modules">
                 @foreach ($navLinks as $link)
                     <a
                         href="{{ route($link['route']) }}"
                         @if (request()->routeIs($link['active'])) aria-current="page" @endif
-                        class="flex items-center gap-space-sm px-space-md py-space-xs rounded font-label-lg text-label-lg {{ request()->routeIs($link['active']) ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-container' }}"
+                        class="staff-link {{ request()->routeIs($link['active']) ? 'is-active' : '' }}"
                     >
                         <span class="material-symbols-outlined text-[20px]">{{ $link['icon'] }}</span>
                         {{ $link['label'] }}
                     </a>
                 @endforeach
             </nav>
-            <div class="p-space-sm border-t border-outline-variant/30">
-                <div class="flex items-center gap-space-sm px-space-md py-space-xs">
-                    <span class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-primary font-label-md text-label-md shrink-0">
+            <div class="p-3 border-t border-[#fbeee4]/15">
+                <div class="flex items-center gap-space-sm px-2 py-space-xs">
+                    <span class="w-9 h-9 rounded-full bg-[#f7a3b6] flex items-center justify-center text-[#40000e] font-headline-sm text-[16px] font-extrabold shrink-0">
                         {{ strtoupper(substr($currentUser->name, 0, 1)) }}
                     </span>
                     <div class="min-w-0">
-                        <p class="font-label-lg text-label-lg text-on-surface truncate">{{ $currentUser->name }}</p>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant truncate">{{ '@'.$currentUser->username }}</p>
+                        <p class="font-label-lg text-label-lg text-[#fff8f4] truncate">{{ $currentUser->name }}</p>
+                        <p class="font-body-sm text-body-sm text-[#fbeee4]/60 truncate">{{ '@'.$currentUser->username }}</p>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('staff.logout') }}" class="mt-1">
                     @csrf
-                    <button type="submit" class="w-full flex items-center gap-space-sm px-space-md py-space-xs rounded font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container">
+                    <button type="submit" class="staff-link w-full">
                         <span class="material-symbols-outlined text-[20px]">logout</span>
                         Log out
                     </button>
@@ -68,25 +69,25 @@
 
         {{-- MAIN --}}
         <div class="flex-1 min-w-0 flex flex-col">
-            <header class="md:hidden sticky top-0 z-40 bg-surface-container-lowest border-b border-outline-variant/30">
+            <header class="md:hidden sticky top-0 z-40 bg-[#f7a3b6] text-[#40000e]">
                 <div class="h-14 flex items-center justify-between px-margin">
                     <div class="flex items-center gap-space-sm min-w-0">
                         <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-7 w-auto object-contain">
-                        <span class="font-label-lg text-label-lg text-on-surface-variant truncate">{{ $portalName }}</span>
+                        <span class="font-hand text-[24px] leading-none text-[#5b0f22] truncate">{{ strtolower($portalName) }}</span>
                     </div>
                     <form method="POST" action="{{ route('staff.logout') }}">
                         @csrf
-                        <button type="submit" aria-label="Log out" class="w-10 h-10 -mr-2 flex items-center justify-center text-on-surface-variant">
+                        <button type="submit" aria-label="Log out" class="w-10 h-10 -mr-2 flex items-center justify-center text-[#5b0f22]">
                             <span class="material-symbols-outlined text-[22px]">logout</span>
                         </button>
                     </form>
                 </div>
-                <nav class="flex gap-space-xs overflow-x-auto px-margin pb-space-xs" aria-label="Modules">
+                <nav class="flex gap-space-xs overflow-x-auto px-margin pb-space-sm" aria-label="Modules">
                     @foreach ($navLinks as $link)
                         <a
                             href="{{ route($link['route']) }}"
                             @if (request()->routeIs($link['active'])) aria-current="page" x-data x-init="$el.scrollIntoView({ inline: 'center', block: 'nearest' })" @endif
-                            class="shrink-0 flex items-center gap-1.5 px-space-sm py-1.5 rounded-full font-label-md text-label-md {{ request()->routeIs($link['active']) ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface-variant' }}"
+                            class="shrink-0 flex items-center gap-1.5 px-space-sm py-1.5 rounded-full font-label-md text-label-md {{ request()->routeIs($link['active']) ? 'bg-[#fff8f4] text-primary shadow-[0_3px_0_#c9728a]' : 'bg-[#fff8f4]/45 text-[#5b0f22]' }}"
                         >
                             <span class="material-symbols-outlined text-[16px]">{{ $link['icon'] }}</span>
                             {{ $link['label'] }}
@@ -95,7 +96,15 @@
                 </nav>
             </header>
 
-            <main class="flex-1 p-margin md:p-margin-desktop">
+            <div class="staff-topbar">
+                <p class="staff-topbar-hi font-hand">hi, {{ strtok($currentUser->name, ' ') }}</p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="staff-chip"><span class="material-symbols-outlined text-[16px] text-primary">today</span>{{ now()->timezone('Asia/Jakarta')->translatedFormat('D, j M Y') }}</span>
+                    <span class="staff-chip"><span class="material-symbols-outlined text-[16px] text-primary">person</span>{{ $portalName }}</span>
+                </div>
+            </div>
+
+            <main class="flex-1 p-margin md:px-margin-desktop md:pt-space-lg md:pb-margin-desktop">
                 @yield('content')
             </main>
         </div>

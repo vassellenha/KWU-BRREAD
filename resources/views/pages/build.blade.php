@@ -4,28 +4,17 @@
 
 @section('content')
 
-    <main x-data="brreadBuilder()" class="w-full font-plus-jakarta">
+    <main x-data="brreadBuilder()" class="doodle doodle--clip w-full font-plus-jakarta bg-surface-container-low">
 
         <div class="max-w-[1440px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop py-space-lg flex flex-col gap-space-lg">
 
             {{-- IDENTITY BANNER --}}
-            <div class="bg-surface-container-lowest rounded-lg p-space-lg border border-outline-variant/30 shadow-[0_4px_16px_rgba(113,59,44,0.06)] flex flex-col lg:flex-row lg:items-center justify-between gap-space-md" data-reveal>
-                <div class="flex items-center gap-space-md">
-                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-secondary-fixed to-tertiary-fixed flex items-center justify-center text-primary shadow-inner shrink-0">
-                        <span class="material-symbols-outlined text-[30px]">auto_awesome</span>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-space-xs flex-wrap">
-                            <h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">Brread! Studio</h1>
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-md text-label-md">
-                                <span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
-                                Live Preview
-                            </span>
-                        </div>
-                        <p class="font-body-md text-body-md text-on-surface-variant mt-1 max-w-lg">
-                            Pick your base, your flavor, and your toppings — watch it come together live, then order it fresh.
-                        </p>
-                    </div>
+            <div class="bg-surface-container-lowest rounded-lg p-space-lg border border-outline-variant/30 flex flex-col lg:flex-row lg:items-center justify-between gap-space-md" data-reveal>
+                <div>
+                    <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Brread! Studio</h1>
+                    <p class="font-body-md text-body-md text-on-surface-variant mt-1 max-w-lg">
+                        Pick a bread, an ice cream flavor and your toppings. The 3D preview updates as you go, and you can order it when it looks right.
+                    </p>
                 </div>
                 <div class="flex items-center gap-space-sm flex-wrap">
                     <div class="flex items-center gap-1.5 px-space-md py-space-xs bg-surface-container rounded-full font-label-md text-label-md text-on-surface-variant">
@@ -84,6 +73,7 @@
                             @click="goToStep(tab.key)"
                             :disabled="isStepLocked(tab.key)"
                             :aria-current="currentStep === tab.key ? 'step' : null"
+                            :data-tip="isStepLocked(tab.key) ? 'Finish the step before this one first' : null"
                             class="press-scale flex items-center gap-space-sm p-space-sm rounded text-left border transition-colors duration-200 disabled:cursor-not-allowed"
                             :class="currentStep === tab.key ? 'bg-primary-container/15 border-primary-container' : 'border-transparent enabled:hover:bg-surface-container'"
                         >
@@ -106,6 +96,7 @@
                         @click="goToStep('cart')"
                         :disabled="isStepLocked('cart')"
                         :aria-current="currentStep === 'cart' ? 'step' : null"
+                        :data-tip="isStepLocked('cart') ? 'Pick a bread and a flavor first' : null"
                         class="press-scale flex items-center gap-space-sm p-space-sm rounded text-left border transition-colors duration-200 disabled:cursor-not-allowed"
                         :class="currentStep === 'cart' ? 'bg-primary-container/15 border-primary-container' : 'border-transparent'"
                     >
@@ -253,24 +244,12 @@
                 <div class="lg:col-span-5 flex flex-col gap-space-md">
                     <div class="relative w-full rounded-lg bg-gradient-to-b from-tertiary-fixed/50 via-surface-container-low to-secondary-fixed/30 p-space-lg flex flex-col items-center justify-between min-h-[560px] border border-outline-variant/30 shadow-[0_8px_28px_rgba(113,59,44,0.1)] overflow-hidden">
 
-                        <div class="w-full flex items-center justify-between z-10 gap-space-sm flex-wrap">
-                            <span class="px-space-md py-1 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-primary font-label-md text-label-md shadow-sm flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
-                                Made By You
-                            </span>
-                            <span class="flex items-center gap-1.5 bg-surface-container-lowest/95 backdrop-blur-md px-space-md py-1 rounded-full shadow-sm font-label-md text-label-md text-on-surface">
-                                <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-                                Live Recipe Synced
-                            </span>
-                        </div>
-
                         <div x-ref="stackPreview" class="relative w-full flex-1 min-h-[340px] flex flex-col items-center justify-center my-space-md select-none">
-                            <div class="absolute w-72 h-72 rounded-full bg-secondary-fixed/40 blur-3xl pointer-events-none"></div>
 
                             {{-- 3D stage: resources/js/studio3d.js mounts its canvas here. Drag to orbit the sandwich a full 360°. --}}
                             <div
                                 x-ref="studio3d"
-                                class="absolute inset-0 transition-opacity duration-500"
+                                class="stage-fade absolute inset-0 transition-opacity duration-500"
                                 :class="studio3dReady ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                             ></div>
 
@@ -316,7 +295,7 @@
                             </div>
 
                             <div x-show="!selectedBread" x-cloak class="absolute inset-0 flex items-center justify-center text-center font-body-sm text-body-sm text-on-surface-variant px-space-lg pointer-events-none">
-                                Pick a bread base to start stacking →
+                                Pick a bread to start
                             </div>
 
                             <div
@@ -329,13 +308,13 @@
                             </div>
 
                             <div x-show="studio3dReady && selectedBread" x-cloak class="absolute right-0 bottom-0 flex flex-col gap-1 bg-surface-container-lowest/95 backdrop-blur-md p-1 rounded-lg shadow-sm border border-outline-variant/30">
-                                <button type="button" @click="studio3dZoom(1.25)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Zoom in" aria-label="Zoom in">
+                                <button type="button" @click="studio3dZoom(1.25)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" data-tip="Zoom in" aria-label="Zoom in">
                                     <span class="material-symbols-outlined text-[18px]">zoom_in</span>
                                 </button>
-                                <button type="button" @click="studio3dZoom(0.8)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Zoom out" aria-label="Zoom out">
+                                <button type="button" @click="studio3dZoom(0.8)" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" data-tip="Zoom out" aria-label="Zoom out">
                                     <span class="material-symbols-outlined text-[18px]">zoom_out</span>
                                 </button>
-                                <button type="button" @click="studio3dResetView()" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" title="Reset view" aria-label="Reset view">
+                                <button type="button" @click="studio3dResetView()" class="press-scale w-8 h-8 rounded hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors duration-200" data-tip="Back to the starting angle" aria-label="Reset view">
                                     <span class="material-symbols-outlined text-[18px]">center_focus_strong</span>
                                 </button>
                             </div>
@@ -343,20 +322,20 @@
 
                         <div class="w-full flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-lowest/95 backdrop-blur-md px-space-sm py-space-xs rounded-lg shadow-sm border border-outline-variant/30 z-10">
                             <div class="flex items-center gap-space-xs">
-                                <button type="button" @click="toggleExplodedView()" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" :class="explodedView ? 'bg-primary-container/20 text-primary' : ''">
+                                <button type="button" @click="toggleExplodedView()" :aria-pressed="explodedView" data-tip="Pull the layers apart to see each one" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" :class="explodedView ? 'bg-primary-container/20 text-primary' : ''">
                                     <span class="material-symbols-outlined text-[16px] text-primary">unfold_more</span>
-                                    Exploded View
+                                    Layers
                                 </button>
-                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" title="Clear everything and start over">
+                                <button type="button" @click="resetStage()" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" data-tip="Clear everything and start over">
                                     <span class="material-symbols-outlined text-[16px]">restart_alt</span>
                                     Reset
                                 </button>
                                 <span class="w-px h-5 bg-outline-variant/40 mx-0.5"></span>
-                                <button type="button" @click="undo()" :disabled="!canUndo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Undo">
+                                <button type="button" @click="undo()" :disabled="!canUndo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" data-tip="Undo the last change">
                                     <span class="material-symbols-outlined text-[16px]">undo</span>
                                     <span class="hidden sm:inline">Undo</span>
                                 </button>
-                                <button type="button" @click="redo()" :disabled="!canRedo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" title="Redo">
+                                <button type="button" @click="redo()" :disabled="!canRedo" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" data-tip="Redo">
                                     <span class="material-symbols-outlined text-[16px]">redo</span>
                                     <span class="hidden sm:inline">Redo</span>
                                 </button>
@@ -405,11 +384,11 @@
                         <div class="flex items-center justify-between border-t border-outline-variant/30 pt-space-sm">
                             <span class="font-label-md text-label-md text-on-surface-variant">Quantity</span>
                             <div class="flex items-center gap-1.5 bg-surface-container rounded-full p-0.5">
-                                <button type="button" @click="decrementQty()" :disabled="creationQuantity <= 1" aria-label="Decrease quantity" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <button type="button" @click="decrementQty()" :disabled="creationQuantity <= 1" aria-label="Decrease quantity" data-tip="One less" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[18px]">remove</span>
                                 </button>
                                 <span class="font-label-lg text-label-lg text-on-surface w-6 text-center tabular-nums" x-text="creationQuantity"></span>
-                                <button type="button" @click="incrementQty()" :disabled="creationQuantity >= maxQuantity" aria-label="Increase quantity" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <button type="button" @click="incrementQty()" :disabled="creationQuantity >= maxQuantity" aria-label="Increase quantity" data-tip="One more" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[18px]">add</span>
                                 </button>
                             </div>
@@ -473,8 +452,8 @@
                         <span class="material-symbols-outlined text-[24px]">bakery_dining</span>
                     </span>
                     <div>
-                        <h4 class="font-title-md text-title-md text-on-surface mb-1">Authentic Fluffy Loaf</h4>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant">Baked fresh daily — pick plain white for classic softness or whole wheat for a heartier, less-sweet bite.</p>
+                        <h4 class="font-title-md text-title-md text-on-surface mb-1">Bread baked daily</h4>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Plain white for a soft, classic bite, or whole wheat if you want it less sweet.</p>
                     </div>
                 </div>
                 <div class="bg-surface-container-lowest rounded-lg p-space-lg flex items-start gap-space-md border border-outline-variant/30 shadow-sm" data-reveal>
@@ -482,8 +461,8 @@
                         <span class="material-symbols-outlined text-[24px]">ac_unit</span>
                     </span>
                     <div>
-                        <h4 class="font-title-md text-title-md text-on-surface mb-1">Zero-Melt Delivery</h4>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant">Every order is packed in chilled insulated foil, straight to your door across Jakarta.</p>
+                        <h4 class="font-title-md text-title-md text-on-surface mb-1">Delivered frozen</h4>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Every order travels in an insulated box to your door across Jakarta.</p>
                     </div>
                 </div>
                 <div class="bg-surface-container-lowest rounded-lg p-space-lg flex items-start gap-space-md border border-outline-variant/30 shadow-sm" data-reveal>
@@ -491,8 +470,8 @@
                         <span class="material-symbols-outlined text-[24px]">sentiment_very_satisfied</span>
                     </span>
                     <div>
-                        <h4 class="font-title-md text-title-md text-on-surface mb-1">150,000+ Happy Scoops</h4>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant">Rated 4.9/5 by sandwich fans across Jakarta — build yours and see why.</p>
+                        <h4 class="font-title-md text-title-md text-on-surface mb-1">Free replacement</h4>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">If your order arrives melted, we send a new box at no charge.</p>
                     </div>
                 </div>
             </div>

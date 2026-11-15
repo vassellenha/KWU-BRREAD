@@ -840,6 +840,89 @@ Alpine.data('brreadBuilder', () => ({
 }));
 
 // The quick-add cards on the home page sell the same signature combos as the Studio.
+// Home hero: the same 3D sandwich the Studio uses, with three ready-made combos to flip through.
+// Kept outside Alpine state for the same reason as studio3d above. The photo stays as the
+// fallback whenever the scene cannot start (no WebGL, data saver on, chunk failed to load).
+let hero3d = null;
+
+const HERO_COMBOS = [
+    {
+        key: 'strawberry',
+        label: 'Strawberry',
+        swatch: '#F8B8C4',
+        summary: 'White bread · strawberry · sprinkles',
+        state: { bread: 'Plain White Bread', flavor: 'Strawberry', flavorColor: '#F8B8C4', sauce: false, sprinkles: true, exploded: false },
+    },
+    {
+        key: 'vanilla',
+        label: 'Vanilla',
+        swatch: '#F3E9D2',
+        summary: 'Whole wheat · vanilla · chocolate sauce',
+        state: { bread: 'Whole Wheat Bread', flavor: 'Vanilla', flavorColor: '#F3E9D2', sauce: true, sprinkles: false, exploded: false },
+    },
+    {
+        key: 'chocolate',
+        label: 'Chocolate',
+        swatch: '#5C3A21',
+        summary: 'Whole wheat · chocolate',
+        state: { bread: 'Whole Wheat Bread', flavor: 'Chocolate', flavorColor: '#5C3A21', sauce: false, sprinkles: false, exploded: false },
+    },
+];
+
+Alpine.data('heroSandwich', () => ({
+    combos: HERO_COMBOS,
+    active: 'strawberry',
+    ready: false,
+    touched: false,
+    exploded: false,
+
+    get activeCombo() {
+        return this.combos.find((combo) => combo.key === this.active);
+    },
+
+    init() {
+        const start = () => this.mount();
+        if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 1500 });
+        else setTimeout(start, 300);
+    },
+
+    stateFor(key) {
+        return { ...this.combos.find((combo) => combo.key === key).state, exploded: this.exploded };
+    },
+
+    async mount() {
+        const host = this.$refs?.stage;
+        if (!host || hero3d || navigator.connection?.saveData) return;
+
+        try {
+            const { createStudio3D, supportsWebGL } = await import('./studio3d.js');
+            if (!supportsWebGL()) return;
+
+            hero3d = createStudio3D(host, {
+                reducedMotion: prefersReducedMotion(),
+                onInteract: () => (this.touched = true),
+            });
+            await hero3d.setState(this.stateFor(this.active));
+            this.ready = true;
+        } catch (error) {
+            console.warn('Hero 3D preview unavailable, keeping the photo.', error);
+            hero3d?.dispose();
+            hero3d = null;
+            this.ready = false;
+        }
+    },
+
+    pick(key) {
+        this.active = key;
+        hero3d?.setState(this.stateFor(key)).catch(() => {});
+    },
+
+    toggleExploded() {
+        this.exploded = !this.exploded;
+        hero3d?.setState(this.stateFor(this.active)).catch(() => {});
+    },
+}));
+
 Alpine.data('signatureMenu', (products) => ({
     activeFilter: 'all',
     toastVisible: false,
@@ -903,7 +986,7 @@ Alpine.data('signatureMenu', (products) => ({
             imageSrc: img?.src,
             onLand: () => {
                 window.__brreadFx.pop(badge);
-                this.showToast('Added to Sweet Cart!');
+                this.showToast('Added to cart');
             },
         });
     },
@@ -915,6 +998,221 @@ window.Alpine = Alpine;
 Alpine.start();
 
 // Entrance reveals: fade + rise once an element scrolls into view, staggered within each group.
+// Tooltips: any element with data-tip="…" gets one. A single floating node is reused, placed
+// above the target (below when there is no room) and kept inside the viewport. Shown on mouse
+// hover after a short delay and on keyboard focus; touch never triggers it, the label or
+// aria-label already covers that case.
+function initTooltips() {
+    const tip = document.createElement('div');
+    tip.className = 'brread-tip';
+    tip.setAttribute('role', 'tooltip');
+    tip.id = 'brread-tip';
+    document.body.appendChild(tip);
+
+    let target = null;
+    let timer = null;
+
+    const place = () => {
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
+        const gap = 8;
+        const margin = 8;
+        const width = tip.offsetWidth;
+        const height = tip.offsetHeight;
+        const centre = rect.left + rect.width / 2;
+        const left = Math.min(Math.max(centre - width / 2, margin), window.innerWidth - width - margin);
+        const above = rect.top - height - gap >= margin;
+        const top = above ? rect.top - height - gap : rect.bottom + gap;
+
+        tip.style.left = `${Math.round(left)}px`;
+        tip.style.top = `${Math.round(top)}px`;
+        tip.style.setProperty('--arrow-x', `${Math.round(Math.min(Math.max(centre - left, 12), width - 12))}px`);
+        tip.dataset.side = above ? 'top' : 'bottom';
+    };
+
+    const hide = () => {
+        clearTimeout(timer);
+        if (target) target.removeAttribute('aria-describedby');
+        target = null;
+        delete tip.dataset.show;
+    };
+
+    const show = (el, delay) => {
+        const text = el.getAttribute('data-tip');
+        if (!text || el === target) return;
+        hide();
+        target = el;
+        timer = setTimeout(() => {
+            if (target !== el || !el.isConnected) return;
+            tip.textContent = el.getAttribute('data-tip');
+            el.setAttribute('aria-describedby', tip.id);
+            place();
+            tip.dataset.show = 'true';
+        }, delay);
+    };
+
+    const tipOwner = (node) => (node instanceof Element ? node.closest('[data-tip]') : null);
+
+    document.addEventListener('pointerover', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        const el = tipOwner(event.target);
+        if (el) show(el, 350);
+    });
+    document.addEventListener('pointerout', (event) => {
+        if (!target || event.pointerType !== 'mouse') return;
+        if (!target.contains(event.relatedTarget)) hide();
+    });
+    document.addEventListener('focusin', (event) => {
+        const el = tipOwner(event.target);
+        if (el && event.target.matches(':focus-visible')) show(el, 100);
+    });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('pointerdown', hide);
+    document.addEventListener('keydown', (event) => event.key === 'Escape' && hide());
+    window.addEventListener('scroll', hide, { passive: true, capture: true });
+    window.addEventListener('resize', hide);
+}
+
+initTooltips();
+
+// Custom scrollbar for mouse users: a little ice cream sandwich rides down the right edge and
+// leaves a melted strawberry trail behind it. Touch devices and reduced-data setups keep the native scrollbar; keyboard
+// and wheel scrolling are untouched because the page itself still scrolls normally.
+function initScoopbar() {
+    if (!document.getElementById('site-footer')) return;
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+    const bar = document.createElement('div');
+    bar.className = 'scoopbar';
+    bar.setAttribute('aria-hidden', 'true');
+    bar.innerHTML = `
+        <div class="scoopbar-melt"></div>
+        <div class="scoopbar-thumb" data-tip="Drag me to scroll">
+            <svg viewBox="0 0 40 56" width="40" height="56" fill="none">
+                <rect x="6" y="15" width="28" height="26" rx="5" fill="#f58fa6"/>
+                <path d="M6 33v3a5 5 0 0 0 5 5h3v4a3 3 0 0 0 6 0v-4h9a5 5 0 0 0 5-5v-3z" fill="#f58fa6"/>
+                <g stroke-width="2.4" stroke-linecap="round">
+                    <path d="M11 23l3 2" stroke="#fff3c4"/><path d="M19 21l3-1" stroke="#9cc9cf"/><path d="M27 24l2 2" stroke="#fff"/>
+                    <path d="M13 31l2-2" stroke="#fff"/><path d="M23 30l3 1" stroke="#f3c969"/>
+                </g>
+                <rect x="2" y="2" width="36" height="15" rx="7" fill="#f6e6cb" stroke="#d39a52" stroke-width="3"/>
+                <rect x="2" y="37" width="36" height="15" rx="7" fill="#f6e6cb" stroke="#d39a52" stroke-width="3"/>
+                <path d="M9 8h9" stroke="#fff" stroke-opacity=".8" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+        </div>`;
+    document.body.appendChild(bar);
+    document.documentElement.classList.add('has-scoopbar');
+
+    const thumb = bar.querySelector('.scoopbar-thumb');
+    const melt = bar.querySelector('.scoopbar-melt');
+    const THUMB = 56;
+    let max = 0;
+    let travel = 0;
+    let queued = false;
+    let grabOffset = null;
+    let idle = null;
+
+    const scrollToY = (y) => {
+        if (window.__lenis) window.__lenis.scrollTo(y, { immediate: true, force: true });
+        else window.scrollTo(0, y);
+    };
+
+    const render = () => {
+        queued = false;
+        max = document.documentElement.scrollHeight - window.innerHeight;
+        bar.classList.toggle('is-hidden', max <= 8);
+        travel = bar.clientHeight - THUMB;
+        const y = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) * travel : 0;
+        thumb.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;
+        melt.style.height = `${(y + 12).toFixed(1)}px`;
+    };
+    const queue = () => {
+        if (!queued) {
+            queued = true;
+            requestAnimationFrame(render);
+        }
+    };
+
+    window.addEventListener(
+        'scroll',
+        () => {
+            queue();
+            bar.classList.add('is-moving');
+            clearTimeout(idle);
+            idle = setTimeout(() => bar.classList.remove('is-moving'), 180);
+        },
+        { passive: true },
+    );
+    window.addEventListener('resize', queue);
+    new ResizeObserver(queue).observe(document.body);
+
+    const dragTo = (clientY) => {
+        const top = bar.getBoundingClientRect().top;
+        const y = Math.min(travel, Math.max(0, clientY - top - grabOffset));
+        scrollToY(travel > 0 ? (y / travel) * max : 0);
+    };
+    bar.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        const rect = thumb.getBoundingClientRect();
+        const onThumb = event.clientY >= rect.top && event.clientY <= rect.bottom;
+        grabOffset = onThumb ? event.clientY - rect.top : THUMB / 2;
+        bar.setPointerCapture(event.pointerId);
+        bar.classList.add('is-dragging');
+        dragTo(event.clientY);
+    });
+    bar.addEventListener('pointermove', (event) => grabOffset !== null && dragTo(event.clientY));
+    const release = () => {
+        grabOffset = null;
+        bar.classList.remove('is-dragging');
+    };
+    bar.addEventListener('pointerup', release);
+    bar.addEventListener('pointercancel', release);
+
+    render();
+}
+
+initScoopbar();
+
+// Looping decoration (sprinkle wallpaper, breathing drips, falling droplets) only animates
+// while its section is near the viewport.
+function initOffscreenPausing() {
+    const targets = document.querySelectorAll('.doodle, .drip');
+    if (!targets.length || !('IntersectionObserver' in window)) return;
+    const observer = new IntersectionObserver(
+        (entries) => entries.forEach((entry) => entry.target.classList.toggle('is-off', !entry.isIntersecting)),
+        { rootMargin: '200px 0px' },
+    );
+    targets.forEach((el) => observer.observe(el));
+}
+
+initOffscreenPausing();
+
+// About page: Lenis smooth scroll and the scroll-driven chapters, loaded only there.
+const aboutRoot = document.querySelector('[data-about]');
+if (aboutRoot) {
+    import('./about.js')
+        .then(({ initAbout }) => {
+            const lenis = initAbout(aboutRoot, { reducedMotion: prefersReducedMotion() });
+            // The cart drawer scrolls on its own; hold the page still while it is open.
+            if (!lenis) return;
+            window.__lenis = lenis; // the custom scrollbar drags through Lenis when it is running
+            Alpine.effect(() => (Alpine.store('cart').open ? lenis.stop() : lenis.start()));
+        })
+        .catch((error) => console.warn('About page effects unavailable.', error));
+}
+
+// The entry intro is driven entirely by CSS (it leaves even if this script never runs);
+// this only clears the node out of the DOM afterwards.
+const intro = document.getElementById('brread-intro');
+if (intro) {
+    const done = () => intro.remove();
+    if (document.documentElement.classList.contains('no-intro')) done();
+    else {
+        intro.addEventListener('animationend', (event) => event.animationName === 'intro-out' && done());
+        setTimeout(done, 4000);
+    }
+}
+
 // Watches for elements added after the initial paint too (Alpine x-for lists populated by an
 // async axios call render their [data-reveal] nodes well after DOMContentLoaded).
 function initReveals() {

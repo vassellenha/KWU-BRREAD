@@ -14,21 +14,23 @@
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
+<body class="staff staff-login doodle bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
+    @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 2, 'drops' => false])
 
     <main class="w-full max-w-sm" x-data="{
         username: @js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')),
         password: @js($quickLoginEnabled ? $quickLoginPassword : ''),
     }">
         <div class="flex flex-col items-center mb-space-lg">
-            <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-14 w-auto object-contain mb-space-sm">
-            <h1 class="font-title-md text-title-md text-on-surface">{{ $portalName }}</h1>
+            <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
+            <p class="font-hand text-[28px] leading-none text-primary -rotate-2">behind the counter</p>
+            <h1 class="font-headline-lg text-[34px] leading-tight font-extrabold text-on-surface">{{ $portalName }}</h1>
             <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
                 {{ $isAdminPortal ? 'Full access to every module' : 'Sign in to open your module' }}
             </p>
         </div>
 
-        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 shadow-[0_4px_16px_rgba(113,59,44,0.06)] p-space-lg">
+        <div class="staff-login-card bg-surface-container-lowest rounded-lg border border-outline-variant/40 p-space-lg">
             @if ($errors->any())
                 <div role="alert" class="mb-space-md px-space-md py-space-sm rounded bg-error-container text-on-error-container font-body-sm text-body-sm">
                     {{ $errors->first() }}
