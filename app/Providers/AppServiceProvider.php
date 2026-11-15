@@ -24,11 +24,19 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(10)
-                ->by(Str::lower((string) $request->input('username')).'|'.$request->ip())
-                ->response(fn () => back()
-                    ->withErrors(['username' => 'Too many sign-in attempts. Wait a minute and try again.'])
-                    ->onlyInput('username'));
+            // A non-string username (username[]=x) must not crash the key builder.
+            $username = $request->input('username');
+            $username = is_string($username) ? Str::lower($username) : '';
+            $tooMany = fn () => back()
+                ->withErrors(['username' => 'Too many sign-in attempts. Wait a minute and try again.'])
+                ->onlyInput('username');
+
+            return [
+                // Guessing one account's password.
+                Limit::perMinute(10)->by('user:'.$username.'|'.$request->ip())->response($tooMany),
+                // Trying many accounts from one address.
+                Limit::perMinute(30)->by('ip:'.$request->ip())->response($tooMany),
+            ];
         });
 
         RateLimiter::for('orders', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));

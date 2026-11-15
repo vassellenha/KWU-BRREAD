@@ -17,6 +17,12 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        // Don't advertise the PHP version.
+        $response->headers->remove('X-Powered-By');
+        if (! headers_sent()) {
+            header_remove('X-Powered-By');
+        }
+
         $headers = [
             'X-Frame-Options' => 'DENY',
             'X-Content-Type-Options' => 'nosniff',

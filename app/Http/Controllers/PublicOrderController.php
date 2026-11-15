@@ -56,6 +56,11 @@ class PublicOrderController extends Controller
             return back()->with('error', 'Pesanan yang dibatalkan tidak dapat diulas.');
         }
 
+        // One review per order: a leaked status link must not let someone replace it.
+        if ($order->hasReview()) {
+            return back()->with('error', 'Pesanan ini sudah diulas. Terima kasih!');
+        }
+
         $validated = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
             'review_text' => ['nullable', 'string', 'max:1000'],

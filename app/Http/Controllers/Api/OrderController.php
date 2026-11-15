@@ -22,8 +22,9 @@ class OrderController extends Controller
         $validated = $request->validate([
             'customer_name' => ['required', 'string', 'max:255', new PersonName],
             'customer_phone' => ['required', 'string', 'max:30', new PhoneNumber],
-            'items' => ['required', 'array', 'min:1', 'max:20'],
-            'items.*.component_ids' => ['required', 'array', 'min:2', 'max:10'],
+            'items' => ['required', 'list', 'min:1', 'max:20'],
+            'items.*' => ['required', 'array'],
+            'items.*.component_ids' => ['required', 'list', 'min:2', 'max:10'],
             'items.*.component_ids.*' => ['integer', 'exists:components,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
         ], [

@@ -26,7 +26,7 @@ class AuthPortalTest extends TestCase
     public static function staffAccounts(): array
     {
         return [
-            'mrp' => ['staffmrp', '/staff/mrp'],
+            'mrp' => ['staffmrp', '/staff/orders'],
             'hr' => ['staffhr', '/staff/hr'],
             'accounting' => ['staffacc', '/staff/accounting'],
         ];
@@ -45,7 +45,7 @@ class AuthPortalTest extends TestCase
     public function test_usernames_ignore_the_capital_a_phone_keyboard_adds(): void
     {
         $this->post('/staff', ['username' => 'Staffmrp', 'password' => '12345678'])
-            ->assertRedirect('/staff/mrp');
+            ->assertRedirect('/staff/orders');
 
         $this->assertAuthenticated();
     }
@@ -90,19 +90,19 @@ class AuthPortalTest extends TestCase
     public function test_an_admin_signs_in_at_admin(): void
     {
         $this->post('/admin', ['username' => 'admin', 'password' => 'brread-admin-2026'])
-            ->assertRedirect('/staff/mrp');
+            ->assertRedirect('/staff/orders');
 
         $this->assertAuthenticated();
     }
 
-    public function test_the_admin_portal_prefills_the_credentials_when_quick_login_is_on(): void
+    public function test_the_admin_portal_offers_quick_login_without_printing_the_password(): void
     {
         config(['auth.admin_quick_login' => true]);
 
         $this->get('/admin')
             ->assertOk()
             ->assertSee('Quick login')
-            ->assertSee('brread-admin-2026');
+            ->assertDontSee('brread-admin-2026');
     }
 
     public function test_the_admin_portal_never_exposes_the_password_when_quick_login_is_off(): void
@@ -117,7 +117,7 @@ class AuthPortalTest extends TestCase
     {
         config(['auth.admin_quick_login' => true]);
 
-        $this->post('/admin/quick-login')->assertRedirect('/staff/mrp');
+        $this->post('/admin/quick-login')->assertRedirect('/staff/orders');
 
         $this->assertAuthenticatedAs(User::where('username', 'admin')->first());
     }
@@ -149,7 +149,7 @@ class AuthPortalTest extends TestCase
         $this->get('/staff/accounting')->assertRedirect('/staff');
 
         $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])
-            ->assertRedirect('/staff/mrp');
+            ->assertRedirect('/staff/orders');
     }
 
     #[DataProvider('staffAccounts')]
