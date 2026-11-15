@@ -125,6 +125,10 @@ return [
     |
     */
 
-    'admin_quick_login' => env('ADMIN_QUICK_LOGIN', true),
+    // One-click admin sign-in for local development only. Off unless APP_ENV=local, and the
+    // controller additionally refuses any host that is not localhost, so a deployed copy
+    // never offers it even when this file's default or a committed .env says otherwise.
+    'admin_quick_login' => (bool) env('ADMIN_QUICK_LOGIN', env('APP_ENV') === 'local'),
+
 
 ];

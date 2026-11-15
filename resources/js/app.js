@@ -1080,14 +1080,15 @@ initTooltips();
 // and wheel scrolling are untouched because the page itself still scrolls normally.
 function initScoopbar() {
     if (!document.getElementById('site-footer')) return;
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    // Mouse: always there, drag anywhere on the rail. Touch: shows while scrolling, drag the sandwich.
+    const touch = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
     const bar = document.createElement('div');
-    bar.className = 'scoopbar';
+    bar.className = touch ? 'scoopbar scoopbar--touch' : 'scoopbar';
     bar.setAttribute('aria-hidden', 'true');
     bar.innerHTML = `
         <div class="scoopbar-melt"></div>
-        <div class="scoopbar-thumb" data-tip="Drag me to scroll">
+        <div class="scoopbar-thumb" ${touch ? '' : 'data-tip="Drag me to scroll"'}>
             <svg viewBox="0 0 40 56" width="40" height="56" fill="none">
                 <rect x="6" y="15" width="28" height="26" rx="5" fill="#f58fa6"/>
                 <path d="M6 33v3a5 5 0 0 0 5 5h3v4a3 3 0 0 0 6 0v-4h9a5 5 0 0 0 5-5v-3z" fill="#f58fa6"/>
@@ -1105,7 +1106,14 @@ function initScoopbar() {
 
     const thumb = bar.querySelector('.scoopbar-thumb');
     const melt = bar.querySelector('.scoopbar-melt');
-    const THUMB = 56;
+    const THUMB = touch ? 42 : 56;
+    let awake = null;
+    const wake = () => {
+        if (!touch) return;
+        bar.classList.add('is-awake');
+        clearTimeout(awake);
+        awake = setTimeout(() => bar.classList.remove('is-awake'), 1600);
+    };
     let max = 0;
     let travel = 0;
     let queued = false;
@@ -1137,6 +1145,7 @@ function initScoopbar() {
         'scroll',
         () => {
             queue();
+            wake();
             bar.classList.add('is-moving');
             clearTimeout(idle);
             idle = setTimeout(() => bar.classList.remove('is-moving'), 180);
@@ -1164,11 +1173,13 @@ function initScoopbar() {
     const release = () => {
         grabOffset = null;
         bar.classList.remove('is-dragging');
+        wake();
     };
     bar.addEventListener('pointerup', release);
     bar.addEventListener('pointercancel', release);
 
     render();
+    wake();
 }
 
 initScoopbar();

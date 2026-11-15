@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7a3b6">
     <title>@yield('title', 'Brread!') — Singapore Ice Cream Sandwich</title>
     {{-- Entry intro plays once per browser session; decided before first paint so it never flashes. --}}
     <script>try{if(sessionStorage.getItem('brreadIntro')||matchMedia('(prefers-reduced-motion: reduce)').matches){document.documentElement.classList.add('no-intro')}else{sessionStorage.setItem('brreadIntro','1')}}catch(e){document.documentElement.classList.add('no-intro')}</script>
@@ -47,11 +48,13 @@
         </div>
     </div>
 
+    <a href="#main" class="skip-link">Skip to content</a>
+
     @include('partials.navbar')
 
-    <div class="pt-20">
+    <main id="main" class="pt-20">
         @yield('content')
-    </div>
+    </main>
 
     @include('partials.footer')
 

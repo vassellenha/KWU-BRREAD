@@ -285,7 +285,7 @@
                                             :aria-label="i + ' Bintang'"
                                         >
                                             <span
-                                                class="material-symbols-outlined text-[36px] sm:text-[40px] transition-all duration-150 shrink-0 block leading-none"
+                                                class="material-symbols-outlined text-[36px] sm:text-[40px] transition-[color,transform] duration-150 shrink-0 block leading-none"
                                                 :class="(hoverRating ? i <= hoverRating : i <= rating) ? 'text-amber-400 drop-shadow-sm scale-105 fill' : 'text-stone-300 hover:text-amber-300 scale-100 outline'"
                                                 :style="(hoverRating ? i <= hoverRating : i <= rating) ? 'font-variation-settings: \'FILL\' 1;' : 'font-variation-settings: \'FILL\' 0;'"
                                             >
@@ -295,7 +295,7 @@
                                     </template>
                                 </div>
                                 <span
-                                    class="ml-1 font-label-md text-label-md text-amber-900 font-bold px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200/70 inline-flex items-center transition-all duration-150 shadow-xs"
+                                    class="ml-1 font-label-md text-label-md text-amber-900 font-bold px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200/70 inline-flex items-center transition-colors duration-150 shadow-xs"
                                     x-text="labels[hoverRating || rating]"
                                 ></span>
                             </div>

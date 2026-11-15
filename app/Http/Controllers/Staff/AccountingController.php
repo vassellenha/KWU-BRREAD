@@ -71,13 +71,15 @@ class AccountingController extends Controller
      */
     private function buildLedger(CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $orders = Order::whereBetween('created_at', [$from, $to->endOfDay()])->get();
+        $orders = Order::where('status', '!=', Order::STATUS_CANCELLED)
+            ->whereBetween('created_at', [$from, $to->endOfDay()])
+            ->get();
         $expenses = Expense::whereBetween('expense_date', [$from, $to->endOfDay()])->get();
 
         $totalIncome = (float) $orders->sum('total_price');
         $totalExpenses = (float) $expenses->sum('amount');
 
-        $openingBalance = (float) Order::where('created_at', '<', $from)->sum('total_price')
+        $openingBalance = (float) Order::where('status', '!=', Order::STATUS_CANCELLED)->where('created_at', '<', $from)->sum('total_price')
             - (float) Expense::where('expense_date', '<', $from)->sum('amount');
         $closingBalance = $openingBalance + $totalIncome - $totalExpenses;
 

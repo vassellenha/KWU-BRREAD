@@ -74,8 +74,8 @@
                     <div class="rounded border bg-surface-container-lowest p-space-sm" :class="$store.cart.lineProblem(item) ? 'border-error/60' : 'border-outline-variant/30'">
                         <div class="flex gap-space-sm">
                             <div class="flex-1 min-w-0">
-                                <p class="font-label-lg text-label-lg text-on-surface truncate" x-text="item.bread.name + ' · ' + item.flavor.name"></p>
-                                <p class="font-body-sm text-body-sm text-on-surface-variant truncate" x-text="item.toppings.length ? item.toppings.map((t) => t.name).join(', ') : 'No toppings'"></p>
+                                <p class="font-label-lg text-label-lg text-on-surface truncate" :title="item.bread.name + ' · ' + item.flavor.name" x-text="item.bread.name + ' · ' + item.flavor.name"></p>
+                                <p class="font-body-sm text-body-sm text-on-surface-variant truncate" :title="item.toppings.map((t) => t.name).join(', ')" x-text="item.toppings.length ? item.toppings.map((t) => t.name).join(', ') : 'No toppings'"></p>
                             </div>
                             <button type="button" @click="$store.cart.remove(item.uid)" aria-label="Remove from cart" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors duration-200 shrink-0">
                                 <span class="material-symbols-outlined text-[18px]">delete</span>

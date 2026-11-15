@@ -4,7 +4,7 @@
 
 @section('content')
 
-    <main x-data="brreadBuilder()" class="doodle doodle--clip w-full font-plus-jakarta bg-surface-container-low">
+    <div x-data="brreadBuilder()" class="doodle doodle--clip w-full font-plus-jakarta bg-surface-container-low">
 
         <div class="max-w-[1440px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop py-space-lg flex flex-col gap-space-lg">
 
@@ -261,7 +261,7 @@
                                 >
                                     <img
                                         :src="breadImage" x-show="breadImage" x-cloak src="" alt=""
-                                        class="w-full drop-shadow-xl relative z-30 pointer-events-none select-none transition-all duration-500"
+                                        class="w-full drop-shadow-xl relative z-30 pointer-events-none select-none transition-[margin] duration-500"
                                         :class="explodedView ? '-mb-2' : ''"
                                         x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
                                         x-transition:enter-start="opacity-0 -translate-y-4 scale-95"
@@ -269,7 +269,7 @@
                                     >
                                     <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high"></div>
 
-                                    <div class="relative z-20 w-[82%] aspect-[2.6/1] transition-all duration-500" :class="explodedView ? 'mt-2 mb-2' : '-mt-8'">
+                                    <div class="relative z-20 w-[82%] aspect-[2.6/1] transition-[margin] duration-500" :class="explodedView ? 'mt-2 mb-2' : '-mt-8'">
                                         <img
                                             :src="flavorImage" x-show="flavorImage" x-cloak src="" alt=""
                                             class="absolute inset-0 w-full h-full object-cover rounded-md drop-shadow-xl pointer-events-none select-none"
@@ -284,13 +284,13 @@
 
                                     <img
                                         :src="breadImage" x-show="breadImage" x-cloak src="" alt=""
-                                        class="w-full drop-shadow-xl relative z-10 pointer-events-none select-none transition-all duration-500"
+                                        class="w-full drop-shadow-xl relative z-10 pointer-events-none select-none transition-[margin] duration-500"
                                         :class="explodedView ? '-mt-2' : '-mt-8'"
                                         x-transition:enter="transition-[opacity,transform] duration-500 ease-[var(--ease-bounce)]"
                                         x-transition:enter-start="opacity-0 translate-y-4 scale-95"
                                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                                     >
-                                    <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high transition-all duration-500" :class="explodedView ? '-mt-2' : '-mt-8'"></div>
+                                    <div x-show="!breadImage" class="w-full h-20 rounded-lg bg-surface-container-high transition-[margin] duration-500" :class="explodedView ? '-mt-2' : '-mt-8'"></div>
                                 </div>
                             </div>
 
@@ -476,6 +476,6 @@
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
 @endsection

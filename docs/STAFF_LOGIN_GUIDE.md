@@ -12,6 +12,8 @@ Panduan penggunaan sistem BRREAD! untuk anggota tim yang ingin mengakses portal 
 | HR | `staffhr` | `12345678` |
 | Accounting | `staffacc` | `12345678` |
 
+> Password di atas hanya berlaku di environment lokal. Di production, atur `STAFF_PASSWORD` dan `ADMIN_PASSWORD` di variabel hosting; seeder menerapkannya saat deploy dan tidak lagi mengembalikan password ke default.
+
 **Admin:** `http://127.0.0.1:8000/admin`
 
 | Role | Username | Password |

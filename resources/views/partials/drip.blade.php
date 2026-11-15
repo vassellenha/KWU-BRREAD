@@ -14,7 +14,7 @@
 <div class="drip drip--{{ $flavor ?? 'strawberry' }}-{{ $seed }} {{ $class ?? '' }}" aria-hidden="true">
     @if ($drops ?? true)
         @foreach ($tips as $i => [$x, $y])
-            <span class="drip-drop" style="left: {{ $x }}px; top: {{ $y - 6 }}px; --delay: {{ $i * 1.9 }}s"></span>
+            <span class="drip-drop" style="--x: {{ $x }}; --y: {{ $y - 6 }}; --delay: {{ $i * 1.9 }}s"></span>
         @endforeach
     @endif
 </div>

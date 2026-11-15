@@ -15,9 +15,6 @@ class AuthController extends Controller
 {
     public const QUICK_LOGIN_USERNAME = 'admin';
 
-    /** Must match the admin password in UserSeeder. Only rendered while quick login is enabled. */
-    public const QUICK_LOGIN_PASSWORD = 'brread-admin-2026';
-
     public function showStaffLogin(): View
     {
         return view('staff.auth.login', [
@@ -27,14 +24,13 @@ class AuthController extends Controller
         ]);
     }
 
-    public function showAdminLogin(): View
+    public function showAdminLogin(Request $request): View
     {
         return view('staff.auth.login', [
             'portal' => 'admin',
             'attemptRoute' => 'admin.login.attempt',
-            'quickLoginEnabled' => $this->quickLoginEnabled(),
+            'quickLoginEnabled' => $this->quickLoginEnabled($request),
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
-            'quickLoginPassword' => self::QUICK_LOGIN_PASSWORD,
         ]);
     }
 
@@ -54,7 +50,7 @@ class AuthController extends Controller
      */
     public function adminQuickLogin(Request $request): RedirectResponse
     {
-        abort_unless($this->quickLoginEnabled(), 404);
+        abort_unless($this->quickLoginEnabled($request), 404);
 
         $admin = User::where('username', self::QUICK_LOGIN_USERNAME)->where('role', User::ROLE_ADMIN)->first();
 
@@ -119,8 +115,14 @@ class AuthController extends Controller
         return redirect()->route($user->homeRouteName());
     }
 
-    private function quickLoginEnabled(): bool
+    /**
+     * Local development only: the flag must be on, the app must not be in production, and the
+     * request must come in on a loopback host. A public deployment can never match all three.
+     */
+    private function quickLoginEnabled(Request $request): bool
     {
-        return (bool) config('auth.admin_quick_login');
+        return (bool) config('auth.admin_quick_login')
+            && ! app()->isProduction()
+            && in_array($request->getHost(), ['localhost', '127.0.0.1', '[::1]', '::1'], true);
     }
 }

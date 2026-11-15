@@ -8,6 +8,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#fff8f4">
     <meta name="robots" content="noindex">
     <title>{{ $portalName }} Login — Brread!</title>
     @include('partials.favicon')
@@ -19,7 +20,7 @@
 
     <main class="w-full max-w-sm" x-data="{
         username: @js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')),
-        password: @js($quickLoginEnabled ? $quickLoginPassword : ''),
+        password: '',
     }">
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
@@ -37,7 +38,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route($attemptRoute) }}" autocomplete="off" class="space-y-space-sm">
+            <form method="POST" action="{{ route($attemptRoute) }}" class="space-y-space-sm">
                 @csrf
                 <div>
                     <label for="username" class="block font-label-md text-label-md text-on-surface-variant mb-1">Username</label>
@@ -48,7 +49,7 @@
                         x-model="username"
                         required
                         autofocus
-                        autocomplete="off"
+                        autocomplete="username"
                         autocapitalize="none"
                         spellcheck="false"
                         maxlength="255"
@@ -85,7 +86,7 @@
                         name="password"
                         x-model="password"
                         required
-                        autocomplete="new-password"
+                        autocomplete="current-password"
                         class="{{ $fieldClasses }}"
                     >
                 </div>

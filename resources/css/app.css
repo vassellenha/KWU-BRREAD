@@ -215,9 +215,11 @@
     .zoom-on-hover img {
         transition: transform 500ms var(--ease-out);
     }
+    @media (hover: hover) and (pointer: fine) {
     .zoom-on-hover:hover img {
-        transform: scale(1.06);
-    }
+            transform: scale(1.06);
+        }
+}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -370,6 +372,15 @@ html.no-intro .scribble path {
     background-size: 1200px 120px;
     pointer-events: none;
     transform-origin: top;
+    /* Droplets sit at fixed px offsets along the 1200px tile; never let them widen the page. */
+    overflow-x: clip;
+}
+/* Same guard for browsers without overflow: clip — drop the droplets that would sit off-screen. */
+@media (max-width: 1180px) {
+    .drip-drop:nth-child(3) { display: none; }
+}
+@media (max-width: 840px) {
+    .drip-drop:nth-child(2) { display: none; }
 }
 .drip-live {
     animation: drip-stretch 5s ease-in-out infinite alternate;
@@ -381,6 +392,8 @@ html.no-intro .scribble path {
 /* A droplet that lets go of a drip tip every few seconds. */
 .drip-drop {
     position: absolute;
+    left: calc(var(--x) * var(--drip-k, 1) * 1px);
+    top: calc(var(--y) * var(--drip-k, 1) * 1px);
     width: 12px;
     height: 15px;
     margin-left: -6px;
@@ -1530,9 +1543,11 @@ body.staff {
     color: rgba(251, 238, 228, 0.78);
     transition: background-color 160ms, color 160ms;
 }
-.staff-link:hover {
-    background: rgba(251, 238, 228, 0.09);
-    color: #fff8f4;
+@media (hover: hover) and (pointer: fine) {
+    .staff-link:hover {
+        background: rgba(251, 238, 228, 0.09);
+        color: #fff8f4;
+    }
 }
 .staff-link.is-active {
     background: #f7a3b6;
@@ -1596,8 +1611,10 @@ body.staff main tbody tr {
 body.staff main tbody tr:nth-child(even) {
     background: rgba(253, 242, 232, 0.55);
 }
-body.staff main tbody tr:hover {
-    background: #ffe7ec;
+@media (hover: hover) and (pointer: fine) {
+    body.staff main tbody tr:hover {
+        background: #ffe7ec;
+    }
 }
 body.staff main button[type='submit'],
 body.staff main a[class*='bg-primary-container'] {
@@ -1676,4 +1693,145 @@ body.staff main textarea:focus-visible {
    the container into a scroll box, which would break position: sticky inside it. */
 .doodle--clip {
     overflow: clip;
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 767px) {
+    /* Drips at two-thirds size: same melt, less of the screen. */
+    .drip {
+        --drip-k: 0.65;
+        height: 78px;
+        background-size: 780px 78px;
+    }
+    .drip-drop {
+        width: 9px;
+        height: 11px;
+        margin-left: -4.5px;
+    }
+    :has(> .drip).pt-40 {
+        padding-top: 7rem;
+    }
+    /* The header drip stays short so it never sits on the first line of a page. */
+    .drip-nav {
+        top: calc(5rem - 8px);
+        height: 44px;
+        background-size: 440px 44px;
+    }
+    .site-nav-logo img {
+        height: 50px;
+    }
+}
+
+/* Touch screens: the sandwich rides the right edge while the page moves, then gets out of the way. */
+.scoopbar--touch {
+    right: 2px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width: 30px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms;
+}
+.scoopbar--touch.is-awake,
+.scoopbar--touch.is-dragging {
+    opacity: 1;
+}
+.scoopbar--touch.is-hidden {
+    opacity: 0;
+}
+.scoopbar--touch::before {
+    display: none;
+}
+.scoopbar--touch .scoopbar-melt {
+    width: 5px;
+    margin-left: -2.5px;
+    opacity: 0.85;
+}
+.scoopbar--touch .scoopbar-melt::before {
+    width: 14px;
+    height: 7px;
+    margin-left: -7px;
+}
+.scoopbar--touch .scoopbar-thumb {
+    width: 30px;
+    height: 42px;
+    touch-action: none;
+}
+.scoopbar--touch.is-awake .scoopbar-thumb,
+.scoopbar--touch.is-dragging .scoopbar-thumb {
+    pointer-events: auto;
+}
+.scoopbar--touch .scoopbar-thumb svg {
+    width: 30px;
+    height: 42px;
+}
+.scoopbar--touch.is-dragging .scoopbar-thumb svg {
+    transform: scale(1.25);
+}
+
+/* Orders table: the Confirm / Cancel column stays on screen while the rest scrolls sideways. */
+body.staff main th.orders-sticky,
+body.staff main td.orders-sticky {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: #fff8f4;
+    box-shadow: -10px 0 14px -12px rgba(113, 59, 44, 0.35);
+}
+body.staff main thead th.orders-sticky {
+    background: #fbe9d0;
+}
+@media (hover: hover) and (pointer: fine) {
+    body.staff main tbody tr:hover td.orders-sticky {
+        background: #ffe7ec;
+    }
+}
+
+/* ---------- Phone baseline ---------- */
+html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+button,
+a,
+[role='button'],
+summary,
+label {
+    touch-action: manipulation;
+}
+button,
+[role='button'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+/* iOS Safari zooms the page when an input under 16px is focused, and never zooms back out. */
+@media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+/* A scrolling drawer or menu must not drag the page behind it once it hits its end. */
+.overflow-y-auto {
+    overscroll-behavior: contain;
+}
+
+/* Keyboard users land on this first; it stays out of sight until focused. */
+.skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 300;
+    padding: 0.6rem 1.1rem;
+    border-radius: 999px;
+    background: #8a1730;
+    color: #fff;
+    font-weight: 700;
+    transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+    transform: none;
+    outline: 3px solid #fff;
+    outline-offset: 2px;
 }

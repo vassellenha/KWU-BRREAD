@@ -9,7 +9,7 @@
         effect from scroll position. Chapters marked data-pin become tall and sticky only once that
         script adds `about-live`; without it this is a plain, readable page.
     --}}
-    <main data-about class="about w-full font-plus-jakarta">
+    <div data-about class="about w-full font-plus-jakarta">
         <div data-about-bar class="about-bar" aria-hidden="true"></div>
 
         {{-- 1. OPENING: ingredients drift past at different speeds --}}
@@ -244,6 +244,6 @@
                 <p class="mt-space-lg font-body-lg text-body-lg text-[#40000e]/80">Jl. Melawai Raya No. 12, Jakarta Selatan &middot; Daily, 11:00 AM – 9:30 PM</p>
             </div>
         </section>
-    </main>
+    </div>
 
 @endsection

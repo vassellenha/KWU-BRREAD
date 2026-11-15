@@ -60,26 +60,28 @@
                         <span x-text="status">Daily, 11:00 AM – 9:30 PM</span>
                     </p>
 
-                    <dl class="mt-space-xl space-y-space-lg">
+                    <div class="mt-space-xl space-y-space-lg">
+                    <dl>
                         <div>
                             <dt class="font-hand text-[24px] leading-none text-primary">where</dt>
                             <dd class="mt-1 font-headline-md text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] font-bold text-on-surface">Jl. Melawai Raya No. 12<br>Jakarta Selatan 12160</dd>
-                            <button type="button" @click="copyAddress()" data-tip="Copies the full address" class="press-scale mt-2 inline-flex items-center gap-1.5 font-label-lg text-label-lg text-primary underline underline-offset-4 decoration-dotted">
+                        </div>
+                    </dl>
+                            <button type="button" @click="copyAddress()" data-tip="Copies the full address" class="press-scale -mt-space-sm mb-space-lg inline-flex items-center gap-1.5 font-label-lg text-label-lg text-primary underline underline-offset-4 decoration-dotted">
                                 <span class="material-symbols-outlined text-[18px]" x-text="copied ? 'check' : 'content_copy'">content_copy</span>
                                 <span x-text="copied ? 'Copied' : 'Copy address'">Copy address</span>
                             </button>
-                        </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-lg">
-                            <div>
+                            <dl>
                                 <dt class="font-hand text-[24px] leading-none text-primary">call</dt>
                                 <dd class="mt-1"><a href="tel:+622172501234" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">+62 21 7250 1234</a></dd>
-                            </div>
-                            <div>
+                            </dl>
+                            <dl>
                                 <dt class="font-hand text-[24px] leading-none text-primary">write</dt>
                                 <dd class="mt-1"><a href="mailto:hello@brread.id" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">hello@brread.id</a></dd>
-                            </div>
+                            </dl>
                         </div>
-                    </dl>
+                    </div>
 
                     <div class="mt-space-xl flex flex-wrap gap-space-md">
                         <a href="tel:+622172501234" class="btn-chunky inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-space-xl py-3 rounded-full font-label-lg text-label-lg">

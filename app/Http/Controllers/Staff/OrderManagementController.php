@@ -26,10 +26,13 @@ class OrderManagementController extends Controller
         }
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('order_number', 'ilike', "%{$search}%")
-                    ->orWhere('customer_name', 'ilike', "%{$search}%")
-                    ->orWhere('customer_phone', 'ilike', "%{$search}%");
+            // LOWER() + LIKE works on every driver (ILIKE is PostgreSQL only), and the user's
+            // own % and _ are escaped so searching for "%" does not match every order.
+            $needle = '%'.preg_replace('/[!%_]/', '!$0', Str::lower($search)).'%';
+            $query->where(function ($q) use ($needle) {
+                foreach (['order_number', 'customer_name', 'customer_phone'] as $column) {
+                    $q->orWhereRaw("LOWER({$column}) LIKE ? ESCAPE '!'", [$needle]);
+                }
             });
         }
 
@@ -54,59 +57,64 @@ class OrderManagementController extends Controller
 
     public function confirm(Order $order): RedirectResponse
     {
-        if ($order->isCancelled()) {
-            return back()->with('error', 'Pesanan yang sudah dibatalkan tidak dapat dikonfirmasi.');
-        }
+        $outcome = DB::transaction(function () use ($order) {
+            // Re-read under a lock so two clicks (or two staff) cannot both act on the same order.
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-        if ($order->isConfirmed()) {
-            return back()->with('info', "Pesanan #{$order->order_number} sudah terkonfirmasi sebelumnya.");
-        }
+            if ($order->isCancelled()) {
+                return ['error', 'Pesanan yang sudah dibatalkan tidak dapat dikonfirmasi.'];
+            }
 
-        $token = Str::random(32);
+            if ($order->isConfirmed()) {
+                return ['info', "Pesanan #{$order->order_number} sudah terkonfirmasi sebelumnya."];
+            }
 
-        $order->update([
-            'status' => Order::STATUS_CONFIRMED,
-            'confirmation_token' => $token,
-            'confirmed_at' => now(),
-        ]);
+            $order->update([
+                'status' => Order::STATUS_CONFIRMED,
+                'confirmation_token' => Str::random(32),
+                'confirmed_at' => now(),
+            ]);
 
-        return back()->with('success', "Pesanan #{$order->order_number} berhasil dikonfirmasi! Tautan tracking publik telah aktif.");
+            return ['success', "Pesanan #{$order->order_number} berhasil dikonfirmasi! Tautan tracking publik telah aktif."];
+        });
+
+        return back()->with(...$outcome);
     }
 
     public function cancel(Order $order): RedirectResponse
     {
-        if ($order->isCancelled()) {
-            return back()->with('info', "Pesanan #{$order->order_number} sudah berstatus batal.");
-        }
+        $outcome = DB::transaction(function () use ($order) {
+            // The lock matters: without it a double click restores the stock twice.
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-        DB::transaction(function () use ($order) {
-            // Restore inventory for items in this order
-            $order->loadMissing('orderItems');
+            if ($order->isCancelled()) {
+                return ['info', "Pesanan #{$order->order_number} sudah berstatus batal."];
+            }
+
             $tally = [];
             foreach ($order->orderItems as $item) {
                 $tally[$item->component_id] = ($tally[$item->component_id] ?? 0) + $item->quantity;
             }
 
             foreach ($tally as $componentId => $quantity) {
-                $component = Component::find($componentId);
-                if ($component) {
-                    $component->recordStockMovement(
-                        type: StockMovement::TYPE_ADJUSTMENT,
-                        quantityChange: $quantity,
-                        userId: auth()->id(),
-                        orderId: $order->id,
-                        note: "Restorasi stok pembatalan pesanan #{$order->order_number}",
-                    );
-                }
+                $component = Component::whereKey($componentId)->lockForUpdate()->first();
+                $component?->recordStockMovement(
+                    type: StockMovement::TYPE_ADJUSTMENT,
+                    quantityChange: $quantity,
+                    userId: auth()->id(),
+                    orderId: $order->id,
+                    note: "Restorasi stok pembatalan pesanan #{$order->order_number}",
+                );
             }
 
             $order->update([
                 'status' => Order::STATUS_CANCELLED,
                 'cancelled_at' => now(),
             ]);
+
+            return ['success', "Pesanan #{$order->order_number} berhasil dibatalkan dan stok bahan telah dipulihkan ke gudang."];
         });
 
-        return back()->with('success', "Pesanan #{$order->order_number} berhasil dibatalkan dan stok bahan telah dipulihkan ke gudang.");
+        return back()->with(...$outcome);
     }
 }
-

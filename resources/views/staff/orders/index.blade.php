@@ -6,7 +6,7 @@
 
     @php
         $rupiah = fn (float $amount): string => 'Rp ' . number_format($amount, 0, ',', '.');
-        $fieldClasses = 'rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary';
+        $fieldClasses = 'rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary';
     @endphp
 
     {{-- PAGE HEADER --}}
@@ -92,7 +92,7 @@
         <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-space-md shadow-sm">
             <div class="flex items-center justify-between mb-2">
                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Reviews</span>
-                <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
                 </span>
             </div>
@@ -101,7 +101,7 @@
                     {{ $stats['avg_rating'] > 0 ? number_format($stats['avg_rating'], 1) : '-' }}
                 </p>
                 @if ($stats['avg_rating'] > 0)
-                    <span class="text-[12px] font-bold text-amber-600">/ 5.0</span>
+                    <span class="text-[12px] font-bold text-amber-800">/ 5.0</span>
                 @endif
             </div>
             <span class="text-[11px] text-on-surface-variant mt-0.5 block">
@@ -125,7 +125,7 @@
                 @php $isActive = $currentStatus === $tabKey; @endphp
                 <a
                     href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['status' => $tabKey])) }}"
-                    class="press-scale inline-flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-md text-label-md transition-all duration-200 {{ $isActive ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high' }}"
+                    class="press-scale inline-flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 {{ $isActive ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high' }}"
                 >
                     {{ $tabLabel }}
                     @if ($tabKey === 'pending' && $stats['pending'] > 0)
@@ -165,7 +165,7 @@
     {{-- ORDERS TABLE CARD --}}
     <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[980px] text-left border-collapse">
+            <table class="w-full min-w-[900px] text-left border-collapse">
                 <thead>
                     <tr class="border-b border-outline-variant/30 bg-surface-container/40">
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-40">No. Pesanan</th>
@@ -174,7 +174,7 @@
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-28 text-right">Total</th>
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-32 text-center">Status</th>
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-56">Link Tracking</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-44 text-right">Aksi</th>
+                        <th class="orders-sticky px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-36 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/20 font-body-sm text-body-sm">
@@ -260,6 +260,7 @@
                                         <div class="flex items-center gap-1">
                                             <input
                                                 type="text"
+                                                aria-label="Tautan tracking pesanan"
                                                 readonly
                                                 value="{{ $order->public_status_url }}"
                                                 class="text-[11px] font-mono bg-surface-container px-2 py-1 rounded border border-outline-variant/40 w-36 truncate text-on-surface-variant select-all"
@@ -296,7 +297,7 @@
                                         @endif
                                     </div>
                                 @else
-                                    <span class="text-[11px] text-on-surface-variant/60 italic flex items-center gap-1">
+                                    <span class="text-[11px] text-on-surface-variant italic flex items-center gap-1">
                                         <span class="material-symbols-outlined text-[14px] shrink-0">schedule</span>
                                         Tersedia saat confirmed
                                     </span>
@@ -304,14 +305,14 @@
                             </td>
 
                             {{-- ACTIONS --}}
-                            <td class="px-space-md py-space-sm align-top text-right whitespace-nowrap">
-                                <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                            <td class="orders-sticky px-space-md py-space-sm align-top text-right whitespace-nowrap">
+                                <div class="flex flex-col items-end gap-1.5">
                                     {{-- WA QUICK CHAT --}}
                                     <a
                                         href="{{ $order->whatsapp_url }}"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-600 hover:bg-green-700 text-white font-label-md text-[11px] font-semibold shadow-sm transition-colors"
+                                        class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-700 hover:bg-green-800 text-white font-label-md text-[11px] font-semibold shadow-sm transition-colors"
                                         title="Kirim pesan ke WhatsApp pembeli"
                                     >
                                         <span class="material-symbols-outlined text-[14px] shrink-0">forum</span>

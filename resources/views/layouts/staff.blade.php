@@ -19,6 +19,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7a3b6">
     <meta name="robots" content="noindex">
     <title>@yield('title', 'Staff Portal') — Brread!</title>
     @include('partials.favicon')
@@ -96,13 +97,13 @@
                 </nav>
             </header>
 
-            <div class="staff-topbar">
+            <section class="staff-topbar" aria-label="Overview">
                 <p class="staff-topbar-hi font-hand">hi, {{ strtok($currentUser->name, ' ') }}</p>
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="staff-chip"><span class="material-symbols-outlined text-[16px] text-primary">today</span>{{ now()->timezone('Asia/Jakarta')->translatedFormat('D, j M Y') }}</span>
                     <span class="staff-chip"><span class="material-symbols-outlined text-[16px] text-primary">person</span>{{ $portalName }}</span>
                 </div>
-            </div>
+            </section>
 
             <main class="flex-1 p-margin md:px-margin-desktop md:pt-space-lg md:pb-margin-desktop">
                 @yield('content')

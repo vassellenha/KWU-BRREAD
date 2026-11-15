@@ -31,7 +31,7 @@ class OrderController extends Controller
             'items.*.quantity.max' => 'Each creation can be ordered up to 20 at a time.',
         ]);
 
-        $items = $validated['items'];
+        $items = array_values($validated['items']);
 
         // Tally total units needed per component across every creation, multiplied by its cart quantity.
         $quantityNeeded = [];

@@ -91,6 +91,7 @@ class SalesReport
     private function ordersBetween(CarbonImmutable $from, CarbonImmutable $to): Collection
     {
         return Order::with('orderItems.component')
+            ->where('status', '!=', Order::STATUS_CANCELLED)
             ->whereBetween('created_at', [$from, $to->endOfDay()])
             ->get();
     }

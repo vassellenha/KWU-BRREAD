@@ -11,7 +11,7 @@
             </div>
 
             <div class="space-y-space-sm">
-                <h4 class="font-title-md text-title-md text-on-surface">What goes in</h4>
+                <h2 class="font-title-md text-title-md text-on-surface">What goes in</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
                     A slab of vanilla, strawberry or chocolate ice cream between two slices of white or
                     whole wheat bread, topped with chocolate sauce or sprinkles.
@@ -23,7 +23,7 @@
             </div>
 
             <div class="space-y-space-sm">
-                <h4 class="font-title-md text-title-md text-on-surface">Explore</h4>
+                <h2 class="font-title-md text-title-md text-on-surface">Explore</h2>
                 <ul class="space-y-2 font-body-sm text-body-sm text-on-surface-variant">
                     <li><a href="{{ route('menu') }}" class="hover:text-primary transition-colors">Menu</a></li>
                     <li><a href="{{ route('build') }}" class="hover:text-primary transition-colors">Brread! Studio</a></li>
@@ -33,7 +33,7 @@
             </div>
 
             <div class="space-y-space-sm">
-                <h4 class="font-title-md text-title-md text-on-surface">Visit</h4>
+                <h2 class="font-title-md text-title-md text-on-surface">Visit</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
                     Jl. Melawai Raya No. 12<br>Jakarta Selatan 12160
                 </p>
