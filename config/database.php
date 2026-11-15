@@ -97,6 +97,11 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Reuse the connection between requests. Each request otherwise pays a fresh TCP + TLS
+            // + auth handshake to the pooler, which is slow when the database is far away.
+            'options' => extension_loaded('pdo_pgsql') && env('DB_PERSISTENT', false)
+                ? [PDO::ATTR_PERSISTENT => true]
+                : [],
         ],
 
         'sqlsrv' => [
