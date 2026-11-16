@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 /**
  * Fixed, deterministic duty rotation: GROUP_SIZE active employees (in rotation_order)
  * cover each SHIFT_LENGTH_DAYS-day block, and the next block starts where the last one
- * stopped, wrapping around the list. Six people split into two alternating teams; any
+ * stopped, wrapping around the list. Nine people split into three alternating teams; any
  * other headcount still fields a full team and shares the shifts evenly. Nothing about a
  * shift is stored, so adding, removing, or reordering staff reshapes it immediately.
  */

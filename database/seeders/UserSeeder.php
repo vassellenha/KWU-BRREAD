@@ -11,7 +11,7 @@ class UserSeeder extends Seeder
     /**
      * Creates the four portal accounts if they do not exist yet. An existing account is left
      * alone, so a password changed in production survives the next deploy (the entrypoint
-     * seeds on every start). Each account reads its own variable (ADMIN_PASSWORD,
+     * seeds on every start). Each account reads its own variable (ADMIN_PASSWORD for the superadmin,
      * STAFFMRP_PASSWORD, STAFFHR_PASSWORD, STAFFACC_PASSWORD) and falls back to the shared
      * STAFF_PASSWORD for staff. Setting one also resets that account's password on purpose,
      * which is how to rotate it.
@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $accounts = [
-            ['username' => 'admin', 'name' => 'Brread! Admin', 'email' => 'admin@brread.id', 'role' => User::ROLE_ADMIN, 'group' => 'ADMIN'],
+            ['username' => 'superadmin', 'name' => 'Brread! Superadmin', 'email' => 'admin@brread.id', 'role' => User::ROLE_ADMIN, 'group' => 'ADMIN', 'env' => ['SUPERADMIN_PASSWORD', 'ADMIN_PASSWORD']],
             ['username' => 'staffmrp', 'name' => 'MRP Staff', 'email' => 'staffmrp@brread.id', 'role' => User::ROLE_WAREHOUSE, 'group' => 'STAFF'],
             ['username' => 'staffhr', 'name' => 'HR Staff', 'email' => 'staffhr@brread.id', 'role' => User::ROLE_HR, 'group' => 'STAFF'],
             ['username' => 'staffacc', 'name' => 'Accounting Staff', 'email' => 'staffacc@brread.id', 'role' => User::ROLE_ACCOUNTANT, 'group' => 'STAFF'],
@@ -29,9 +29,10 @@ class UserSeeder extends Seeder
 
         foreach ($accounts as $account) {
             $group = $account['group'];
-            unset($account['group']);
+            $envKeys = $account['env'] ?? [strtoupper($account['username']).'_PASSWORD', $group.'_PASSWORD'];
+            unset($account['group'], $account['env']);
 
-            $configured = env(strtoupper($account['username']).'_PASSWORD') ?: env($group.'_PASSWORD');
+            $configured = collect($envKeys)->map(fn (string $key) => env($key))->first(fn ($value) => filled($value));
             $existing = User::where('username', $account['username'])->first();
 
             if ($existing && ! $configured) {

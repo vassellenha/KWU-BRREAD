@@ -16,12 +16,13 @@ Route::middleware('guest')->group(function () {
     Route::get('/staff', [AuthController::class, 'showStaffLogin'])->name('staff.login');
     Route::post('/staff', [AuthController::class, 'staffLogin'])->middleware('throttle:login')->name('staff.login.attempt');
 
-    Route::get('/admin', [AuthController::class, 'showAdminLogin'])->name('admin.login');
-    Route::post('/admin', [AuthController::class, 'adminLogin'])->middleware('throttle:login')->name('admin.login.attempt');
-    Route::post('/admin/quick-login', [AuthController::class, 'adminQuickLogin'])->middleware('throttle:login')->name('admin.quick-login');
+    Route::get('/superadmin', [AuthController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('/superadmin', [AuthController::class, 'adminLogin'])->middleware('throttle:login')->name('admin.login.attempt');
+    Route::post('/superadmin/quick-login', [AuthController::class, 'adminQuickLogin'])->middleware('throttle:login')->name('admin.quick-login');
 });
 
 Route::redirect('/staff/login', '/staff', 301);
+Route::redirect('/admin', '/superadmin', 301);
 
 Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () use ($rolesFor) {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

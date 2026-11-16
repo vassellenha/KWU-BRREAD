@@ -33,36 +33,68 @@ class HrModuleTest extends TestCase
         return (new ShiftScheduler)->teamForDate(CarbonImmutable::parse($date))['employees']->pluck('name')->all();
     }
 
-    public function test_six_employees_alternate_as_two_fixed_teams_every_three_days(): void
+    public function test_nine_employees_rotate_as_three_fixed_teams_every_three_days(): void
     {
         $this->seed(EmployeeSeeder::class);
 
-        $firstTeam = ['Rizky Joestar', 'Evan Brando', 'Vassell Speedwagon'];
-        $secondTeam = ['Jordan Yoshikage', 'Chandra Liaow', 'Gofar Hilman'];
+        $first = ['Rizky Sandi Pratama', 'Vassell Enha Atthayya', 'Evan Octavianus Haryo Handoko'];
+        $second = ['Muhammad Jordan', 'Bhisma Abimanyu Putra Setiawan', 'Dhimas Aqillah Syah'];
+        $third = ['Herlandito Ibnu Chandra', 'Muhammad Rafa Irhamsyah', 'Rafy Aderahma Putra'];
 
-        $this->assertSame($firstTeam, $this->teamOn('2026-11-02'));
-        $this->assertSame($firstTeam, $this->teamOn('2026-11-04'));
-        $this->assertSame($secondTeam, $this->teamOn('2026-11-05'));
-        $this->assertSame($secondTeam, $this->teamOn('2026-11-07'));
-        $this->assertSame($firstTeam, $this->teamOn('2026-11-08'));
+        $this->assertSame($first, $this->teamOn('2026-11-02'));
+        $this->assertSame($first, $this->teamOn('2026-11-04'));
+        $this->assertSame($second, $this->teamOn('2026-11-05'));
+        $this->assertSame($second, $this->teamOn('2026-11-07'));
+        $this->assertSame($third, $this->teamOn('2026-11-08'));
+        $this->assertSame($first, $this->teamOn('2026-11-11'));
+    }
+
+    public function test_the_seeded_roster_has_rizky_as_leader_and_eight_members(): void
+    {
+        $this->seed(EmployeeSeeder::class);
+
+        $this->assertSame(9, Employee::count());
+        $this->assertSame(['Rizky Sandi Pratama'], Employee::where('position', 'Ketua')->pluck('name')->all());
+        $this->assertSame(8, Employee::where('position', 'Anggota')->count());
+        $this->assertSame(['Rizky Sandi Pratama', 'Vassell Enha Atthayya'], Employee::orderBy('rotation_order')->limit(2)->pluck('name')->all());
     }
 
     public function test_dates_before_the_anchor_still_rotate_correctly(): void
     {
         $this->seed(EmployeeSeeder::class);
 
-        $this->assertSame(['Jordan Yoshikage', 'Chandra Liaow', 'Gofar Hilman'], $this->teamOn('2026-11-01'));
-        $this->assertSame(['Rizky Joestar', 'Evan Brando', 'Vassell Speedwagon'], $this->teamOn('2026-10-29'));
+        $this->assertSame(['Herlandito Ibnu Chandra', 'Muhammad Rafa Irhamsyah', 'Rafy Aderahma Putra'], $this->teamOn('2026-11-01'));
+        $this->assertSame(['Muhammad Jordan', 'Bhisma Abimanyu Putra Setiawan', 'Dhimas Aqillah Syah'], $this->teamOn('2026-10-29'));
+    }
+
+    public function test_the_placeholder_crew_is_replaced_by_the_real_team_on_deploy(): void
+    {
+        foreach (['Rizky Joestar', 'Evan Brando', 'Vassell Speedwagon', 'Jordan Yoshikage', 'Chandra Liaow', 'Gofar Hilman'] as $i => $name) {
+            Employee::create(['name' => $name, 'position' => 'Store Crew', 'rotation_order' => $i + 1]);
+        }
+        Employee::create(['name' => 'Added By Hand', 'position' => 'Crew', 'rotation_order' => 7]);
+
+        (require base_path('database/migrations/2026_11_16_110000_set_real_team_roster_in_employees.php'))->up();
+
+        $this->assertSame(10, Employee::count());
+        $this->assertNull(Employee::where('name', 'Rizky Joestar')->first());
+        $this->assertSame('Ketua', Employee::where('name', 'Rizky Sandi Pratama')->value('position'));
+        $this->assertSame(10, Employee::where('name', 'Added By Hand')->value('rotation_order'));
+        $this->assertSame(9, Employee::where('name', 'Rafy Aderahma Putra')->value('rotation_order'));
+
+        // Running it again changes nothing.
+        (require base_path('database/migrations/2026_11_16_110000_set_real_team_roster_in_employees.php'))->up();
+        $this->assertSame(10, Employee::count());
     }
 
     public function test_a_headcount_that_does_not_divide_evenly_still_fields_a_full_team(): void
     {
         $this->seed(EmployeeSeeder::class);
-        Employee::factory()->create(['name' => 'Seventh Person', 'rotation_order' => 7]);
+        Employee::factory()->create(['name' => 'Tenth Person', 'rotation_order' => 10]);
 
         $shiftsWorked = [];
 
-        foreach (range(0, 6) as $shift) {
+        foreach (range(0, 9) as $shift) {
             $date = CarbonImmutable::parse(ShiftScheduler::ROTATION_ANCHOR)->addDays($shift * ShiftScheduler::SHIFT_LENGTH_DAYS);
             $team = $this->teamOn($date->toDateString());
 
@@ -74,18 +106,18 @@ class HrModuleTest extends TestCase
             }
         }
 
-        $this->assertCount(7, $shiftsWorked);
+        $this->assertCount(10, $shiftsWorked);
         $this->assertSame([3], array_values(array_unique($shiftsWorked)));
     }
 
     public function test_a_deactivated_employee_leaves_the_rotation(): void
     {
         $this->seed(EmployeeSeeder::class);
-        $employee = Employee::where('name', 'Evan Brando')->firstOrFail();
+        $employee = Employee::where('name', 'Evan Octavianus Haryo Handoko')->firstOrFail();
 
         $this->actingAs($this->staff)->post("/staff/hr/{$employee->id}/toggle")->assertSessionHasNoErrors();
 
-        $this->assertNotContains('Evan Brando', $this->teamOn('2026-11-02'));
+        $this->assertNotContains('Evan Octavianus Haryo Handoko', $this->teamOn('2026-11-02'));
         $this->assertCount(ShiftScheduler::GROUP_SIZE, $this->teamOn('2026-11-02'));
     }
 
@@ -112,7 +144,7 @@ class HrModuleTest extends TestCase
         $this->actingAs($this->staff)->get('/staff/hr')
             ->assertOk()
             ->assertSee('08 Nov – 10 Nov 2026')
-            ->assertViewHas('currentShift', fn (array $shift) => $shift['employees']->first()->name === 'Rizky Joestar');
+            ->assertViewHas('currentShift', fn (array $shift) => $shift['employees']->first()->name === 'Herlandito Ibnu Chandra');
     }
 
     public function test_employees_can_be_added_and_edited(): void
@@ -163,6 +195,6 @@ class HrModuleTest extends TestCase
         $this->seed(EmployeeSeeder::class);
         $this->seed(EmployeeSeeder::class);
 
-        $this->assertSame(6, Employee::count());
+        $this->assertSame(9, Employee::count());
     }
 }

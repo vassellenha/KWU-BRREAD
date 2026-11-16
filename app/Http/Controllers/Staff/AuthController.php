@@ -13,7 +13,7 @@ use Illuminate\View\View;
 
 class AuthController extends Controller
 {
-    public const QUICK_LOGIN_USERNAME = 'admin';
+    public const QUICK_LOGIN_USERNAME = 'superadmin';
 
     public function showStaffLogin(): View
     {
@@ -45,7 +45,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Signs in as the admin with one click from the suggestion on /admin. The route
+     * Signs in as the admin with one click from the suggestion on /superadmin. The route
      * answers 404 unless ADMIN_QUICK_LOGIN allows it.
      */
     public function adminQuickLogin(Request $request): RedirectResponse
@@ -95,7 +95,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'username' => $adminPortal
                     ? 'This is a staff account. Sign in at /staff instead.'
-                    : 'This is an admin account. Sign in at /admin instead.',
+                    : 'This is an admin account. Sign in at /superadmin instead.',
             ]);
         }
 

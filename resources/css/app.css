@@ -1642,6 +1642,42 @@ body.staff main textarea:focus-visible {
 .staff-login.doodle::before {
     animation: none;
 }
+
+/* Superadmin and staff sign-in: soft dark mode. The sprinkle wallpaper and the strawberry
+   drip stay; only the surfaces and text colours switch, scoped to this page. */
+body.staff-login {
+    background-color: #2d2b33;
+    color: #f4eff2;
+}
+body.staff-login .text-on-surface { color: #f6f2f4; }
+body.staff-login .text-on-surface-variant { color: #d9d2d8; }
+body.staff-login .login-tagline { color: #ff7b8c; }
+body.staff-login.doodle::before { opacity: 0.42; }
+body.staff-login .staff-login-card {
+    background-color: #3d3b46;
+    border-color: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 28px 56px rgba(10, 8, 14, 0.45);
+}
+body.staff-login main input[type='text'],
+body.staff-login main input[type='password'] {
+    background-color: #dde8f5;
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #2d2b33;
+}
+body.staff-login main input[type='text']:focus,
+body.staff-login main input[type='password']:focus {
+    border-color: #ff7b8c;
+    --tw-ring-color: rgba(255, 123, 140, 0.55);
+}
+body.staff-login main input[type='checkbox'] {
+    background-color: #2d2b33;
+    border-color: #8b8794;
+}
+body.staff-login .staff-login-card [class*='bg-surface-container']:not(input) {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+body.staff-login main a:hover { color: #ff7b8c; }
 @media (min-width: 1024px) {
     .site-nav-burger {
         display: none;

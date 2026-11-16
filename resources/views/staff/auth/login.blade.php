@@ -1,6 +1,6 @@
 @php
     $isAdminPortal = $portal === 'admin';
-    $portalName = $isAdminPortal ? 'Admin Portal' : 'Staff Portal';
+    $portalName = $isAdminPortal ? 'Superadmin' : 'Staff Portal';
     $fieldClasses = 'w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary';
 @endphp
 <!DOCTYPE html>
@@ -8,7 +8,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#fff8f4">
+    <meta name="theme-color" content="#2d2b33">
     <meta name="robots" content="noindex">
     <title>{{ $portalName }} Login — Brread!</title>
     @include('partials.favicon')
@@ -24,11 +24,11 @@
     }">
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
-            <p class="font-hand text-[28px] leading-none text-primary -rotate-2">behind the counter</p>
+            <p class="login-tagline font-hand text-[28px] leading-none -rotate-2">behind the counter</p>
             <h1 class="font-headline-lg text-[34px] leading-tight font-extrabold text-on-surface">{{ $portalName }}</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
-                {{ $isAdminPortal ? 'Full access to every module' : 'Sign in to open your module' }}
-            </p>
+            @unless ($isAdminPortal)
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Sign in to open your module</p>
+            @endunless
         </div>
 
         <div class="staff-login-card bg-surface-container-lowest rounded-lg border border-outline-variant/40 p-space-lg">

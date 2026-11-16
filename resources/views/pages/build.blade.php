@@ -9,7 +9,7 @@
         <div class="max-w-[1440px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop py-space-lg flex flex-col gap-space-lg">
 
             {{-- IDENTITY BANNER --}}
-            <div class="bg-surface-container-lowest rounded-lg p-space-lg border border-outline-variant/30 flex flex-col lg:flex-row lg:items-center justify-between gap-space-md" data-reveal>
+            <div class="max-lg:order-6 bg-surface-container-lowest rounded-lg p-space-lg border border-outline-variant/30 flex flex-col lg:flex-row lg:items-center justify-between gap-space-md" data-reveal>
                 <div>
                     <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Brread! Studio</h1>
                     <p class="font-body-md text-body-md text-on-surface-variant mt-1 max-w-lg">
@@ -29,7 +29,7 @@
             </div>
 
             {{-- STEP PROGRESS STRIP --}}
-            <div class="bg-surface-container-lowest rounded-lg p-space-sm border border-outline-variant/30 shadow-sm max-md:sticky max-md:top-20 max-md:z-30">
+            <div class="max-lg:order-2 bg-surface-container-lowest rounded-lg p-space-sm border border-outline-variant/30 shadow-sm max-md:sticky max-md:top-20 max-md:z-30">
                 {{-- Phone: one step at a time. Stays pinned so the arrows are in reach after scrolling. --}}
                 <div class="md:hidden flex items-center gap-space-xs">
                     <button
@@ -117,10 +117,10 @@
             </div>
 
             {{-- 3-COLUMN WORKSPACE --}}
-            <div x-show="!loading" x-cloak class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+            <div x-show="!loading" x-cloak class="max-lg:contents grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
 
                 {{-- LEFT: Ingredient selectors --}}
-                <div class="lg:col-span-4 flex flex-col gap-space-md">
+                <div class="max-lg:order-3 lg:col-span-4 flex flex-col gap-space-md">
 
                     {{-- Signature presets --}}
                     <div class="bg-gradient-to-br from-secondary-fixed/40 via-surface-container-lowest to-tertiary-fixed/30 rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
@@ -241,10 +241,10 @@
                 </div>
 
                 {{-- CENTER: Big floating stage --}}
-                <div class="lg:col-span-5 flex flex-col gap-space-md">
-                    <div class="relative w-full rounded-lg bg-gradient-to-b from-tertiary-fixed/50 via-surface-container-low to-secondary-fixed/30 p-space-lg flex flex-col items-center justify-between min-h-[560px] border border-outline-variant/30 shadow-[0_8px_28px_rgba(113,59,44,0.1)] overflow-hidden">
+                <div class="max-lg:order-1 lg:col-span-5 flex flex-col gap-space-md">
+                    <div class="relative w-full rounded-lg bg-gradient-to-b from-tertiary-fixed/50 via-surface-container-low to-secondary-fixed/30 p-space-lg flex flex-col items-center justify-between min-h-[480px] lg:min-h-[560px] border border-outline-variant/30 shadow-[0_8px_28px_rgba(113,59,44,0.1)] overflow-hidden">
 
-                        <div x-ref="stackPreview" class="relative w-full flex-1 min-h-[340px] flex flex-col items-center justify-center my-space-md select-none">
+                        <div x-ref="stackPreview" class="relative w-full flex-1 min-h-[320px] lg:min-h-[340px] flex flex-col items-center justify-center my-space-md select-none">
 
                             {{-- 3D stage: resources/js/studio3d.js mounts its canvas here. Drag to orbit the sandwich a full 360°. --}}
                             <div
@@ -353,7 +353,7 @@
                 </div>
 
                 {{-- RIGHT: Sticky order summary --}}
-                <div class="lg:col-span-3 lg:sticky lg:top-28">
+                <div class="max-lg:order-4 lg:col-span-3 lg:sticky lg:top-28">
                     <div id="step-cart" class="max-md:scroll-mt-44 bg-surface-container-lowest rounded-lg p-space-md border border-outline-variant/30 shadow-[0_8px_24px_rgba(113,59,44,0.08)] flex flex-col gap-space-md">
                         <div class="flex items-center justify-between pb-space-sm border-b border-outline-variant/30">
                             <div class="flex items-center gap-space-xs">
@@ -446,7 +446,7 @@
             </div>
 
             {{-- BOTTOM: Trust row --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md mt-space-sm" data-reveal-group>
+            <div class="max-lg:order-5 grid grid-cols-1 md:grid-cols-3 gap-space-md mt-space-sm" data-reveal-group>
                 <div class="bg-surface-container-lowest rounded-lg p-space-lg flex items-start gap-space-md border border-outline-variant/30 shadow-sm" data-reveal>
                     <span class="w-12 h-12 rounded-full bg-secondary-fixed flex items-center justify-center text-primary shrink-0">
                         <span class="material-symbols-outlined text-[24px]">bakery_dining</span>

@@ -57,7 +57,7 @@ class AuthPortalTest extends TestCase
             ->assertDontSee('Quick login')
             ->assertDontSee('staffmrp')
             ->assertDontSee('12345678')
-            ->assertDontSee('admin');
+            ->assertDontSee('superadmin');
     }
 
     public function test_a_wrong_password_is_rejected(): void
@@ -71,7 +71,7 @@ class AuthPortalTest extends TestCase
 
     public function test_an_admin_cannot_sign_in_through_the_staff_portal(): void
     {
-        $this->from('/staff')->post('/staff', ['username' => 'admin', 'password' => 'brread-admin-2026'])
+        $this->from('/staff')->post('/staff', ['username' => 'superadmin', 'password' => 'brread-admin-2026'])
             ->assertRedirect('/staff')
             ->assertSessionHasErrors('username');
 
@@ -80,8 +80,8 @@ class AuthPortalTest extends TestCase
 
     public function test_staff_cannot_sign_in_through_the_admin_portal(): void
     {
-        $this->from('/admin')->post('/admin', ['username' => 'staffhr', 'password' => '12345678'])
-            ->assertRedirect('/admin')
+        $this->from('/superadmin')->post('/superadmin', ['username' => 'staffhr', 'password' => '12345678'])
+            ->assertRedirect('/superadmin')
             ->assertSessionHasErrors('username');
 
         $this->assertGuest();
@@ -89,7 +89,7 @@ class AuthPortalTest extends TestCase
 
     public function test_an_admin_signs_in_at_admin(): void
     {
-        $this->post('/admin', ['username' => 'admin', 'password' => 'brread-admin-2026'])
+        $this->post('/superadmin', ['username' => 'superadmin', 'password' => 'brread-admin-2026'])
             ->assertRedirect('/staff/orders');
 
         $this->assertAuthenticated();
@@ -99,7 +99,7 @@ class AuthPortalTest extends TestCase
     {
         config(['auth.admin_quick_login' => true]);
 
-        $this->get('/admin')
+        $this->get('/superadmin')
             ->assertOk()
             ->assertSee('Quick login')
             ->assertDontSee('brread-admin-2026');
@@ -109,7 +109,7 @@ class AuthPortalTest extends TestCase
     {
         config(['auth.admin_quick_login' => false]);
 
-        $this->get('/admin')->assertOk()->assertDontSee('brread-admin-2026');
+        $this->get('/superadmin')->assertOk()->assertDontSee('brread-admin-2026');
         $this->get('/staff')->assertOk()->assertDontSee('brread-admin-2026');
     }
 
@@ -117,17 +117,17 @@ class AuthPortalTest extends TestCase
     {
         config(['auth.admin_quick_login' => true]);
 
-        $this->post('/admin/quick-login')->assertRedirect('/staff/orders');
+        $this->post('/superadmin/quick-login')->assertRedirect('/staff/orders');
 
-        $this->assertAuthenticatedAs(User::where('username', 'admin')->first());
+        $this->assertAuthenticatedAs(User::where('username', 'superadmin')->first());
     }
 
     public function test_quick_login_is_unavailable_when_switched_off(): void
     {
         config(['auth.admin_quick_login' => false]);
 
-        $this->get('/admin')->assertOk()->assertDontSee('Quick login');
-        $this->post('/admin/quick-login')->assertNotFound();
+        $this->get('/superadmin')->assertOk()->assertDontSee('Quick login');
+        $this->post('/superadmin/quick-login')->assertNotFound();
 
         $this->assertGuest();
     }
@@ -158,7 +158,7 @@ class AuthPortalTest extends TestCase
         $user = User::where('username', $username)->first();
 
         $this->actingAs($user)->get('/staff')->assertRedirect($home);
-        $this->actingAs($user)->get('/admin')->assertRedirect($home);
+        $this->actingAs($user)->get('/superadmin')->assertRedirect($home);
     }
 
     public function test_logging_out_returns_to_the_portal_the_account_belongs_to(): void
@@ -167,9 +167,9 @@ class AuthPortalTest extends TestCase
             ->post('/staff/logout')
             ->assertRedirect('/staff');
 
-        $this->actingAs(User::where('username', 'admin')->first())
+        $this->actingAs(User::where('username', 'superadmin')->first())
             ->post('/staff/logout')
-            ->assertRedirect('/admin');
+            ->assertRedirect('/superadmin');
     }
 
     public function test_repeated_failed_logins_are_throttled(): void
@@ -183,5 +183,32 @@ class AuthPortalTest extends TestCase
             ->assertSessionHasErrors('username');
 
         $this->assertGuest();
+    }
+
+    public function test_the_superadmin_login_lives_at_its_own_address_and_the_old_one_redirects(): void
+    {
+        $this->get('/admin')->assertStatus(301)->assertRedirect('/superadmin');
+
+        $this->get('/superadmin')
+            ->assertOk()
+            ->assertSee('Superadmin')
+            ->assertSee('behind the counter')
+            ->assertDontSee('Admin Portal')
+            ->assertDontSee('Full access to every module');
+    }
+
+    public function test_the_old_admin_account_is_renamed_to_superadmin_and_keeps_its_password(): void
+    {
+        $user = User::where('username', 'superadmin')->firstOrFail();
+        $user->forceFill(['username' => 'admin'])->save();
+
+        (require base_path('database/migrations/2026_11_16_100000_rename_admin_account_to_superadmin.php'))->up();
+
+        $renamed = $user->fresh();
+        $this->assertSame('superadmin', $renamed->username);
+
+        $this->post('/superadmin', ['username' => 'superadmin', 'password' => 'brread-admin-2026'])
+            ->assertRedirect();
+        $this->assertAuthenticatedAs($renamed);
     }
 }

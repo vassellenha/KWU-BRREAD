@@ -14,15 +14,15 @@ Panduan penggunaan sistem BRREAD! untuk anggota tim yang ingin mengakses portal 
 
 > Password di atas hanya berlaku di environment lokal. Di production, atur `STAFF_PASSWORD` dan `ADMIN_PASSWORD` di variabel hosting; seeder menerapkannya saat deploy dan tidak lagi mengembalikan password ke default.
 
-**Admin:** `http://127.0.0.1:8000/admin`
+**Admin:** `http://127.0.0.1:8000/superadmin`
 
 | Role | Username | Password |
 |---|---|---|
-| Admin | `admin` | Hubungi pengelola project |
+| Superadmin | `superadmin` | Hubungi pengelola project |
 
-Halaman `/admin` menampilkan saran **Quick login** satu klik saat `APP_ENV=local`. Di environment lain fitur ini mati kecuali `ADMIN_QUICK_LOGIN=true` di-set secara sengaja, karena siapa pun yang bisa membuka halamannya akan langsung menjadi admin.
+Halaman `/superadmin` menampilkan saran **Quick login** satu klik saat `APP_ENV=local`. Di environment lain fitur ini mati kecuali `ADMIN_QUICK_LOGIN=true` di-set secara sengaja, karena siapa pun yang bisa membuka halamannya akan langsung menjadi admin.
 
-Akun staff hanya bisa masuk lewat `/staff`, dan akun admin hanya bisa masuk lewat `/admin`.
+Akun staff hanya bisa masuk lewat `/staff`, dan akun admin hanya bisa masuk lewat `/superadmin`.
 
 ## Akses per Role (RBAC)
 
@@ -110,4 +110,4 @@ php artisan serve
 
 **Staff Portal:** `http://127.0.0.1:8000/staff`
 
-**Admin Portal:** `http://127.0.0.1:8000/admin`
+**Superadmin:** `http://127.0.0.1:8000/superadmin`

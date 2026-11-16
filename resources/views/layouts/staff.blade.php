@@ -12,7 +12,7 @@
         ['module' => User::MODULE_SALES, 'route' => 'staff.sales.index', 'active' => 'staff.sales.*', 'icon' => 'monitoring', 'label' => 'Sales'],
     ])->filter(fn (array $link) => $currentUser->canAccessModule($link['module']));
 
-    $portalName = $currentUser->isAdmin() ? 'Admin Portal' : 'Staff Portal';
+    $portalName = $currentUser->isAdmin() ? 'Superadmin' : 'Staff Portal';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
