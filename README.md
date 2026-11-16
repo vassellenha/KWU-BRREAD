@@ -4,6 +4,8 @@
 
 <img src="./docs/readme/ticker.svg" width="100%" alt="Built with Laravel 13, PHP 8.3, Tailwind CSS 4, Alpine.js, Vite, Sanctum, PhpSpreadsheet, SQLite, Docker and PHPUnit" />
 
+<a href="https://github.com/vassellenha/KWU-BRREAD/actions/workflows/ci.yml"><img src="https://github.com/vassellenha/KWU-BRREAD/actions/workflows/ci.yml/badge.svg" alt="CI status: tests and asset build on every push" /></a>
+
 <br />
 
 <a href="#build-it-layer-by-layer"><img src="./docs/readme/path-order.svg" width="32%" alt="Order a sandwich: browse the menu and the builder" /></a>
@@ -358,6 +360,8 @@ php artisan serve
 
 While you work on the frontend, run `npm run dev` in a second terminal instead of `npm run build`.
 
+**Shortcuts.** On macOS, Linux or WSL, `make setup` runs the whole block above and `make` lists the rest (`make serve`, `make test`, `make fresh`, `make docker`). On Windows PowerShell, `powershell -ExecutionPolicy Bypass -File scripts\setup.ps1` does the same setup and stops with a clear message if PHP, Composer or Node is missing.
+
 <img src="./docs/readme/banner-08.svg" width="100%" alt="Section 8: Run It In Docker" />
 
 ## Run it with Docker
@@ -377,6 +381,8 @@ Open http://localhost:8080. The container migrates and seeds the database every 
 php artisan test
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) builds the assets and runs the suite on every push to `main` and on every pull request, and the badge at the top shows the result.
+
 The feature tests cover both login portals, role access, ordering with stock deduction, and the MRP, HR, accounting and sales modules.
 
 <img src="./docs/readme/banner-10.svg" width="100%" alt="Section 10: The Layout" />
@@ -393,7 +399,9 @@ database/                    migrations and seeders
 resources/views/             storefront pages, staff portal, shared partials
 resources/js/studio3d.js     the Studio's 3D scene: slab models, toppings, lighting, orbit controls
 public/img/studio3d/         baked PBR textures (colour and normal maps) for breads and ice creams
-scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients
+scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients; setup.ps1 is the Windows setup
+Makefile                     shortcuts: make setup, serve, test, fresh, docker
+.github/workflows/ci.yml     CI: asset build and the PHPUnit suite
 routes/                      web.php and api.php
 docs/                        staff guide
 tests/                       feature and unit tests
