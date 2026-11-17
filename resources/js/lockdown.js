@@ -307,14 +307,6 @@ function duckMusic(seconds = 1.4) {
     gain.linearRampToValueAtTime(MUSIC_VOLUME, now + seconds);
 }
 
-/** A sucking, rising swell that warns something is about to happen. */
-function riserSound() {
-    if (!live()) return;
-    const at = S.context.currentTime + 0.005;
-    burst(at, 0.3, 0.55, 'bandpass', 300, 5000, 2.5);
-    tone('sawtooth', 60, 260, at, 0.12, 0.25, 0.05);
-}
-
 /** The scream that comes with the face: a torn, distorted shriek over the recorded hit. */
 function screamSound() {
     if (!live()) return;
@@ -717,7 +709,7 @@ function stalker() {
                 settle(figure.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: 'forwards' }));
                 index = 0;
                 later(move, rand(9000, 14000));
-            }, 3200);
+            }, rand(700, 7000));
             return;
         }
         later(move, rand(6500, 9500));
@@ -729,20 +721,29 @@ function scare() {
     if (S.reduced || S.scaring) return;
     const element = S.root.querySelector('[data-scare]');
     if (!element) return;
+    // No warning, no build-up: the music is still playing when it hits.
     S.scaring = true;
-    // A beat of total dark first: the music drops out and the room goes black.
-    element.classList.add('is-dark');
     element.style.visibility = 'visible';
     element.style.opacity = '1';
-    duckMusic(2.4);
-    riserSound();
-    later(showFace, 420);
+    showFace();
+}
+
+/** Besides the figure, the face also comes at random, when nothing else is happening. */
+function ambushLoop() {
+    if (S.reduced) return;
+    const next = () => later(() => {
+        if (!document.hidden && !S.scaring) scare();
+        next();
+    }, rand(28000, 75000));
+    later(() => {
+        if (!document.hidden && !S.scaring) scare();
+        next();
+    }, rand(14000, 30000));
 }
 
 function showFace() {
     const element = S.root.querySelector('[data-scare]');
     if (!element) return;
-    element.classList.remove('is-dark');
     const svg = element.querySelector('svg');
     const flash = element.querySelector('[data-scare-flash]');
     const length = 1600;
@@ -797,7 +798,6 @@ function showFace() {
         });
 
     screamSound();
-    later(() => hitSound(1), 640);
     [0, 220, 520, 900].forEach((at, i) => later(() => {
         S.lastShake = 0;
         shake(1 - i * 0.15);
@@ -1084,7 +1084,7 @@ function reactions() {
     });
 
     document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement && !S.reduced) whisper("YOU CAN'T HIDE");
+        if (!document.fullscreenElement && !S.reduced) later(() => whisper("YOU CAN'T HIDE"), 1600);
     });
 }
 
@@ -1267,6 +1267,7 @@ function popup(attempt) {
         button.addEventListener('click', (event) => {
             event.stopPropagation();
             box.remove();
+            if (Math.random() < 0.05) scare();
             later(() => popup(attempt), 60);
             later(() => popup(attempt), 180);
         });
@@ -1615,12 +1616,30 @@ function noise() {
 }
 
 function goFullscreen() {
-    // Only works while the click that caused this still counts; otherwise nothing happens.
+    // Only works while a click still counts; otherwise nothing happens.
     try {
-        document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {});
+        const asked = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
+        asked?.then?.(() => {
+            // Chrome: a tap on Esc no longer leaves, it has to be held down.
+            navigator.keyboard?.lock?.(['Escape'])?.catch?.(() => {});
+        }, () => {});
     } catch {
         // Not allowed here.
     }
+}
+
+/** Leaving full screen is one more escape attempt, and the next click puts it back. */
+function fullscreenTrap() {
+    if (!document.documentElement.requestFullscreen) return;
+    let wasFull = Boolean(document.fullscreenElement);
+    document.addEventListener('fullscreenchange', () => {
+        const full = Boolean(document.fullscreenElement);
+        if (wasFull && !full && !S.leaving) escapeAttempt();
+        wasFull = full;
+    });
+    document.addEventListener('pointerdown', () => {
+        if (!document.fullscreenElement) goFullscreen();
+    }, true);
 }
 
 /**
@@ -1666,6 +1685,8 @@ export function start({ seconds = 60, instant = false, context = null, ip = '', 
         titleLoop();
         frameLoop();
         backTrap();
+        fullscreenTrap();
+        ambushLoop();
         // Came back from a reload or from another page: that was an escape attempt.
         if (S.pending > 0) {
             S.escapes += S.pending - 1;
