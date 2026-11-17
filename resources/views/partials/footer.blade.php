@@ -29,6 +29,7 @@
                     <li><a href="{{ route('build') }}" class="hover:text-primary transition-colors">Brread! Studio</a></li>
                     <li><a href="{{ route('about') }}" class="hover:text-primary transition-colors">About us</a></li>
                     <li><a href="{{ route('contact') }}" class="hover:text-primary transition-colors">Contact</a></li>
+                    <li><a href="{{ route('privacy') }}" class="hover:text-primary transition-colors">Privacy</a></li>
                 </ul>
             </div>
 
