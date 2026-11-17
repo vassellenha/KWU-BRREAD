@@ -135,8 +135,8 @@
                         <p class="font-hand text-[30px] leading-none text-primary -rotate-2 origin-left mb-space-sm">look inside</p>
                         <div class="about-steps">
                             <div data-step data-from="-1" data-to="0.22">
-                                <h2 class="about-step-title">Start with two slices.</h2>
-                                <p class="about-step-text">Soft white bread or whole wheat. It's there to hold on to, so we keep it simple.</p>
+                                <h2 class="about-step-title">Start with one slice.</h2>
+                                <p class="about-step-text">Soft white bread or whole wheat. It folds around the ice cream and gives you something to hold on to, so we keep it simple.</p>
                             </div>
                             <div data-step data-from="0.22" data-to="0.62">
                                 <h2 class="about-step-title">One thick slab in the middle.</h2>

@@ -323,10 +323,67 @@ window.addEventListener('storage', (event) => {
     if (event.key === 'brreadCart') Alpine.store('cart').items = loadCart();
 });
 
+// One in-page confirmation dialog for the whole app, replacing the browser's own confirm() box
+// (which shows "localhost says" / the site address). Any form with data-confirm opens it first.
+Alpine.store('dialog', {
+    open: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirm',
+    cancelLabel: 'Cancel',
+    tone: 'primary',
+    resolver: null,
+    lastFocus: null,
+
+    ask(options = {}) {
+        if (this.resolver) this.resolver(false);
+        this.title = options.title || 'Are you sure?';
+        this.message = options.message || '';
+        this.confirmLabel = options.confirmLabel || 'Confirm';
+        this.cancelLabel = options.cancelLabel || 'Cancel';
+        this.tone = options.tone === 'danger' ? 'danger' : 'primary';
+        this.lastFocus = document.activeElement;
+        this.open = true;
+        return new Promise((resolve) => {
+            this.resolver = resolve;
+        });
+    },
+
+    answer(result) {
+        if (!this.open) return;
+        this.open = false;
+        const resolve = this.resolver;
+        this.resolver = null;
+        if (resolve) resolve(result);
+        if (this.lastFocus && this.lastFocus.focus) this.lastFocus.focus();
+    },
+});
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.dataset.confirm || form.dataset.confirmed === '1') return;
+
+    event.preventDefault();
+    Alpine.store('dialog')
+        .ask({
+            title: form.dataset.confirmTitle,
+            message: form.dataset.confirm,
+            confirmLabel: form.dataset.confirmLabel,
+            cancelLabel: form.dataset.cancelLabel,
+            tone: form.dataset.confirmTone,
+        })
+        .then((ok) => {
+            if (!ok) return;
+            form.dataset.confirmed = '1';
+            form.submit();
+        });
+});
+
 Alpine.data('cartDrawer', () => ({
     customerName: '',
     customerPhone: '',
     submitting: false,
+    confirming: false,
     errorMessage: '',
     orderSuccess: null,
 
@@ -343,6 +400,7 @@ Alpine.data('cartDrawer', () => ({
 
             // A finished order must not linger: reopening shows the cart, not the old receipt.
             this.errorMessage = '';
+            this.confirming = false;
             if (this.orderSuccess) {
                 this.orderSuccess = null;
                 this.customerName = '';
@@ -355,9 +413,26 @@ Alpine.data('cartDrawer', () => ({
         Alpine.store('cart').open = false;
     },
 
+    // Step before the order is sent: the customer checks the name and number they typed.
+    review() {
+        this.errorMessage = '';
+
+        if (Alpine.store('cart').items.length === 0) {
+            this.errorMessage = 'Your cart is empty. Add a creation first.';
+            return;
+        }
+        if (!this.customerName.trim() || !this.customerPhone.trim()) {
+            this.errorMessage = 'Please fill in your name and phone number.';
+            return;
+        }
+
+        this.confirming = true;
+    },
+
     async checkout() {
         const cart = Alpine.store('cart');
         this.errorMessage = '';
+        this.confirming = false;
 
         if (cart.items.length === 0) {
             this.errorMessage = 'Your cart is empty — add a creation first.';

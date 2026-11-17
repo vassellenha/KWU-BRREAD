@@ -96,7 +96,10 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // 'prefer' silently downgrades to an unencrypted connection if the TLS
+            // handshake has any trouble, which is unsafe for a database reached over
+            // the public internet (Supabase). Fail closed instead of leaking creds.
+            'sslmode' => env('DB_SSLMODE', 'require'),
             // Reuse the connection between requests. Each request otherwise pays a fresh TCP + TLS
             // + auth handshake to the pooler, which is slow when the database is far away.
             'options' => extension_loaded('pdo_pgsql') && env('DB_PERSISTENT', false)

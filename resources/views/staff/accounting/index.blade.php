@@ -199,7 +199,7 @@
                             <td class="px-space-md py-space-sm font-body-md text-body-md text-on-surface-variant text-right whitespace-nowrap tabular-nums">{{ $rupiah($entry['balance_after']) }}</td>
                             <td class="px-space-md py-space-sm text-right">
                                 @if (isset($entry['expense']))
-                                    <form method="POST" action="{{ route('staff.accounting.expenses.destroy', $entry['expense']) }}" onsubmit="return confirm('Remove this expense entry?')">
+                                    <form method="POST" action="{{ route('staff.accounting.expenses.destroy', $entry['expense']) }}" data-confirm="This expense entry will be removed from the cash flow." data-confirm-title="Remove expense?" data-confirm-label="Remove" data-confirm-tone="danger">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" aria-label="Remove {{ $entry['description'] }}" class="press-scale inline-flex items-center px-space-sm py-1 rounded bg-surface-container text-on-surface-variant hover:bg-error-container/30 hover:text-error transition-colors duration-200">

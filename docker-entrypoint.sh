@@ -25,5 +25,10 @@ else
     php artisan config:clear || true
 fi
 
-echo "Starting server on port ${PORT:-8080}..."
-exec php artisan serve --host=0.0.0.0 --port="${PORT:-8080}" --no-reload
+export PORT="${PORT:-8080}"
+echo "Rendering nginx config for port ${PORT}..."
+envsubst '${PORT}' < /etc/nginx/templates/app.conf.template > /etc/nginx/sites-enabled/app.conf
+nginx -t
+
+echo "Starting nginx + php-fpm on port ${PORT} (via supervisord)..."
+exec supervisord -c /etc/supervisor/conf.d/app.conf

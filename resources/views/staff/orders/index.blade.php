@@ -321,7 +321,7 @@
 
                                     {{-- CONFIRM BUTTON --}}
                                     @if ($order->isPending())
-                                        <form method="POST" action="{{ route('staff.orders.confirm', $order) }}" onsubmit="return confirm('Konfirmasi pesanan #{{ $order->order_number }}? Tautan tracking publik akan aktif.');">
+                                        <form method="POST" action="{{ route('staff.orders.confirm', $order) }}" data-confirm="Tautan tracking publik akan aktif untuk pesanan #{{ $order->order_number }}." data-confirm-title="Konfirmasi pesanan?" data-confirm-label="Ya, konfirmasi" data-cancel-label="Kembali">
                                             @csrf
                                             <button
                                                 type="submit"
@@ -336,7 +336,7 @@
 
                                     {{-- CANCEL BUTTON --}}
                                     @if (!$order->isCancelled())
-                                        <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" onsubmit="return confirm('Batalkan pesanan #{{ $order->order_number }}? Stok bahan akan dipulihkan.');">
+                                        <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dibatalkan dan stok bahan dipulihkan." data-confirm-title="Batalkan pesanan?" data-confirm-label="Ya, batalkan" data-cancel-label="Kembali" data-confirm-tone="danger">
                                             @csrf
                                             <button
                                                 type="submit"

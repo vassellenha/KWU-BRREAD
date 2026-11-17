@@ -13,7 +13,7 @@
             <div class="space-y-space-sm">
                 <h2 class="font-title-md text-title-md text-on-surface">What goes in</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
-                    A slab of vanilla, strawberry or chocolate ice cream between two slices of white or
+                    A slab of vanilla, strawberry or chocolate ice cream folded inside one slice of white or
                     whole wheat bread, topped with chocolate sauce or sprinkles.
                 </p>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">

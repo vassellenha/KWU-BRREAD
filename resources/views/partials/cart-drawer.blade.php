@@ -1,4 +1,4 @@
-<div x-data="cartDrawer()" @keydown.escape.window="close()" x-cloak class="font-plus-jakarta">
+<div x-data="cartDrawer()" @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
@@ -101,7 +101,7 @@
 
         <form
             x-show="!orderSuccess && $store.cart.items.length > 0"
-            @submit.prevent="checkout()"
+            @submit.prevent="review()"
             class="p-space-md border-t border-outline-variant/30 flex flex-col gap-space-sm shrink-0"
         >
             <div class="flex justify-between items-center">
@@ -135,6 +135,10 @@
                     class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
             </div>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">
+                We use your name and number only to prepare and deliver this order.
+                <a href="{{ route('privacy') }}" target="_blank" rel="noopener" class="underline hover:text-primary">Privacy</a>
+            </p>
             <p x-show="errorMessage" role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
             <button
                 type="submit"
@@ -149,4 +153,77 @@
             </button>
         </form>
     </aside>
+
+    {{-- Check name and phone before the order goes out --}}
+    <div
+        x-show="confirming"
+        x-cloak
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="order-confirm-title"
+        class="fixed inset-0 z-[70] flex items-center justify-center p-space-md"
+    >
+        <div
+            x-show="confirming"
+            x-transition.opacity.duration.150ms
+            @click="confirming = false"
+            class="absolute inset-0 bg-on-surface/50"
+        ></div>
+        <div
+            x-show="confirming"
+            x-transition:enter="transition duration-200 ease-[var(--ease-out)]"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            class="relative w-full max-w-sm rounded-3xl bg-surface-container-lowest p-space-lg shadow-[0_16px_48px_rgba(113,59,44,0.25)] flex flex-col gap-space-md"
+        >
+            <div class="flex flex-col items-center text-center gap-space-xs">
+                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
+                    <span class="material-symbols-outlined text-[26px]">verified_user</span>
+                </span>
+                <h2 id="order-confirm-title" class="font-headline-sm text-headline-sm text-on-surface">Is this correct?</h2>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">Check your details before we place the order.</p>
+            </div>
+
+            <dl class="flex flex-col gap-space-xs">
+                <div class="flex items-center gap-space-sm rounded-2xl bg-surface-container px-space-md py-space-sm">
+                    <span class="material-symbols-outlined text-[22px] text-primary shrink-0">person</span>
+                    <div class="min-w-0">
+                        <dt class="font-label-md text-label-md text-on-surface-variant">Name</dt>
+                        <dd class="font-title-md text-title-md text-on-surface break-words" x-text="customerName.trim()"></dd>
+                    </div>
+                </div>
+                <div class="flex items-center gap-space-sm rounded-2xl bg-surface-container px-space-md py-space-sm">
+                    <span class="material-symbols-outlined text-[22px] text-primary shrink-0">call</span>
+                    <div class="min-w-0">
+                        <dt class="font-label-md text-label-md text-on-surface-variant">Phone number</dt>
+                        <dd class="font-title-md text-title-md text-on-surface tabular-nums break-words" x-text="customerPhone.trim()"></dd>
+                    </div>
+                </div>
+            </dl>
+
+            <div class="flex justify-between items-center px-space-xs">
+                <span class="font-label-md text-label-md text-on-surface-variant" x-text="$store.cart.items.length + ($store.cart.items.length === 1 ? ' creation' : ' creations')"></span>
+                <span class="font-title-md text-title-md text-primary tabular-nums" x-text="formatPrice($store.cart.total)"></span>
+            </div>
+
+            <div class="flex flex-col gap-space-xs">
+                <button
+                    type="button"
+                    @click="checkout()"
+                    class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
+                >
+                    <span class="material-symbols-outlined text-[20px]">check</span>
+                    Yes, place my order
+                </button>
+                <button
+                    type="button"
+                    @click="confirming = false; $nextTick(() => document.getElementById('cart-name')?.focus())"
+                    class="w-full flex items-center justify-center gap-space-xs rounded-full bg-surface-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-surface transition-colors duration-200 hover:bg-surface-container-highest active:translate-y-[2px]"
+                >
+                    <span class="material-symbols-outlined text-[20px]">edit</span>
+                    Edit details
+                </button>
+            </div>
+        </div>
+    </div>
 </div>

@@ -11,7 +11,7 @@
                 <a class="site-nav-logo" href="{{ route('home') }}" aria-label="Brread! home">
                     <img
                         src="{{ asset('logo.png') }}"
-                        alt="Brread! — Ice Cream Sandwich Singapore Style"
+                        alt="Brread! Ice Cream Sandwich Singapore Style"
                         width="480" height="239"
                         onerror="this.style.display='none'"
                     >
