@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -144,6 +145,9 @@ class AuthController extends Controller
         // A saved deep link may point at a module this role cannot open, which would
         // greet a correct login with a 403, so every sign-in starts at the role's home.
         $request->session()->forget('url.intended');
+
+        // Which door this browser uses, so an expired session lands on the right sign-in page.
+        Cookie::queue('portal', $user->isAdmin() ? 'admin' : 'staff', 60 * 24 * 30);
 
         // The sign-in script asks for JSON so it can show errors in place; it follows this itself.
         if ($request->expectsJson()) {

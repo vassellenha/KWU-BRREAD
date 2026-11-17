@@ -22,7 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'lockdown' => LoginLockdown::class,
         ]);
 
-        $middleware->redirectGuestsTo(fn () => route('staff.login'));
+        // A signed-out admin goes back to the superadmin form: the browser remembers which door it used.
+        $middleware->redirectGuestsTo(fn (Request $request) => route($request->cookie('portal') === 'admin' ? 'admin.login' : 'staff.login'));
 
         $middleware->redirectUsersTo(fn (Request $request) => route($request->user()->homeRouteName()));
 
