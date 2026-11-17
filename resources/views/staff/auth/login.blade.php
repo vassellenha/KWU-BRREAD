@@ -102,13 +102,13 @@
                 @if ($captchaEnabled)
                     <div>
                         <div class="flex items-center gap-space-xs">
-                            <div class="flex h-14 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant bg-white">
+                            <div class="flex h-16 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant bg-white">
                                 <img
                                     src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
                                     :src="captchaUrl"
                                     alt="Letters to type below"
-                                    width="260"
-                                    height="64"
+                                    width="300"
+                                    height="84"
                                     class="block h-full w-full object-contain"
                                 >
                             </div>
