@@ -72,6 +72,7 @@ return [
         'receipt',
         'receipt_long',
         'redo',
+        'refresh',
         'remove',
         'restart_alt',
         'restaurant_menu',

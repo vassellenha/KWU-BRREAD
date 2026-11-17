@@ -90,19 +90,38 @@
                         class="{{ $fieldClasses }}"
                     >
                 </div>
-                @if ($captchaQuestion)
-                    <div>
-                        <label for="captcha" class="block font-label-md text-label-md text-on-surface-variant mb-1">Quick check: what is {{ $captchaQuestion }}?</label>
+                @if ($captchaEnabled)
+                    <div x-data="{ n: {{ now()->getTimestampMs() }} }">
+                        <div class="flex items-center gap-space-xs rounded-lg border border-outline-variant bg-white p-1">
+                            <img
+                                src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
+                                :src="@js(route('captcha.image')) + '?v=' + n"
+                                alt="Letters to type below"
+                                width="240"
+                                height="80"
+                                class="h-16 w-auto min-w-0 flex-1 object-contain"
+                            >
+                            <button
+                                type="button"
+                                x-on:click="n = Date.now(); $refs.captcha.value = ''; $refs.captcha.focus()"
+                                aria-label="Show a new image"
+                                class="press-scale flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
+                            >
+                                <span class="material-symbols-outlined text-[22px]">refresh</span>
+                            </button>
+                        </div>
+                        <label for="captcha" class="block font-label-md text-label-md text-on-surface-variant mt-space-xs mb-1">Type the letters above</label>
                         <input
                             id="captcha"
+                            x-ref="captcha"
                             type="text"
                             name="captcha"
-                            inputmode="numeric"
-                            pattern="[0-9\-]*"
                             required
                             autocomplete="off"
-                            maxlength="3"
-                            class="{{ $fieldClasses }}"
+                            autocapitalize="characters"
+                            spellcheck="false"
+                            maxlength="8"
+                            class="{{ $fieldClasses }} uppercase tracking-widest"
                         >
                     </div>
                 @endif

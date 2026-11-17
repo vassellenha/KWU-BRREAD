@@ -172,26 +172,39 @@ class AuthPortalTest extends TestCase
             ->assertRedirect('/superadmin');
     }
 
-    public function test_the_login_forms_ask_a_math_question_when_the_captcha_is_on(): void
+    public function test_the_login_forms_show_a_captcha_image_when_it_is_on(): void
     {
         config(['auth.login_captcha' => true]);
 
-        $this->get('/staff')->assertOk()->assertSee('Quick check: what is');
-        $this->get('/superadmin')->assertOk()->assertSee('Quick check: what is');
+        $this->get('/staff')->assertOk()->assertSee('Type the letters above')->assertSee('/captcha?v=', false);
+        $this->get('/superadmin')->assertOk()->assertSee('Type the letters above');
     }
 
-    public function test_the_login_forms_have_no_question_when_the_captcha_is_off(): void
+    public function test_the_login_forms_have_no_captcha_when_it_is_off(): void
     {
         config(['auth.login_captcha' => false]);
 
-        $this->get('/staff')->assertOk()->assertDontSee('Quick check');
+        $this->get('/staff')->assertOk()->assertDontSee('Type the letters above');
+        $this->get('/captcha')->assertNotFound();
     }
 
-    public function test_a_login_without_the_captcha_answer_is_refused(): void
+    public function test_the_captcha_image_is_a_png_that_is_never_cached_and_keeps_its_code_in_the_session(): void
     {
         config(['auth.login_captcha' => true]);
 
-        $this->get('/staff');
+        $response = $this->get('/captcha')->assertOk()->assertHeader('Content-Type', 'image/png');
+
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->assertStringStartsWith("\x89PNG", $response->getContent());
+        $this->assertMatchesRegularExpression('/^[A-Z2-9]{5}$/', session('login_captcha_answer'));
+        $this->assertStringNotContainsString(session('login_captcha_answer'), $response->getContent());
+    }
+
+    public function test_a_login_without_the_captcha_text_is_refused(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/captcha');
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])
             ->assertRedirect('/staff')
             ->assertSessionHasErrors('captcha');
@@ -199,45 +212,44 @@ class AuthPortalTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_a_wrong_captcha_answer_is_refused_even_with_the_right_password(): void
+    public function test_a_wrong_captcha_text_is_refused_even_with_the_right_password(): void
     {
         config(['auth.login_captcha' => true]);
 
-        $this->get('/staff');
-        $answer = session('login_captcha_answer');
+        $this->get('/captcha');
 
-        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => (string) ($answer + 1)])
+        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => 'AAAAA'])
             ->assertSessionHasErrors('captcha');
 
         $this->assertGuest();
     }
 
-    public function test_a_captcha_answer_cannot_be_replayed(): void
+    public function test_a_captcha_text_cannot_be_replayed(): void
     {
         config(['auth.login_captcha' => true]);
 
-        $this->get('/staff');
-        $answer = (string) session('login_captcha_answer');
+        $this->get('/captcha');
+        $answer = session('login_captcha_answer');
 
-        // First attempt uses up the question, even though the password is wrong.
+        // The first attempt uses the code up, even though the password is wrong.
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => 'wrong', 'captcha' => $answer])
             ->assertSessionHasErrors('username');
 
-        // Same answer again, now with the right password: the old question is gone.
+        // Same text again, now with the right password: the old code is gone.
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => $answer])
             ->assertSessionHasErrors('captcha');
 
         $this->assertGuest();
     }
 
-    public function test_a_staff_login_succeeds_with_the_right_captcha_answer(): void
+    public function test_a_staff_login_succeeds_with_the_right_captcha_text_in_any_case(): void
     {
         config(['auth.login_captcha' => true]);
 
-        $this->get('/staff');
-        $answer = session('login_captcha_answer');
+        $this->get('/captcha');
+        $answer = strtolower(session('login_captcha_answer'));
 
-        $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => (string) $answer])
+        $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => ' '.$answer.' '])
             ->assertRedirect('/staff/orders');
 
         $this->assertAuthenticated();

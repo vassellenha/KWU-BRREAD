@@ -16,13 +16,13 @@ class AuthController extends Controller
 {
     public const QUICK_LOGIN_USERNAME = 'superadmin';
 
-    public function showStaffLogin(Request $request): View
+    public function showStaffLogin(): View
     {
         return view('staff.auth.login', [
             'portal' => 'staff',
             'attemptRoute' => 'staff.login.attempt',
             'quickLoginEnabled' => false,
-            'captchaQuestion' => $this->captchaQuestion($request),
+            'captchaEnabled' => LoginCaptcha::enabled(),
         ]);
     }
 
@@ -33,7 +33,7 @@ class AuthController extends Controller
             'attemptRoute' => 'admin.login.attempt',
             'quickLoginEnabled' => $this->quickLoginEnabled($request),
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
-            'captchaQuestion' => $this->captchaQuestion($request),
+            'captchaEnabled' => LoginCaptcha::enabled(),
         ]);
     }
 
@@ -75,18 +75,13 @@ class AuthController extends Controller
         return redirect()->route($loginRouteName);
     }
 
-    private function captchaQuestion(Request $request): ?string
-    {
-        return LoginCaptcha::enabled() ? LoginCaptcha::issue($request) : null;
-    }
-
     private function attemptLogin(Request $request, bool $adminPortal): RedirectResponse
     {
         // Checked before the password so a wrong answer never reveals whether the
         // credentials were right, and a bot gets no password feedback at all.
         if (LoginCaptcha::enabled() && ! LoginCaptcha::passes($request, $request->input('captcha'))) {
             throw ValidationException::withMessages([
-                'captcha' => 'That answer is not right. Try the new question.',
+                'captcha' => 'The letters did not match. Try the new image.',
             ]);
         }
 

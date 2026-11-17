@@ -3,6 +3,7 @@
 use App\Http\Controllers\PublicOrderController;
 use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
+use App\Http\Controllers\Staff\CaptchaController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderManagementController;
@@ -18,6 +19,8 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/superadmin', [AuthController::class, 'showAdminLogin'])->name('admin.login');
     Route::post('/superadmin', [AuthController::class, 'adminLogin'])->middleware(['throttle:login', 'throttle:login-username'])->name('admin.login.attempt');
+    Route::get('/captcha', CaptchaController::class)->middleware('throttle:60,1')->name('captcha.image');
+
     Route::post('/superadmin/quick-login', [AuthController::class, 'adminQuickLogin'])->middleware('throttle:login')->name('admin.quick-login');
 });
 
