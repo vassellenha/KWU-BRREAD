@@ -379,6 +379,123 @@ document.addEventListener('submit', (event) => {
         });
 });
 
+// Staff and superadmin sign-in. The form posts through fetch so a failed attempt keeps the page
+// (and the browser's permission to play sound) and a lockdown can glitch in without a reload.
+// With scripts off, the form still posts normally and the server answers with a full page.
+function primeAudio() {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        const context = new AudioContextClass();
+        context.resume?.();
+        return context;
+    } catch {
+        return null;
+    }
+}
+
+Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
+    username: initialUsername,
+    password: '',
+    error: '',
+    busy: false,
+    captchaStamp: Date.now(),
+
+    get captchaUrl() {
+        return `${captchaBase}?v=${this.captchaStamp}`;
+    },
+
+    refreshCaptcha() {
+        this.captchaStamp = Date.now();
+        const field = this.$refs.captcha;
+        if (field) field.value = '';
+    },
+
+    async submit(event) {
+        if (this.busy) return;
+
+        const form = event.target;
+        const context = primeAudio();
+        this.busy = true;
+        this.error = '';
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok && data.redirect) {
+                context?.close?.();
+                window.location.href = data.redirect;
+                return;
+            }
+
+            if (response.status === 429 && data.locked) {
+                const lockdown = await import('./lockdown.js');
+                lockdown.start({ seconds: data.retry_after, context, ip: data.ip, trace: data.trace });
+                return;
+            }
+
+            context?.close?.();
+
+            if (response.status === 422) {
+                const errors = data.errors || {};
+                const first = Object.values(errors)[0];
+                this.error = (Array.isArray(first) ? first[0] : first) || 'Check your details and try again.';
+                // A wrong password is cleared; a wrong captcha keeps what was typed.
+                if (!('captcha' in errors)) this.password = '';
+                this.refreshCaptcha();
+            } else if (response.status === 419) {
+                this.error = 'This page expired. Reload it and try again.';
+            } else {
+                this.error = 'Something went wrong. Try again.';
+            }
+        } catch {
+            context?.close?.();
+            this.error = 'Could not reach the server. Check your connection and try again.';
+        } finally {
+            this.busy = false;
+        }
+    },
+}));
+
+function readTrace(element) {
+    try {
+        return element.dataset.trace ? JSON.parse(element.dataset.trace) : null;
+    } catch {
+        return null;
+    }
+}
+
+// A page that opens already locked (a blocked address reloading) shows the screen at once.
+document.addEventListener('DOMContentLoaded', () => {
+    const lockdown = document.getElementById('lockdown');
+
+    // Superadmin preview: the first click plays the whole thing, sound included.
+    if (lockdown && lockdown.dataset.preview === '1') {
+        document.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const context = primeAudio();
+            document.getElementById('lockdown-preview-hint')?.remove();
+            import('./lockdown.js').then((module) => module.start({ seconds: 600, context, ip: lockdown.dataset.ip, trace: readTrace(lockdown) }));
+        }, { capture: true, once: true });
+    }
+
+    if (lockdown && lockdown.dataset.autostart === '1') {
+        import('./lockdown.js').then((module) => module.start({
+            seconds: Number(lockdown.dataset.seconds) || 60,
+            instant: true,
+            ip: lockdown.dataset.ip,
+            trace: readTrace(lockdown),
+        }));
+    }
+});
+
 Alpine.data('cartDrawer', () => ({
     customerName: '',
     customerPhone: '',

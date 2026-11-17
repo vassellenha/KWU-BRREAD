@@ -8,21 +8,25 @@ use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
+use App\Http\Controllers\Staff\SecurityController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 $rolesFor = fn (string $module): string => 'role:'.implode(',', User::MODULE_ROLES[$module]);
 
-Route::middleware('guest')->group(function () {
+Route::middleware(['guest', 'lockdown'])->group(function () {
     Route::get('/staff', [AuthController::class, 'showStaffLogin'])->name('staff.login');
     Route::post('/staff', [AuthController::class, 'staffLogin'])->middleware(['throttle:login', 'throttle:login-username'])->name('staff.login.attempt');
 
     Route::get('/superadmin', [AuthController::class, 'showAdminLogin'])->name('admin.login');
     Route::post('/superadmin', [AuthController::class, 'adminLogin'])->middleware(['throttle:login', 'throttle:login-username'])->name('admin.login.attempt');
-    Route::get('/captcha', CaptchaController::class)->middleware('throttle:60,1')->name('captcha.image');
-
     Route::post('/superadmin/quick-login', [AuthController::class, 'adminQuickLogin'])->middleware('throttle:login')->name('admin.quick-login');
 });
+
+// Outside the lockdown group so a locked page still shows its (scrambled) captcha box.
+Route::get('/captcha', CaptchaController::class)->middleware('throttle:60,1')->name('captcha.image');
+
+Route::get(config('auth.lockdown_preview_path'), [AuthController::class, 'lockdownPreview'])->name('lockdown.preview');
 
 Route::redirect('/staff/login', '/staff', 301);
 Route::redirect('/admin', '/superadmin', 301);
@@ -58,6 +62,10 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 
     Route::middleware($rolesFor(User::MODULE_SALES))->prefix('sales')->name('sales.')->group(function () {
         Route::get('/', [SalesController::class, 'index'])->name('index');
+    });
+
+    Route::middleware($rolesFor(User::MODULE_SECURITY))->prefix('security')->name('security.')->group(function () {
+        Route::get('/', [SecurityController::class, 'index'])->name('index');
     });
 });
 

@@ -1867,3 +1867,357 @@ button,
     outline: 3px solid #fff;
     outline-offset: 2px;
 }
+
+/* ---------- Lockdown: the glitch and the locked sign-in page ---------- */
+
+body.is-glitching main {
+    animation: lockdown-glitch 0.95s steps(1, end) both;
+}
+
+body.is-glitching main * {
+    text-shadow: 2px 0 rgba(255, 0, 80, 0.7), -2px 0 rgba(0, 220, 255, 0.7);
+}
+
+body.is-glitching::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 4px);
+}
+
+@keyframes lockdown-glitch {
+    0% { transform: translate(0, 0); clip-path: none; }
+    8% { transform: translate(-10px, 2px) skewX(6deg); clip-path: inset(0 0 55% 0); }
+    16% { transform: translate(12px, -3px); clip-path: inset(40% 0 0 0); }
+    24% { transform: translate(-4px, 0) skewX(-4deg); clip-path: inset(10% 0 30% 0); }
+    34% { transform: translate(8px, 4px); clip-path: none; }
+    46% { transform: translate(-14px, -2px) skewX(8deg); clip-path: inset(55% 0 5% 0); }
+    58% { transform: translate(6px, 1px); clip-path: inset(0 0 40% 0); }
+    70% { transform: translate(-6px, 3px) skewX(-6deg); clip-path: none; }
+    82% { transform: translate(16px, -4px); clip-path: inset(20% 0 45% 0); }
+    92% { transform: translate(-2px, 0); clip-path: none; }
+    100% { transform: translate(0, 0); clip-path: none; }
+}
+
+/* The wrapper adds no box, so each layer stacks against the page itself. */
+.lockdown {
+    display: contents;
+}
+
+.lockdown[hidden] {
+    display: none;
+}
+
+body.is-locked {
+    overflow: hidden;
+    background-color: #0a0708;
+}
+
+body.is-locked main {
+    position: relative;
+    z-index: 2;
+    filter: brightness(0.86) contrast(1.08) saturate(0.85);
+}
+
+body.is-locked.doodle::before {
+    z-index: 1;
+    opacity: 0.08;
+}
+
+body.is-locked .drip {
+    z-index: 3;
+    filter: brightness(0.6) saturate(0.9);
+}
+
+/* Background: a photo when public/img/lockdown-bg.jpg exists, otherwise dark shapes in smoke. */
+.lockdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background-color: #0b0809;
+    background-image:
+        radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.85) 100%),
+        linear-gradient(rgba(10, 6, 8, 0.55), rgba(10, 6, 8, 0.55)),
+        var(--lockdown-bg, none);
+    background-size: cover;
+    background-position: center;
+    animation: lockdown-flicker 6s steps(1, end) infinite;
+}
+
+.lockdown-backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.3;
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px);
+}
+
+@keyframes lockdown-flicker {
+    0%, 100% { opacity: 1; }
+    41% { opacity: 0.88; }
+    43% { opacity: 1; }
+    77% { opacity: 0.92; }
+    78% { opacity: 1; }
+}
+
+.lockdown-figure {
+    position: absolute;
+    top: 14%;
+    width: 30vw;
+    height: 80vh;
+    filter: blur(18px);
+    opacity: 0.75;
+}
+
+.lockdown-figure--left {
+    left: 4%;
+    background:
+        radial-gradient(ellipse 34% 22% at 50% 30%, rgba(170, 160, 160, 0.32), transparent 70%),
+        radial-gradient(ellipse 60% 55% at 50% 85%, rgba(60, 56, 58, 0.55), transparent 72%);
+}
+
+.lockdown-figure--right {
+    right: 14%;
+    top: 22%;
+    background:
+        radial-gradient(ellipse 26% 18% at 50% 24%, rgba(120, 112, 112, 0.25), transparent 70%),
+        radial-gradient(ellipse 52% 60% at 50% 80%, rgba(40, 36, 38, 0.7), transparent 72%);
+}
+
+.lockdown-door {
+    position: absolute;
+    right: 3%;
+    top: 26%;
+    width: 16vw;
+    height: 60vh;
+    background: linear-gradient(90deg, rgba(150, 146, 150, 0.12), rgba(200, 196, 200, 0.2));
+    filter: blur(6px);
+}
+
+.lockdown-blood {
+    position: absolute;
+    top: 13vh;
+    width: clamp(110px, 11vw, 170px);
+    opacity: 0.92;
+}
+
+.lockdown-blood--left {
+    left: calc(50% - clamp(220px, 21vw, 330px));
+}
+
+.lockdown-blood--right {
+    left: calc(50% + clamp(130px, 13vw, 220px));
+    top: 9vh;
+    transform: scaleX(-1);
+}
+
+.lockdown-drips {
+    transform-box: fill-box;
+    transform-origin: top;
+    animation: lockdown-drip 9s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes lockdown-drip {
+    from { transform: scaleY(0.25); }
+    to { transform: scaleY(1); }
+}
+
+.lockdown-log {
+    position: fixed;
+    z-index: 1;
+    margin: 0;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(225, 55, 60, 0.82);
+    text-shadow: 0 0 6px rgba(255, 30, 40, 0.35);
+    white-space: pre;
+    pointer-events: none;
+}
+
+.lockdown-log--left {
+    left: 18px;
+    top: 52vh;
+}
+
+.lockdown-log--right {
+    right: 18px;
+    top: 50vh;
+    color: rgba(215, 210, 212, 0.62);
+    text-shadow: none;
+}
+
+.lockdown-noise {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    opacity: 0.75;
+}
+
+/* The banner across the middle of the locked card. */
+.lockdown-banner {
+    position: absolute;
+    left: -7%;
+    right: -7%;
+    top: 29%;
+    z-index: 5;
+    padding: 10px 12px;
+    white-space: nowrap;
+    text-align: center;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow', 'Liberation Sans Narrow', sans-serif;
+    font-stretch: condensed;
+    font-size: clamp(17px, 1.9vw, 24px);
+    line-height: 1.18;
+    letter-spacing: 0.02em;
+    color: #ff7d82;
+    background: rgba(22, 4, 6, 0.9);
+    border-block: 1px solid rgba(255, 80, 80, 0.35);
+    box-shadow: 0 0 30px rgba(120, 0, 10, 0.55);
+    text-shadow: -2px 0 rgba(0, 220, 255, 0.35), 2px 0 rgba(255, 0, 40, 0.55), 0 0 14px rgba(255, 40, 40, 0.45);
+    animation: lockdown-jitter 4.5s steps(1, end) infinite;
+}
+
+.lockdown-banner[hidden] {
+    display: none;
+}
+
+@keyframes lockdown-jitter {
+    0%, 90%, 100% { transform: translate(0, 0); }
+    91% { transform: translate(-5px, 1px); }
+    93% { transform: translate(6px, -1px); }
+    95% { transform: translate(-2px, 0); }
+}
+
+body.is-locked .staff-login-card {
+    background-color: rgba(46, 40, 46, 0.9);
+    box-shadow:
+        -3px 0 0 rgba(0, 220, 255, 0.45),
+        3px 0 0 rgba(255, 30, 60, 0.55),
+        0 0 46px rgba(200, 0, 30, 0.3),
+        0 28px 56px rgba(0, 0, 0, 0.6);
+}
+
+body.is-locked main input {
+    opacity: 0.85;
+}
+
+body.is-locked main img[alt='Brread!'] {
+    filter: saturate(0.75) brightness(0.85) drop-shadow(-2px 0 rgba(0, 220, 255, 0.4)) drop-shadow(2px 0 rgba(255, 0, 40, 0.5));
+    animation: lockdown-slice 3.2s steps(1, end) infinite;
+}
+
+@keyframes lockdown-slice {
+    0%, 86%, 100% { clip-path: none; transform: translate(0, 0) rotate(-3deg); }
+    87% { clip-path: inset(0 0 52% 0); transform: translate(-7px, 0) rotate(-3deg); }
+    89% { clip-path: inset(48% 0 0 0); transform: translate(6px, 0) rotate(-3deg); }
+    91% { clip-path: none; transform: translate(-2px, 0) rotate(-3deg); }
+}
+
+body.is-locked #login-submit {
+    opacity: 1;
+    cursor: not-allowed;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    color: #f6d4d6;
+    background: linear-gradient(180deg, #7c1c28, #4f0f18);
+    box-shadow: 0 0 18px rgba(160, 10, 30, 0.45);
+}
+
+body.is-locked #login-submit [data-login-icon] {
+    display: none;
+}
+
+body.is-locked #login-submit [data-login-timer] {
+    opacity: 0.7;
+}
+
+.lockdown-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 3vh;
+    z-index: 5;
+    margin: 0;
+    padding: 10px 18px;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: #e9e4e6;
+    white-space: nowrap;
+    background: rgba(24, 22, 24, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.lockdown-toast-trace {
+    display: block;
+    margin-top: 4px;
+    font-family: ui-monospace, Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    color: rgba(255, 110, 110, 0.85);
+}
+
+.lockdown-toast-trace:empty {
+    display: none;
+}
+
+.lockdown-corner {
+    position: fixed;
+    right: 28px;
+    bottom: 24px;
+    z-index: 5;
+    margin: 0;
+    font-family: ui-monospace, Consolas, 'Courier New', monospace;
+    font-size: 20px;
+    letter-spacing: 0.32em;
+    color: rgba(215, 200, 202, 0.5);
+}
+
+.lockdown-sound {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 6;
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    color: #f4dede;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+}
+
+@media (max-width: 900px) {
+    .lockdown-corner,
+    .lockdown-log,
+    .lockdown-figure,
+    .lockdown-door {
+        display: none;
+    }
+
+    .lockdown-toast {
+        white-space: normal;
+        width: max-content;
+        max-width: 90vw;
+        text-align: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.is-glitching main,
+    .lockdown-backdrop,
+    .lockdown-drips,
+    .lockdown-banner,
+    body.is-locked main img[alt='Brread!'] {
+        animation: none;
+    }
+}

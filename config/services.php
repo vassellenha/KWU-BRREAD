@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+
+    // Approximate location of addresses that trigger the sign-in lockdown (ip-api.com).
+    'geoip' => [
+        'enabled' => (bool) env('GEOIP_ENABLED', true),
+    ],
+
+    // How long security events are kept before they are deleted.
+    'security_events' => [
+        'keep_days' => (int) env('SECURITY_EVENT_DAYS', 90),
+    ],
+
 ];

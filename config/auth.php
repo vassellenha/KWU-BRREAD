@@ -133,6 +133,10 @@ return [
     // A small arithmetic question on the staff and superadmin sign-in forms, so a script
     // that only knows the username and password field cannot try passwords unattended.
     // On by default everywhere; the test suite switches it off except in its own tests.
+    // Unlisted address where a signed-in superadmin can watch the lockdown screen without
+    // locking anyone out or writing to the log. Everyone else gets a plain 404 there.
+    'lockdown_preview_path' => env('LOCKDOWN_PREVIEW_PATH', 'x7f-q9z/0x2e-lck_n0/dXJ0'),
+
     'login_captcha' => (bool) env('LOGIN_CAPTCHA', true),
 
 

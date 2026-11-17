@@ -39,6 +39,17 @@
             </section>
 
             <section class="space-y-space-xs">
+                <h2 class="font-title-md text-title-md text-on-surface">Security records</h2>
+                <p class="font-body-md text-body-md text-on-surface-variant">
+                    When someone sends attack code to our staff sign-in or tries to sign in too many times,
+                    we record the IP address, the browser and device it reports, the approximate city and
+                    network provider for that address, and what was typed as the username. Only the owner can
+                    see these records, we use them to protect the site and, if needed, to report an attack to
+                    the authorities, and we delete them after {{ config('services.security_events.keep_days') }} days.
+                </p>
+            </section>
+
+            <section class="space-y-space-xs">
                 <h2 class="font-title-md text-title-md text-on-surface">Questions or removal</h2>
                 <p class="font-body-md text-body-md text-on-surface-variant">
                     To ask about your data or have it removed, reach us through the

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\LoginCaptcha;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,12 +38,12 @@ class AuthController extends Controller
         ]);
     }
 
-    public function staffLogin(Request $request): RedirectResponse
+    public function staffLogin(Request $request): RedirectResponse|JsonResponse
     {
         return $this->attemptLogin($request, adminPortal: false);
     }
 
-    public function adminLogin(Request $request): RedirectResponse
+    public function adminLogin(Request $request): RedirectResponse|JsonResponse
     {
         return $this->attemptLogin($request, adminPortal: true);
     }
@@ -51,7 +52,7 @@ class AuthController extends Controller
      * Signs in as the admin with one click from the suggestion on /superadmin. The route
      * answers 404 unless ADMIN_QUICK_LOGIN allows it.
      */
-    public function adminQuickLogin(Request $request): RedirectResponse
+    public function adminQuickLogin(Request $request): RedirectResponse|JsonResponse
     {
         abort_unless($this->quickLoginEnabled($request), 404);
 
@@ -62,6 +63,27 @@ class AuthController extends Controller
         Auth::login($admin);
 
         return $this->enterPortal($request, $admin);
+    }
+
+    /**
+     * The superadmin sign-in page with the lockdown ready to fire on the first click, so the
+     * glitch sound is allowed to play. Nothing is locked or logged. Anyone who is not a signed-in
+     * admin gets a 404, so the address gives nothing away.
+     */
+    public function lockdownPreview(Request $request): View
+    {
+        abort_unless($request->user()?->isAdmin(), 404);
+
+        return view('staff.auth.login', [
+            'portal' => 'admin',
+            'attemptRoute' => 'admin.login.attempt',
+            'quickLoginEnabled' => false,
+            'quickLoginUsername' => null,
+            'captchaEnabled' => LoginCaptcha::enabled(),
+            'locked' => false,
+            'preview' => true,
+            'trace' => \App\Support\Lockdown::trace($request),
+        ]);
     }
 
     public function logout(Request $request): RedirectResponse
@@ -75,7 +97,7 @@ class AuthController extends Controller
         return redirect()->route($loginRouteName);
     }
 
-    private function attemptLogin(Request $request, bool $adminPortal): RedirectResponse
+    private function attemptLogin(Request $request, bool $adminPortal): RedirectResponse|JsonResponse
     {
         // Checked before the password so a wrong answer never reveals whether the
         // credentials were right, and a bot gets no password feedback at all.
@@ -115,13 +137,18 @@ class AuthController extends Controller
         return $this->enterPortal($request, $user);
     }
 
-    private function enterPortal(Request $request, User $user): RedirectResponse
+    private function enterPortal(Request $request, User $user): RedirectResponse|JsonResponse
     {
         $request->session()->regenerate();
 
         // A saved deep link may point at a module this role cannot open, which would
         // greet a correct login with a 403, so every sign-in starts at the role's home.
         $request->session()->forget('url.intended');
+
+        // The sign-in script asks for JSON so it can show errors in place; it follows this itself.
+        if ($request->expectsJson()) {
+            return response()->json(['redirect' => route($user->homeRouteName())]);
+        }
 
         return redirect()->route($user->homeRouteName());
     }

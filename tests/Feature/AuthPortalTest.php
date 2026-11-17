@@ -262,8 +262,8 @@ class AuthPortalTest extends TestCase
         }
 
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])
-            ->assertRedirect('/staff')
-            ->assertSessionHasErrors('username');
+            ->assertStatus(429)
+            ->assertSee('PERCOBAAN MASUK DIHENTIKAN');
 
         $this->assertGuest();
     }

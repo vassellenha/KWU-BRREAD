@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use App\Support\Lockdown;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -27,9 +28,7 @@ class AppServiceProvider extends ServiceProvider
             // A non-string username (username[]=x) must not crash the key builder.
             $username = $request->input('username');
             $username = is_string($username) ? Str::lower($username) : '';
-            $tooMany = fn () => back()
-                ->withErrors(['username' => 'Too many sign-in attempts. Wait a minute and try again.'])
-                ->onlyInput('username');
+            $tooMany = fn (Request $request, array $headers) => Lockdown::throttled($request, $headers);
 
             return [
                 // Guessing one account's password.
@@ -46,9 +45,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login-username', function (Request $request) {
             $username = $request->input('username');
             $username = is_string($username) ? Str::lower($username) : '';
-            $tooMany = fn () => back()
-                ->withErrors(['username' => 'Too many sign-in attempts for this account. Wait a while and try again.'])
-                ->onlyInput('username');
+            $tooMany = fn (Request $request, array $headers) => Lockdown::throttled($request, $headers);
 
             return Limit::perMinutes(10, 20)->by('user-only:'.$username)->response($tooMany);
         });

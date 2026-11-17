@@ -42,6 +42,8 @@ class User extends Authenticatable
 
     public const MODULE_SALES = 'sales';
 
+    public const MODULE_SECURITY = 'security';
+
     /**
      * The single source of truth for RBAC: routes and the sidebar both read this map.
      *
@@ -53,6 +55,7 @@ class User extends Authenticatable
         self::MODULE_HR => [self::ROLE_ADMIN, self::ROLE_HR],
         self::MODULE_ACCOUNTING => [self::ROLE_ADMIN, self::ROLE_ACCOUNTANT],
         self::MODULE_SALES => [self::ROLE_ADMIN],
+        self::MODULE_SECURITY => [self::ROLE_ADMIN],
     ];
 
     /**

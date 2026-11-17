@@ -1,5 +1,6 @@
 @php
     $isAdminPortal = $portal === 'admin';
+    $locked = $locked ?? false;
     $portalName = $isAdminPortal ? 'Superadmin' : 'Staff Portal';
     $fieldClasses = 'w-full rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary';
 @endphp
@@ -15,13 +16,10 @@
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="staff staff-login doodle bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
+<body class="staff staff-login doodle {{ $locked ? 'is-locked' : '' }} bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
     @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 2, 'drops' => false])
 
-    <main class="w-full max-w-sm" x-data="{
-        username: @js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')),
-        password: '',
-    }">
+    <main class="w-full max-w-sm" x-data="staffLogin(@js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')), @js(route('captcha.image')))">
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
             <p class="login-tagline font-hand text-[28px] leading-none -rotate-2">behind the counter</p>
@@ -31,14 +29,21 @@
             @endunless
         </div>
 
-        <div class="staff-login-card bg-surface-container-lowest rounded-lg border border-outline-variant/40 p-space-lg">
+        <div id="login-card" class="staff-login-card relative bg-surface-container-lowest rounded-lg border border-outline-variant/40 p-space-lg">
+            <div id="lockdown-banner" class="lockdown-banner" role="alert" @unless ($locked) hidden @endunless>
+                TERLALU BANYAK PERCOBAAN.<br>KAMI TAHU.<br>PERCOBAAN MASUK DIHENTIKAN.
+            </div>
+
             @if ($errors->any())
                 <div role="alert" class="mb-space-md px-space-md py-space-sm rounded bg-error-container text-on-error-container font-body-sm text-body-sm">
                     {{ $errors->first() }}
                 </div>
             @endif
 
-            <form method="POST" action="{{ route($attemptRoute) }}" class="space-y-space-sm">
+            <div x-show="error" x-cloak x-text="error" role="alert" class="mb-space-md px-space-md py-space-sm rounded bg-error-container text-on-error-container font-body-sm text-body-sm"></div>
+
+            <form method="POST" action="{{ route($attemptRoute) }}" class="space-y-space-sm" x-on:submit.prevent="submit($event)">
+                <fieldset class="contents" @disabled($locked)>
                 @csrf
                 <div>
                     <label for="username" class="block font-label-md text-label-md text-on-surface-variant mb-1">Username</label>
@@ -91,11 +96,11 @@
                     >
                 </div>
                 @if ($captchaEnabled)
-                    <div x-data="{ n: {{ now()->getTimestampMs() }} }">
+                    <div>
                         <div class="flex items-center gap-space-xs rounded-lg border border-outline-variant bg-white p-1">
                             <img
                                 src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
-                                :src="@js(route('captcha.image')) + '?v=' + n"
+                                :src="captchaUrl"
                                 alt="Letters to type below"
                                 width="240"
                                 height="80"
@@ -103,7 +108,7 @@
                             >
                             <button
                                 type="button"
-                                x-on:click="n = Date.now(); $refs.captcha.value = ''; $refs.captcha.focus()"
+                                x-on:click="refreshCaptcha(); $refs.captcha.focus()"
                                 aria-label="Show a new image"
                                 class="press-scale flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
                             >
@@ -131,12 +136,16 @@
                 </label>
 
                 <button
+                    id="login-submit"
                     type="submit"
-                    class="press-scale w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-opacity duration-200 hover:opacity-95"
+                    x-bind:disabled="busy"
+                    class="press-scale w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container disabled:opacity-70 px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-opacity duration-200 hover:opacity-95"
                 >
-                    <span class="material-symbols-outlined text-[20px]">login</span>
-                    Sign in
+                    <span class="material-symbols-outlined text-[20px]" data-login-icon>login</span>
+                    <span data-login-label>{{ $locked ? 'SISTEM TERKUNCI' : 'Sign in' }}</span>
+                    <span data-login-timer class="tabular-nums"></span>
                 </button>
+                </fieldset>
             </form>
 
             @if ($quickLoginEnabled)
@@ -154,5 +163,9 @@
         </p>
     </main>
 
+    @include('partials.lockdown', ['open' => $locked, 'seconds' => $lockSeconds ?? 0, 'preview' => $preview ?? false, 'trace' => $trace ?? null])
+    @if ($preview ?? false)
+        <p id="lockdown-preview-hint" class="fixed bottom-4 left-4 z-[300] rounded-full bg-black/70 px-4 py-2 font-label-md text-label-md text-white/80">Preview: klik di mana saja</p>
+    @endif
 </body>
 </html>
