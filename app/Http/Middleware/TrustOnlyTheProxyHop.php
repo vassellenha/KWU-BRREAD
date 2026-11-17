@@ -7,20 +7,26 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The app trusts every proxy (the host's edge terminates HTTPS), and with that Laravel takes the
- * LEFT-most X-Forwarded-For entry as the visitor. That entry is whatever the visitor wrote, so a
- * single header (X-Forwarded-For: 1.2.3.4) could pick the address the rate limits, the lockdown,
- * the IP blocks and the security log see: dodge a block, or lock someone else out by borrowing
- * their address. The edge appends the address it actually saw on the RIGHT, so this keeps only that
- * one (skipping the host's own private hops) before anything reads the header.
+ * Pins the visitor's address before anything reads it. Laravel takes the LEFT-most
+ * X-Forwarded-For entry, which a visitor can write themselves, so one forged header could pick
+ * the address the rate limits, the lockdown, the IP blocks and the security log see.
+ *
+ * Railway's edge sets X-Real-IP to the address it actually saw and overwrites any copy the
+ * visitor sends. It also appends its own edge address (a public Singapore IP) to the END of
+ * X-Forwarded-For, so "the right-most public entry" would be Railway, not the visitor. When
+ * X-Real-IP is there it wins; without it (local work, another host) the right-most public entry
+ * of the chain is used, as before.
  */
 class TrustOnlyTheProxyHop
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $real = trim((string) $request->headers->get('X-Real-IP', ''));
         $chain = $request->headers->get('X-Forwarded-For');
 
-        if (is_string($chain) && $chain !== '') {
+        if (filter_var($real, FILTER_VALIDATE_IP) !== false) {
+            $request->headers->set('X-Forwarded-For', $real);
+        } elseif (is_string($chain) && $chain !== '') {
             $request->headers->set('X-Forwarded-For', self::visitor($chain));
         }
 
@@ -29,7 +35,7 @@ class TrustOnlyTheProxyHop
 
     /**
      * The right-most public address of the chain. A chain with no public address (local
-     * development, tests) keeps its first entry, as before.
+     * development, tests) keeps its first entry.
      */
     public static function visitor(string $chain): string
     {

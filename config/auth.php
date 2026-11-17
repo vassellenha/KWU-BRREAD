@@ -139,7 +139,7 @@ return [
 
     'login_captcha' => (bool) env('LOGIN_CAPTCHA', true),
 
-    // Batman scenes on the first three wrong passwords and "Kewer Kewer" with a growing pause
+    // Joke terminal pop-ups on the first three wrong passwords and the "Kewer Kewer" video with a growing pause
     // (1, 3, then 5 minutes) on the fourth. The test suite switches it off except in its own tests.
     'login_prank' => (bool) env('LOGIN_PRANK', true),
 

@@ -1627,7 +1627,7 @@ body.staff main textarea:focus-visible {
 .staff-login {
     position: relative;
     isolation: isolate;
-    overflow: hidden;
+    overflow: clip;
 }
 .staff-login .drip {
     position: fixed;
@@ -2784,21 +2784,21 @@ body.is-locked #login-submit [data-login-timer] {
     filter: grayscale(1);
 }
 
-/* ---------- Wrong-password Batman scenes (resources/js/prank.js) ---------- */
+/* ---------- Wrong-password terminal pop-ups (resources/js/prank.js) ---------- */
 
 .prank {
     position: fixed;
     inset: 0;
     z-index: 120;
     pointer-events: none;
-    font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 .prank::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgb(20 18 24 / 0.82);
+    background: rgb(20 18 24 / 0.72);
     opacity: 0;
     transition: opacity 260ms ease;
 }
@@ -2807,280 +2807,416 @@ body.is-locked #login-submit [data-login-timer] {
     opacity: 1;
 }
 
-.prank-photo {
+.prank-term {
     position: absolute;
-    width: 170px;
-    aspect-ratio: 676 / 760;
-    /* A cream outline and a soft shadow keep the dark suit readable on the dark page. */
-    filter:
-        drop-shadow(2px 0 0 #fbeee4) drop-shadow(-2px 0 0 #fbeee4)
-        drop-shadow(0 2px 0 #fbeee4) drop-shadow(0 -2px 0 #fbeee4)
-        drop-shadow(0 16px 24px rgb(0 0 0 / 0.5));
-}
-
-.prank-photo img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    /* The cut-out ends at the belt; fade that straight edge out. */
-    mask-image: linear-gradient(to bottom, #000 82%, transparent);
-}
-
-
-.prank-bubble {
-    position: absolute;
-    margin: 0;
-    padding: 10px 18px;
-    border-radius: 18px;
-    background: #fbeee4;
-    color: #40000e;
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1.15;
-    white-space: nowrap;
-    box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
-    opacity: 0;
-    transform: translate(-50%, 12px) scale(0.8);
-    transition: opacity 180ms ease, transform 320ms cubic-bezier(.2, 1.4, .4, 1);
-}
-
-.prank-bubble.is-in {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-}
-
-
-
-
-
-
-.prank-arrow {
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-left: 16px solid transparent;
-    border-right: 16px solid transparent;
-    border-top: 26px solid #f7a3b6;
-    filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.4));
-    opacity: 0;
-    transform: translateX(-50%);
-}
-
-.prank-arrow.is-in {
-    opacity: 1;
-    animation: prank-point 520ms ease-in-out infinite alternate;
-}
-
-@keyframes prank-point {
-    to { transform: translate(-50%, 12px); }
-}
-
-/* The grappling hook rig: hook in the top edge, rope, and him holding on. */
-.prank-rig {
-    position: absolute;
-    top: 0;
-    width: 0;
-    height: 0;
-    transform-origin: 0 0;
-}
-
-.prank-hook {
-    position: absolute;
-    left: 0;
-    top: 4px;
-    width: 56px;
-    height: 51px;
-    overflow: visible;
-    transform: translate(-50%, -140%);
-    filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.5));
-}
-
-.prank-rope {
-    position: absolute;
-    left: -1.5px;
-    top: 50px;
-    width: 3px;
-    border-radius: 2px;
-    background: linear-gradient(90deg, #1b1a20, #fbeee4 45%, #8d8a94);
-    transform-origin: 50% 0;
-}
-
-.prank-photo.is-rigged {
-    position: absolute;
-}
-
-.prank-spark {
-    position: absolute;
-    left: -3px;
-    top: 8px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #ffd27a;
-    box-shadow: 0 0 8px 2px #ff9f43;
-}
-
-.prank-bubble.is-free {
-    z-index: 1;
-}
-
-/* 3: the call-out in the middle of a dark screen. */
-.prank-callout {
-    position: absolute;
-    left: 0;
-    right: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    transition: opacity 420ms ease, transform 420ms ease;
+    overflow: hidden;
+    border: 1px solid rgb(247 163 182 / 0.35);
+    border-radius: 14px;
+    background: #16151b;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(0 0 0 / 0.4);
+    pointer-events: auto;
+    transform-origin: 50% 40%;
 }
 
-.prank-callout.is-out {
-    opacity: 0;
-    transform: scale(1.06);
-}
-
-
-
-.prank-photo.is-small {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 140px;
-    margin: -79px 0 0 -70px;
-}
-
-.prank-rings {
-    position: absolute;
-    left: 50%;
-    width: 0;
-    height: 0;
-}
-
-.prank-rings span {
-    position: absolute;
-    left: -160px;
-    top: -160px;
-    width: 320px;
-    height: 320px;
-    border: 3px solid #f7a3b6;
-    border-radius: 50%;
-    opacity: 0;
-}
-
-.prank-rings.is-on span {
-    animation: prank-ring 1.8s ease-out infinite;
-}
-
-.prank-rings.is-on span:nth-child(2) { animation-delay: 0.6s; }
-.prank-rings.is-on span:nth-child(3) { animation-delay: 1.2s; }
-
-@keyframes prank-ring {
-    from { opacity: 0.8; transform: scale(0.6); }
-    to { opacity: 0; transform: scale(2.2); }
-}
-
-.prank-words {
-    position: relative;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0 0.3em;
-    max-width: 92vw;
-    color: #fbeee4;
-    font-size: clamp(40px, 8vw, 88px);
-    font-weight: 800;
-    line-height: 1;
-    text-shadow: 0 6px 0 #c74659, 0 12px 30px rgb(0 0 0 / 0.5);
-}
-
-.prank-words span {
-    display: inline-block;
-    opacity: 0;
-    transform: translateY(40px) scale(0.4) rotate(-8deg);
-    transition: opacity 120ms ease, transform 380ms cubic-bezier(.2, 1.6, .4, 1);
-}
-
-.prank-words span.is-in {
-    opacity: 1;
-    transform: none;
-}
-
-.prank-words .is-place {
-    color: #f7a3b6;
-    text-shadow: 0 6px 0 #40000e, 0 12px 30px rgb(0 0 0 / 0.5);
-}
-
-.prank-ip {
+.prank-term-bar {
     position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 0;
-    padding: 8px 18px;
-    border: 2px solid #f7a3b6;
-    border-radius: 999px;
-    background: rgb(64 0 14 / 0.6);
-    color: #fbeee4;
-    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-    font-size: clamp(18px, 3vw, 26px);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 200ms ease, transform 300ms ease;
+    padding: 9px 12px;
+    background: #24222b;
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
 }
 
-.prank-ip.is-in {
-    opacity: 1;
-    transform: none;
+.prank-term-dots {
+    display: flex;
+    gap: 6px;
 }
 
-.prank-pin {
-    width: 14px;
-    height: 14px;
-    border-radius: 50% 50% 50% 0;
-    background: #f7a3b6;
-    transform: rotate(-45deg);
+.prank-term-dots i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #ff5f57;
 }
 
-/* 4: the vortex and the iris. */
-.prank-vortex {
+.prank-term-dots i:nth-child(2) { background: #febc2e; }
+.prank-term-dots i:nth-child(3) { background: #28c840; }
+
+.prank-term-title {
     position: absolute;
     left: 50%;
-    top: 50%;
-    width: 180vmax;
-    height: 180vmax;
+    transform: translateX(-50%);
+    color: rgb(251 238 228 / 0.6);
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: nowrap;
 }
 
-.prank-vortex span {
+.prank-term-x {
+    margin-left: auto;
+    border: 0;
+    background: none;
+    color: rgb(251 238 228 / 0.5);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.prank-term-x:hover {
+    color: #f7a3b6;
+}
+
+.prank-term-body {
+    max-height: 60vh;
+    padding: 14px 16px 16px;
+    overflow: auto;
+    color: #e8e4ea;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.prank-term-body p {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.prank-term-body .is-cmd::before {
+    content: '$ ';
+    color: #f7a3b6;
+}
+
+.prank-term-body .is-err { color: #ff6b81; }
+.prank-term-body .is-err::before { content: '✗ '; }
+.prank-term-body .is-ok { color: #7ee2a8; }
+.prank-term-body .is-out { color: rgb(232 228 234 / 0.75); }
+
+.prank-term-body .is-say {
+    margin-top: 4px;
+    color: #fbeee4;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.prank-term-body .is-say::before {
+    content: '> ';
+    color: #f7a3b6;
+}
+
+.prank-term-body .is-big {
+    margin: 6px 0;
+    color: #f7a3b6;
+    font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 800;
+    line-height: 1.05;
+}
+
+.prank-term-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    margin-top: 2px;
+    background: #f7a3b6;
+    vertical-align: middle;
+    animation: prank-blink 1s steps(1) infinite;
+}
+
+@keyframes prank-blink {
+    50% { opacity: 0; }
+}
+
+/* 3: the red trace that reads out the caller's real address. */
+.prank-trace {
     position: absolute;
     inset: 0;
+    overflow: hidden;
+    pointer-events: auto;
+    background: radial-gradient(ellipse at 50% 45%, rgb(60 0 8 / 0.92), rgb(6 2 4 / 0.97) 70%);
+    color: #ff3b4f;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    animation: prank-trace-in 380ms steps(4) both;
+}
+
+@keyframes prank-trace-in {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    45% { opacity: 0.2; }
+    100% { opacity: 1; }
+}
+
+.prank-trace.is-leaving {
+    animation: prank-trace-out 420ms steps(5) forwards;
+}
+
+@keyframes prank-trace-out {
+    0% { opacity: 1; transform: none; }
+    40% { opacity: 0.8; transform: translateX(-8px) skewX(-4deg); clip-path: inset(30% 0 40% 0); }
+    70% { opacity: 0.6; transform: translateX(10px); clip-path: inset(10% 0 70% 0); }
+    100% { opacity: 0; clip-path: inset(50% 0 50% 0); }
+}
+
+.prank-trace-scan {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+}
+
+.prank-trace-scan::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 18vh;
+    background: linear-gradient(to bottom, transparent, rgb(255 59 79 / 0.08), transparent);
+    animation: prank-sweep 2.8s linear infinite;
+}
+
+@keyframes prank-sweep {
+    from { top: -20vh; }
+    to { top: 110vh; }
+}
+
+.prank-trace-sight {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    width: 120px;
+    height: 120px;
+    margin: -60px 0 0 -60px;
+    border: 2px solid rgb(255 59 79 / 0.8);
     border-radius: 50%;
-    background:
-        radial-gradient(circle, #1b1a20 3%, transparent 26%),
-        repeating-conic-gradient(from 0deg, #c74659 0 10deg, #2d2b33 10deg 20deg, #f7a3b6 20deg 30deg, #2d2b33 30deg 40deg);
-    animation: prank-spin 1.4s linear infinite;
+    opacity: 0.85;
 }
 
-@keyframes prank-spin {
-    to { rotate: 360deg; }
+.prank-trace-sight i {
+    position: absolute;
+    background: rgb(255 59 79 / 0.7);
 }
 
-.prank-iris {
+.prank-trace-sight i:first-child {
+    left: -40px;
+    right: -40px;
+    top: 50%;
+    height: 1px;
+}
+
+.prank-trace-sight i:nth-child(2) {
+    top: -40px;
+    bottom: -40px;
+    left: 50%;
+    width: 1px;
+}
+
+.prank-trace-sight b {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 170vmax;
-    height: 170vmax;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
     border-radius: 50%;
-    box-shadow: 0 0 0 200vmax #1b1a20;
-    transform: translate(-50%, -50%) scale(1);
+    background: #ff3b4f;
+    box-shadow: 0 0 12px 4px rgb(255 59 79 / 0.6);
 }
 
+.prank-trace-sight.is-hunting {
+    animation: prank-hunt 1.3s cubic-bezier(.4,0,.2,1) both;
+}
+
+@keyframes prank-hunt {
+    0% { transform: translate(-30vw, 20vh) scale(2.2); }
+    30% { transform: translate(22vw, -6vh) scale(1.6); }
+    60% { transform: translate(-9vw, 8vh) scale(1.3); }
+    100% { transform: translate(0, 0) scale(1); }
+}
+
+.prank-trace-sight.is-locked {
+    border-color: #ff3b4f;
+    box-shadow: 0 0 0 6px rgb(255 59 79 / 0.12), 0 0 40px rgb(255 59 79 / 0.35);
+    animation: prank-hunt 1.3s cubic-bezier(.4,0,.2,1) both, prank-lock 0.9s ease-in-out 1.3s infinite;
+}
+
+@keyframes prank-lock {
+    50% { scale: 0.86; }
+}
+
+.prank-trace-info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(30% + 90px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+    text-align: center;
+}
+
+.prank-trace-info p {
+    margin: 0;
+}
+
+.prank-trace-label {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: rgb(255 59 79 / 0.75);
+    animation: prank-blink 0.9s steps(1) infinite;
+}
+
+.prank-trace-ip {
+    position: relative;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow', 'Liberation Sans Narrow', sans-serif;
+    font-stretch: condensed;
+    font-size: clamp(48px, 11vw, 130px);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: #ff2a3a;
+    text-shadow: -3px 0 rgba(0, 220, 255, 0.35), 3px 0 rgba(255, 0, 40, 0.55), 0 0 22px rgba(255, 0, 30, 0.55);
+    isolation: isolate;
+    font-variant-numeric: tabular-nums;
+}
+
+.prank-trace-ip::before,
+.prank-trace-ip::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.prank-trace-ip::before {
+    color: #00e5ff;
+    opacity: 0.35;
+    transform: translate(-3px, 1px);
+    animation: prank-split 2.2s steps(2) infinite;
+}
+
+.prank-trace-ip::after {
+    color: #5a0010;
+    opacity: 0.9;
+    transform: translate(3px, 2px);
+    animation: prank-split 1.7s steps(2) infinite reverse;
+}
+
+@keyframes prank-split {
+    0%, 86% { clip-path: inset(0 0 0 0); }
+    88% { clip-path: inset(20% 0 55% 0); transform: translate(-7px, 0); }
+    92% { clip-path: inset(60% 0 10% 0); transform: translate(6px, 0); }
+    96% { clip-path: inset(0 0 0 0); }
+}
+
+.prank-trace.is-hit .prank-trace-ip {
+    animation: prank-hit 300ms steps(3);
+}
+
+@keyframes prank-hit {
+    33% { transform: translateX(-6px) skewX(8deg); }
+    66% { transform: translateX(5px) skewX(-6deg); }
+}
+
+.prank-trace-city {
+    position: relative;
+    isolation: isolate;
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: clamp(30px, 5.6vw, 64px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    color: #9e0a1a;
+    text-shadow: 0 0 24px rgba(255, 0, 20, 0.35);
+    opacity: 0;
+}
+
+/* Two offset copies sliced in bands that jump around: the place name never sits still. */
+.prank-trace-city::before,
+.prank-trace-city::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.prank-trace-city::before {
+    color: rgba(0, 200, 230, 0.32);
+    animation: prank-city-a 1.6s steps(1) infinite;
+}
+
+.prank-trace-city::after {
+    color: #4d0010;
+    animation: prank-city-b 1.1s steps(1) infinite;
+}
+
+@keyframes prank-city-a {
+    0% { transform: translate(-3px, 0); clip-path: inset(0 0 0 0); }
+    18% { transform: translate(-9px, 0); clip-path: inset(10% 0 62% 0); }
+    22% { transform: translate(6px, 0); clip-path: inset(55% 0 20% 0); }
+    26% { transform: translate(-3px, 0); clip-path: inset(0 0 0 0); }
+    63% { transform: translate(12px, 0); clip-path: inset(70% 0 5% 0); }
+    66% { transform: translate(-3px, 0); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes prank-city-b {
+    0% { transform: translate(3px, 2px); clip-path: inset(0 0 0 0); }
+    40% { transform: translate(-11px, 2px); clip-path: inset(30% 0 45% 0); }
+    44% { transform: translate(8px, 2px); clip-path: inset(5% 0 75% 0); }
+    48% { transform: translate(3px, 2px); clip-path: inset(0 0 0 0); }
+    81% { transform: translate(-6px, 2px); clip-path: inset(48% 0 30% 0); }
+    84% { transform: translate(3px, 2px); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes prank-stamp {
+    from { opacity: 0; transform: scale(2.4); filter: blur(6px); }
+    to { opacity: 1; transform: scale(1); filter: none; }
+}
+
+.prank-trace-city.is-in {
+    animation: prank-stamp 380ms cubic-bezier(.2,1.4,.4,1) forwards, prank-city-jitter 2.4s steps(1) 0.4s infinite;
+}
+
+@keyframes prank-city-jitter {
+    0%, 100% { transform: none; filter: none; }
+    31% { transform: translateX(-4px) skewX(10deg); filter: brightness(1.3); }
+    33% { transform: translateX(3px) skewX(-6deg); }
+    35% { transform: none; filter: none; }
+    77% { transform: translateY(2px) scaleY(0.92); opacity: 0.7; }
+    79% { transform: none; opacity: 1; }
+}
+
+.prank-trace-net {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+    font-size: 14px;
+    color: rgb(251 238 228 / 0.55);
+    opacity: 0;
+    transition: opacity 300ms ease;
+}
+
+.prank-trace-net.is-in {
+    opacity: 1;
+}
+
+.prank-trace-whisper {
+    min-height: 3.2em;
+    margin-top: 18px !important;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+    font-size: clamp(16px, 2.2vw, 22px);
+    letter-spacing: 0.02em;
+    color: #d9545f;
+    white-space: pre-line;
+    text-shadow: 0 0 10px rgb(255 59 79 / 0.6);
+}
 
 /* The Kewer Kewer video, Rickroll style: the whole screen becomes the video. */
 .prank-tv {
@@ -3099,19 +3235,6 @@ body.is-locked #login-submit [data-login-timer] {
     background: #000;
 }
 
-.prank-tv-fallback {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    margin: 0;
-    color: #fbeee4;
-    font-size: clamp(56px, 14vw, 180px);
-    font-weight: 800;
-    line-height: 0.9;
-    text-align: center;
-    transform: scale(calc(1 + var(--punch, 0) * 0.12));
-}
 
 .prank-tv-bar {
     position: absolute;
@@ -3181,9 +3304,19 @@ body.is-locked #login-submit [data-login-timer] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .prank-vortex span,
-    .prank-rings.is-on span,
-    .prank-arrow.is-in {
+    .prank-term-cursor,
+    .prank-trace,
+    .prank-trace-scan::after,
+    .prank-trace-label,
+    .prank-trace-ip::before,
+    .prank-trace-ip::after,
+    .prank-trace-city::before,
+    .prank-trace-city::after,
+    .prank-trace-sight.is-locked {
         animation: none;
+    }
+
+    .prank-trace-city {
+        opacity: 1;
     }
 }

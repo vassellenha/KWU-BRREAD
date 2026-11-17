@@ -451,7 +451,7 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
                 return;
             }
 
-            // A wrong password (or a paused address) gets its Batman scene; the scene owns the sound.
+            // A wrong password (or a paused address) gets its terminal pop-up; the scene owns the sound.
             if (data.prank && (response.status === 422 || response.status === 423)) {
                 const prank = await import('./prank.js');
                 prank.play(data.prank, { context });

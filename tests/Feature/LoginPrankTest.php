@@ -27,7 +27,7 @@ class LoginPrankTest extends TestCase
     {
         $this->wrong()->assertStatus(422)->assertJsonPath('prank.stage', 1)->assertJsonValidationErrors('username');
         $this->wrong()->assertStatus(422)->assertJsonPath('prank.stage', 2);
-        $this->wrong()->assertStatus(422)->assertJsonPath('prank.stage', 3)->assertJsonPath('prank.ip', '127.0.0.1');
+        $this->wrong()->assertStatus(422)->assertJsonPath('prank.stage', 3)->assertJsonPath('prank.ip', '127.0.0.1')->assertJsonStructure(['prank' => ['ip', 'city', 'country', 'isp']]);
         $this->wrong()->assertStatus(422)->assertJsonPath('prank.stage', 4)->assertJsonPath('prank.retry_after', 60);
 
         // Paused: even the right password is not checked.

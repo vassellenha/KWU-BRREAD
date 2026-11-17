@@ -1,11 +1,12 @@
 // What a person meets when they guess passwords on /staff or /superadmin by hand.
-// Wrong password 1, 2 and 3 each bring a different Batman scene with the "fahh" sound; the
-// fourth sucks the form into a vortex and, Rickroll style, the whole screen turns into the
-// "Kewer Kewer" video while sign-in is paused for that address (1, 3, then 5 minutes; the
-// server keeps the real lock). Loaded on demand from app.js.
+// Wrong password 1, 2 and 3 each pop up a cheeky terminal window with the "fahh" sound (the
+// third one reads out their real IP, city and provider); on the fourth the terminal grows to
+// fill the screen, switches on like an old TV and, Rickroll style, plays the "Kewer Kewer" video
+// while sign-in is paused for that address (1, 3, then 5 minutes; the server keeps the real
+// lock). Loaded on demand from app.js.
 
-const PHOTO = '/img/prank-batman.webp';
 const VIDEO = '/video/prank-kewer.mp4';
+const HIT = '/audio/lockdown-hit.mp3';
 const FAHH = '/audio/prank-fahh.mp3';
 
 const S = {
@@ -31,12 +32,9 @@ const el = (tag, className, text) => {
 
 let preloading = null;
 
-/** Fetches the photo and both sounds once, so the first wrong password reacts at once. */
+/** Fetches the sound once, so the first wrong password reacts at once. */
 export function preload() {
     if (preloading) return preloading;
-
-    const image = new Image();
-    image.src = PHOTO;
 
     preloading = Promise.all([FAHH].map(async (url) => {
         try {
@@ -79,6 +77,14 @@ async function buffer(url) {
     if (S.buffers[url]) return S.buffers[url];
 
     await preload();
+    if (!S.bytes[url]) {
+        try {
+            const response = await fetch(url, { credentials: 'same-origin' });
+            S.bytes[url] = await response.arrayBuffer();
+        } catch {
+            return null;
+        }
+    }
     const bytes = S.bytes[url];
     if (!bytes || !S.context) return null;
 
@@ -146,37 +152,6 @@ function clearStage() {
     S.root?.classList.remove('is-dim');
 }
 
-function photo(className = '') {
-    const frame = el('div', `prank-photo ${className}`);
-    const image = el('img');
-    image.src = PHOTO;
-    image.alt = 'Batman';
-    image.decoding = 'async';
-    frame.append(image);
-
-    return frame;
-}
-
-function bubble(text, className = '') {
-    const node = el('p', `prank-bubble ${className}`);
-    node.setAttribute('role', 'status');
-    typeOut(node, text);
-
-    return node;
-}
-
-function typeOut(node, text, speed = 38) {
-    if (S.reduced) {
-        node.textContent = text;
-        return;
-    }
-
-    node.textContent = '';
-    [...text].forEach((letter, index) => later(() => {
-        node.textContent += letter;
-    }, 260 + index * speed));
-}
-
 function card() {
     return document.getElementById('login-card');
 }
@@ -188,288 +163,163 @@ function shake(target, strength = 10, duration = 420) {
     target.animate(steps, { duration, easing: 'ease-out' });
 }
 
-function screenShake(strength = 12, duration = 520) {
-    if (S.reduced) return;
+const clockText = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 
-    const frames = Array.from({ length: 9 }, (_, i) => {
-        const f = (1 - i / 8) * strength;
-        return { transform: `translate(${(Math.random() - 0.5) * 2 * f}px, ${(Math.random() - 0.5) * 2 * f}px) rotate(${(Math.random() - 0.5) * f * 0.12}deg)` };
-    });
-    document.querySelector('main')?.animate(frames, { duration, easing: 'linear' });
+/* ---------- the terminal window ---------- */
+
+/**
+ * A small terminal that pops up next to the form and types a script:
+ * ['cmd', text] types a command, ['out'|'ok'|'err'|'say'|'big', text] prints a line,
+ * ['bar', label] runs a progress bar, ['wait', ms] pauses.
+ */
+function terminal(title, { width = 380, place = 'right' } = {}) {
+    const box = el('div', 'prank-term');
+    box.style.width = `${Math.min(width, window.innerWidth - 24)}px`;
+    box.setAttribute('role', 'status');
+
+    const bar = el('div', 'prank-term-bar');
+    const dots = el('span', 'prank-term-dots');
+    dots.append(el('i'), el('i'), el('i'));
+    const name = el('span', 'prank-term-title', title);
+    const close = el('button', 'prank-term-x', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close');
+    bar.append(dots, name, close);
+
+    const body = el('div', 'prank-term-body');
+    const cursor = el('span', 'prank-term-cursor');
+    body.append(cursor);
+    box.append(bar, body);
+    stage().append(box);
+
+    // Where it pops up: beside the form on wide screens, under the header on narrow ones.
+    const form = card()?.getBoundingClientRect();
+    const w = box.offsetWidth;
+    const h = Math.max(box.offsetHeight, 220);
+    let x = (window.innerWidth - w) / 2;
+    let y = (window.innerHeight - h) / 2;
+    if (form && place !== 'center' && window.innerWidth >= w * 2 + form.width) {
+        x = place === 'right' ? form.right + 28 : form.left - w - 28;
+        y = form.top + (place === 'right' ? 10 : 70);
+    } else if (form && place !== 'center') {
+        y = Math.max(12, form.top - 40);
+    }
+    box.style.left = `${Math.max(12, Math.min(x, window.innerWidth - w - 12))}px`;
+    box.style.top = `${Math.max(12, Math.min(y, window.innerHeight - h - 12))}px`;
+
+    const pop = S.reduced
+        ? box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150 })
+        : box.animate([
+            { transform: 'scale(.3) rotate(-6deg)', opacity: 0 },
+            { transform: 'scale(1.06) rotate(1.5deg)', opacity: 1, offset: 0.6 },
+            { transform: 'scale(.98) rotate(-.5deg)', offset: 0.82 },
+            { transform: 'scale(1) rotate(0)' },
+        ], { duration: 460, easing: 'cubic-bezier(.2,.9,.3,1)' });
+
+    let closed = false;
+    const term = {
+        box,
+        body,
+        get closed() {
+            return closed;
+        },
+
+        async run(script) {
+            await pop.finished.catch(() => {});
+            for (const [kind, text] of script) {
+                if (closed) return;
+                if (kind === 'wait') {
+                    await wait(text);
+                } else if (kind === 'cmd') {
+                    const line = el('p', 'is-cmd');
+                    body.insertBefore(line, cursor);
+                    await typeInto(line, text, 34);
+                    await wait(220);
+                } else if (kind === 'bar') {
+                    await progress(body, cursor, text);
+                } else {
+                    const line = el('p', `is-${kind}`, text);
+                    body.insertBefore(line, cursor);
+                    if (!S.reduced) line.animate([{ opacity: 0, transform: 'translateX(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 160 });
+                    await wait(kind === 'big' ? 420 : 260);
+                }
+                body.scrollTop = body.scrollHeight;
+            }
+        },
+
+        async dismiss() {
+            if (closed) return;
+            closed = true;
+            if (S.current === term) S.current = null;
+            await box.animate([
+                { transform: 'scale(1) translateY(0)', opacity: 1 },
+                { transform: 'scale(.6) translateY(40px)', opacity: 0 },
+            ], { duration: S.reduced ? 1 : 260, easing: 'cubic-bezier(.6,0,.9,.5)', fill: 'forwards' }).finished.catch(() => {});
+            box.remove();
+        },
+    };
+
+    close.addEventListener('click', () => term.dismiss());
+    S.current = term;
+
+    return term;
 }
 
-/* ---------- the grappling hook ---------- */
-
-// Where the rope meets the photo: his raised fist, as a share of the cut-out's width and height.
-const HAND = { x: 0.62, y: 0.37 };
-const PHOTO_RATIO = 760 / 676;
-// The hook's own height below the ceiling, where the rope starts.
-const HOOK_DROP = 50;
-
-function hookSvg() {
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 44 40');
-    svg.setAttribute('class', 'prank-hook');
-    svg.setAttribute('aria-hidden', 'true');
-    const claws = 'M22 36 V8 M22 13 Q8 13 5 1 M22 13 Q36 13 39 1 M22 9 V0';
-    [['#1b1a20', 7], ['#c9ccd3', 4]].forEach(([stroke, width]) => {
-        const path = document.createElementNS(ns, 'path');
-        path.setAttribute('d', claws);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', stroke);
-        path.setAttribute('stroke-width', width);
-        path.setAttribute('stroke-linecap', 'round');
-        svg.append(path);
-    });
-    const grip = document.createElementNS(ns, 'rect');
-    Object.entries({ x: 17, y: 22, width: 10, height: 14, rx: 3, fill: '#40000e', stroke: '#1b1a20', 'stroke-width': 2 })
-        .forEach(([key, value]) => grip.setAttribute(key, value));
-    svg.append(grip);
-
-    return svg;
-}
-
-/** A hook stuck in the top of the screen at x, a rope, and him holding the rope `length` px down. */
-function rig(x, length, width) {
-    const node = el('div', 'prank-rig');
-    node.style.left = `${x}px`;
-    const height = width * PHOTO_RATIO;
-    const rope = el('span', 'prank-rope');
-    rope.style.height = `${length - HOOK_DROP}px`;
-    const pic = photo('is-rigged');
-    pic.style.width = `${width}px`;
-    pic.style.left = `${-HAND.x * width}px`;
-    pic.style.top = `${length - HAND.y * height}px`;
-    const hook = hookSvg();
-    node.append(rope, pic, hook);
-
-    return { node, rope, pic, hook, length, height, width };
-}
-
-/** The hook flies down, bites into the top of the screen with a clank and a few sparks. */
-async function fireHook(r) {
-    r.rope.style.transform = 'scaleY(0)';
-    r.pic.style.opacity = '0';
-
+async function typeInto(line, text, speed) {
     if (S.reduced) {
-        clank();
+        line.textContent = text;
         return;
     }
-
-    await r.hook.animate([
-        { transform: 'translate(-50%, -140%) rotate(-18deg)' },
-        { transform: 'translate(-50%, 6%) rotate(4deg)', offset: 0.8 },
-        { transform: 'translate(-50%, 0) rotate(0deg)' },
-    ], { duration: 260, easing: 'cubic-bezier(.5,0,.9,.6)', fill: 'forwards' }).finished.catch(() => {});
-
-    clank();
-    screenShake(5, 220);
-    for (let i = 0; i < 8; i++) {
-        const spark = el('span', 'prank-spark');
-        r.node.append(spark);
-        const angle = (Math.PI / 8) + (Math.random() * Math.PI * 0.75);
-        const reach = 30 + Math.random() * 45;
-        spark.animate([
-            { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-            { transform: `translate(${Math.cos(angle) * reach * (Math.random() < 0.5 ? -1 : 1)}px, ${Math.sin(angle) * reach}px) scale(.2)`, opacity: 0 },
-        ], { duration: 320 + Math.random() * 200, easing: 'cubic-bezier(.2,.8,.4,1)' }).finished.then(() => spark.remove(), () => spark.remove());
+    for (const letter of text) {
+        line.textContent += letter;
+        await wait(speed + Math.random() * 30);
     }
-    await wait(140);
 }
 
-/** He zips down the rope from above the screen and bounces on its stretch. */
-async function rappel(r, duration = 620) {
-    zipSound(duration);
-    r.pic.style.opacity = '1';
-    const from = -(r.length + r.height + 40);
-    const steps = [[from, 0], [22, 0.62], [-9, 0.78], [4, 0.9], [0, 1]];
-
-    if (S.reduced) {
-        r.rope.style.transform = 'none';
-        return;
+async function progress(body, cursor, label) {
+    const line = el('p', 'is-out');
+    body.insertBefore(line, cursor);
+    const width = 16;
+    for (let step = 0; step <= width; step++) {
+        line.textContent = `${label} [${'#'.repeat(step)}${'.'.repeat(width - step)}] ${Math.round((step / width) * 100)}%`;
+        await wait(S.reduced ? 0 : 40 + Math.random() * 70);
     }
-
-    const options = { duration, easing: 'cubic-bezier(.3,.6,.4,1)', fill: 'forwards' };
-    r.rope.animate(steps.map(([y, offset]) => ({
-        transform: `scaleY(${Math.max(0, (r.length - HOOK_DROP + y) / (r.length - HOOK_DROP))})`, offset,
-    })), options);
-    await r.pic.animate(steps.map(([y, offset]) => ({ transform: `translateY(${y}px)`, offset })), options).finished.catch(() => {});
-}
-
-/** He is reeled back up and the hook pulls out of the ceiling. */
-async function reelUp(r) {
-    if (S.reduced) {
-        await r.node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' }).finished.catch(() => {});
-        return;
-    }
-
-    zipSound(380, true);
-    const up = -(r.length + r.height + 60);
-    const options = { duration: 420, easing: 'cubic-bezier(.6,0,.9,.5)', fill: 'forwards' };
-    r.rope.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(0)' }], options);
-    await r.pic.animate([
-        { transform: 'translateY(0)' },
-        { transform: 'translateY(14px)', offset: 0.15 },
-        { transform: `translateY(${up}px)` },
-    ], options).finished.catch(() => {});
-    await r.hook.animate([
-        { transform: 'translate(-50%, 0)' },
-        { transform: 'translate(-50%, -160%)' },
-    ], { duration: 200, easing: 'ease-in', fill: 'forwards' }).finished.catch(() => {});
-}
-
-function sway(r, degrees = 2.5) {
-    if (S.reduced) return;
-    r.node.animate([
-        { transform: 'rotate(0deg)' },
-        { transform: `rotate(${degrees}deg)` },
-        { transform: `rotate(${-degrees}deg)` },
-        { transform: 'rotate(0deg)' },
-    ], { duration: 1800, iterations: Infinity, easing: 'ease-in-out' });
-}
-
-/* Metal biting into metal: a noise tick and two ringing partials. */
-function clank() {
-    const context = S.context;
-    if (!context || context.state !== 'running') return;
-    const now = context.currentTime;
-
-    const noise = context.createBuffer(1, context.sampleRate * 0.06, context.sampleRate);
-    const data = noise.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    const tick = context.createBufferSource();
-    tick.buffer = noise;
-    const high = context.createBiquadFilter();
-    high.type = 'highpass';
-    high.frequency.value = 2500;
-    const tickGain = context.createGain();
-    tickGain.gain.value = 0.5;
-    tick.connect(high).connect(tickGain).connect(context.destination);
-    tick.start(now);
-
-    [1850, 2790, 4100].forEach((frequency, index) => {
-        const tone = context.createOscillator();
-        const gain = context.createGain();
-        tone.type = 'sine';
-        tone.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.16 / (index + 1), now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-        tone.connect(gain).connect(context.destination);
-        tone.start(now);
-        tone.stop(now + 0.36);
-    });
-}
-
-/* The rope running through the grapple: a band of noise sweeping down (or up when reeling in). */
-function zipSound(duration, up = false) {
-    const context = S.context;
-    if (!context || context.state !== 'running') return;
-    const now = context.currentTime;
-    const seconds = duration / 1000;
-
-    const noise = context.createBuffer(1, Math.ceil(context.sampleRate * seconds), context.sampleRate);
-    const data = noise.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const source = context.createBufferSource();
-    source.buffer = noise;
-    const band = context.createBiquadFilter();
-    band.type = 'bandpass';
-    band.Q.value = 3;
-    band.frequency.setValueAtTime(up ? 900 : 3200, now);
-    band.frequency.exponentialRampToValueAtTime(up ? 3200 : 900, now + seconds);
-    const gain = context.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.35, now + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds);
-    source.connect(band).connect(gain).connect(context.destination);
-    source.start(now);
 }
 
 /* ---------- the four scenes ---------- */
 
-// 1: a grappling hook bites into the top of the screen and he rappels down beside the form.
 async function sceneOne() {
-    const root = stage();
-    const box = card()?.getBoundingClientRect();
-    const width = 170;
-    const x = box ? Math.min(window.innerWidth - width * 0.5, box.right + 70) : window.innerWidth * 0.75;
-    const top = box ? box.top + 10 : window.innerHeight * 0.3;
-    const r = rig(x, top + HAND.y * width * PHOTO_RATIO, width);
-    const say = bubble('hayo iseng ya tangan nya', 'is-free');
-    say.style.left = `${x}px`;
-    say.style.top = `${top + r.height - 10}px`;
-    root.append(r.node, say);
-
-    await fireHook(r);
-    await rappel(r);
-    fahh();
     shake(card());
-    sway(r);
-    say.classList.add('is-in');
-
-    await wait(2800);
-    say.classList.remove('is-in');
-    await reelUp(r);
-}
-
-// 2: the hook bites above the button and he swings in on the rope like a pendulum, then points.
-async function sceneTwo() {
-    const root = stage();
-    const button = document.getElementById('login-submit');
-    const box = button?.getBoundingClientRect();
-    const width = 150;
-    const height = width * PHOTO_RATIO;
-    const x = box ? Math.max(width * 0.6, box.left - 40) : window.innerWidth * 0.25;
-    const top = box ? box.top + box.height / 2 - height * 0.55 : window.innerHeight * 0.6;
-    const r = rig(x, top + HAND.y * height, width);
-    const arrow = el('span', 'prank-arrow');
-    const say = bubble('ayo coba pencet lagi', 'is-free');
-    say.style.left = `${x}px`;
-    say.style.top = `${top - 56}px`;
-    if (box) {
-        arrow.style.left = `${box.left + box.width / 2}px`;
-        arrow.style.top = `${box.top - 46}px`;
-    }
-    root.append(r.node, arrow, say);
-
-    await fireHook(r);
-    r.rope.style.transform = 'none';
-    r.pic.style.opacity = '1';
-    zipSound(900);
-
-    if (!S.reduced) {
-        await r.node.animate([
-            { transform: 'rotate(-80deg)' },
-            { transform: 'rotate(20deg)', offset: 0.45 },
-            { transform: 'rotate(-10deg)', offset: 0.68 },
-            { transform: 'rotate(5deg)', offset: 0.84 },
-            { transform: 'rotate(0deg)' },
-        ], { duration: 1300, easing: 'cubic-bezier(.35,.1,.3,1)', fill: 'forwards' }).finished.catch(() => {});
-    }
-
     fahh();
-    shake(card(), 14);
-    screenShake(6, 320);
-    say.classList.add('is-in');
-    arrow.classList.add('is-in');
-
-    if (!S.reduced && button) {
-        button.animate([
-            { transform: 'scale(1) rotate(0)' },
-            { transform: 'scale(1.06) rotate(-1.5deg)' },
-            { transform: 'scale(1.06) rotate(1.5deg)' },
-            { transform: 'scale(1) rotate(0)' },
-        ], { duration: 520, iterations: 5 });
-    }
-
-    await wait(3000);
-    say.classList.remove('is-in');
-    arrow.classList.remove('is-in');
-    await reelUp(r);
+    const term = terminal('brread@counter: ~', { place: 'right' });
+    await term.run([
+        ['cmd', 'sudo login superadmin'],
+        ['err', 'access denied: wrong password'],
+        ['say', 'caught you. bored hands, huh?'],
+        ['out', 'relax, that was only try 1 of 4.'],
+    ]);
+    await wait(2600);
+    await term.dismiss();
 }
 
-// 3: the screen goes dark, the hook bites dead centre and he drops hard, then calls out where they are.
+async function sceneTwo() {
+    shake(card(), 14);
+    fahh();
+    const term = terminal('guess_password.exe', { place: 'left' });
+    await term.run([
+        ['cmd', './guess_password --mode=random'],
+        ['bar', 'guessing'],
+        ['err', 'still wrong, chief'],
+        ['say', 'go on, press it again. maybe you get lucky.'],
+        ['out', 'hint: it is not "password123"'],
+        ['out', 'lives left: ♥ ♥ ♡'],
+    ]);
+    await wait(2600);
+    await term.dismiss();
+}
+
+// 3: not a window this time. The screen drops into a red trace: a crosshair locks on, their real
+// IP decodes in big glitching digits, their city is stamped underneath, and a whisper types out.
 async function sceneThree(scene) {
     // The video is next; start fetching it now.
     if (!S.warmVideo) {
@@ -479,80 +329,104 @@ async function sceneThree(scene) {
         S.warmVideo.src = VIDEO;
     }
 
+    shake(card(), 16);
     const root = stage();
-    root.classList.add('is-dim');
+    const trace = el('div', 'prank-trace');
+    const scan = el('div', 'prank-trace-scan');
+    const sight = el('div', 'prank-trace-sight');
+    sight.append(el('i'), el('i'), el('b'));
+    const label = el('p', 'prank-trace-label', 'tracing signal...');
+    const ip = el('p', 'prank-trace-ip', '');
+    ip.dataset.text = '';
+    const city = el('p', 'prank-trace-city', '');
+    const net = el('p', 'prank-trace-net', '');
+    const whisper = el('p', 'prank-trace-whisper', '');
+    const info = el('div', 'prank-trace-info');
+    info.append(label, ip, city, net, whisper);
+    trace.append(scan, sight, info);
+    root.append(trace);
 
-    const width = Math.min(window.innerHeight * 0.4, window.innerWidth * 0.5, 300);
-    const height = width * PHOTO_RATIO;
-    const top = Math.max(60, window.innerHeight * 0.42 - height * 0.62);
-    const r = rig(window.innerWidth / 2, top + HAND.y * height, width);
+    let closed = false;
+    const done = async () => {
+        if (closed) return;
+        closed = true;
+        if (S.current === handle) S.current = null;
+        drone?.stop();
+        staticSound(0.45);
+        trace.classList.add('is-leaving');
+        await wait(S.reduced ? 1 : 420);
+        trace.remove();
+    };
+    const handle = { dismiss: done };
+    S.current = handle;
 
-    const place = (scene.city || scene.country || 'mana nih').toLowerCase();
-    const wrap = el('div', 'prank-callout');
-    wrap.style.top = `${top + height * 0.84}px`;
-    const rings = el('div', 'prank-rings');
-    rings.style.top = `${top + height * 0.45}px`;
-    for (let i = 0; i < 3; i++) rings.append(el('span'));
-    const words = el('p', 'prank-words');
-    ['woalah', 'orang', place].forEach((word, index) => {
-        words.append(el('span', index === 2 ? 'is-place' : '', word));
-    });
-    const tag = el('p', 'prank-ip');
-    const code = el('span', 'prank-ip-code', '');
-    tag.append(el('span', 'prank-pin'), code);
-    wrap.append(words, tag);
-    root.append(rings, r.node, wrap);
-
-    await wait(250);
-    await fireHook(r);
-    await rappel(r, 520);
-    fahh();
-    screenShake(16, 560);
+    buffer(HIT);
+    staticSound(0.9);
+    const drone = dread();
+    const place = [scene.city, scene.country].filter(Boolean).join(', ');
 
     if (S.reduced) {
-        words.querySelectorAll('span').forEach((span) => span.classList.add('is-in'));
-        code.textContent = scene.ip || '';
-        tag.classList.add('is-in');
+        label.textContent = 'target locked';
+        ip.textContent = scene.ip || '???';
+        city.textContent = place.toUpperCase();
+        city.dataset.text = city.textContent;
+        net.textContent = scene.isp ? `via ${scene.isp}` : '';
+        whisper.textContent = `oh, so you're from ${(scene.city || 'somewhere').toLowerCase()}... we know where you are.`;
     } else {
-        sway(r, 1.5);
-        rings.classList.add('is-on');
+        sight.classList.add('is-hunting');
+        riser(1.3);
+        await wait(1300);
+        if (closed) return;
+        sight.classList.add('is-locked');
+        label.textContent = 'target locked';
+        playSound(HIT, { volume: 0.8 });
+        heartbeat(5);
 
-        const spans = [...words.querySelectorAll('span')];
-        for (const [index, span] of spans.entries()) {
-            await wait(index === 2 ? 380 : 260);
-            span.classList.add('is-in');
-            if (index === 2) screenShake(10, 360);
-        }
+        await decodeInto(ip, scene.ip || '???', tickSound);
+        if (closed) return;
+        trace.classList.add('is-hit');
 
-        await wait(300);
-        tag.classList.add('is-in');
-        await decode(code, scene.ip || '???');
+        await wait(350);
+        city.textContent = (place || 'location unknown').toUpperCase();
+        city.dataset.text = city.textContent;
+        city.classList.add('is-in');
+        stinger();
+        await wait(450);
+        if (scene.isp) net.textContent = `via ${scene.isp}`;
+        net.classList.add('is-in');
+
+        await wait(700);
+        if (closed) return;
+        fahh();
+        const breath = whisperSound(5.5);
+        await typeInto(whisper, `oh, so you're from ${(scene.city || 'somewhere').toLowerCase()}...`, 55);
+        await wait(500);
+        if (closed) return;
+        await typeInto(whisper, '\nwe know where you are.', 70);
+        breath?.stop();
     }
 
     await wait(2600);
-    wrap.classList.add('is-out');
-    rings.remove();
-    await reelUp(r);
-    root.classList.remove('is-dim');
-    await wait(S.reduced ? 1 : 300);
+    await done();
 }
 
-// Characters roll through random digits and settle one by one, like a hacker film.
-function decode(node, text) {
+// Digits roll and settle one by one; the text is mirrored in data-text for the red/cyan split.
+function decodeInto(node, text, onTick = null) {
     return new Promise((resolve) => {
-        const pool = '0123456789abcdef.:';
+        const pool = '0123456789';
         let frame = 0;
-        const total = text.length * 3 + 8;
+        const total = text.length * 4 + 10;
         const tick = () => {
             frame++;
-            node.textContent = [...text].map((letter, index) => (
-                frame > index * 3 + 8 || letter === '.' || letter === ':' ? letter : pool[Math.floor(Math.random() * pool.length)]
+            const shown = [...text].map((letter, index) => (
+                frame > index * 4 + 10 || letter === '.' || letter === ':' ? letter : pool[Math.floor(Math.random() * pool.length)]
             )).join('');
-
+            node.textContent = shown;
+            node.dataset.text = shown;
+            if (onTick && frame % 2 === 0) onTick();
             if (frame < total) {
-                window.requestAnimationFrame(tick);
+                window.setTimeout(tick, 33);
             } else {
-                node.textContent = text;
                 resolve();
             }
         };
@@ -560,58 +434,242 @@ function decode(node, text) {
     });
 }
 
-// 4: the form gets sucked into a spinning vortex, an iris closes on the face and opens on the party.
-async function sceneFour(scene) {
-    const root = stage();
-    root.classList.add('is-dim');
-    const main = document.querySelector('main');
+/* ---------- horror sounds for the trace (Web Audio, nothing to download) ---------- */
 
-    fahh();
+const ready = () => (S.context && S.context.state === 'running' ? S.context : null);
 
-    if (!S.reduced) {
-        const vortex = el('div', 'prank-vortex');
-        vortex.append(el('span'));
-        const pic = photo('is-center is-small');
-        pic.style.transform = 'scale(0)';
-        root.append(vortex, pic);
+/* A low, slowly beating drone under the whole trace. */
+function dread() {
+    const context = ready();
+    if (!context) return null;
+    const now = context.currentTime;
+    const out = context.createGain();
+    out.gain.setValueAtTime(0.0001, now);
+    out.gain.exponentialRampToValueAtTime(0.22, now + 1.2);
+    const low = context.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.value = 320;
+    low.connect(out).connect(context.destination);
+    const voices = [55, 58.3, 82.4, 110.8].map((frequency) => {
+        const osc = context.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = frequency;
+        osc.connect(low);
+        osc.start(now);
+        return osc;
+    });
+    // A slow wobble on the filter makes it breathe.
+    const lfo = context.createOscillator();
+    const depth = context.createGain();
+    lfo.frequency.value = 0.35;
+    depth.gain.value = 140;
+    lfo.connect(depth).connect(low.frequency);
+    lfo.start(now);
 
-        screenShake(18, 700);
-        vortex.animate([
-            { transform: 'translate(-50%, -50%) scale(0)' },
-            { transform: 'translate(-50%, -50%) scale(1)' },
-        ], { duration: 1100, easing: 'cubic-bezier(.3,.1,.3,1)', fill: 'forwards' });
+    return {
+        stop() {
+            const t = context.currentTime;
+            out.gain.cancelScheduledValues(t);
+            out.gain.setValueAtTime(out.gain.value, t);
+            out.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+            [...voices, lfo].forEach((osc) => osc.stop(t + 0.65));
+        },
+    };
+}
 
-        await main?.animate([
-            { transform: 'scale(1) rotate(0deg)', filter: 'blur(0)', opacity: 1 },
-            { transform: 'scale(.92) rotate(-12deg)', offset: 0.2 },
-            { transform: 'scale(0) rotate(900deg)', filter: 'blur(6px)', opacity: 0 },
-        ], { duration: 1300, easing: 'cubic-bezier(.6,0,.4,1)', fill: 'forwards' }).finished.catch(() => {});
+/* A dissonant rising swell while the crosshair hunts. */
+function riser(seconds) {
+    const context = ready();
+    if (!context) return;
+    const now = context.currentTime;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + seconds * 0.9);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds + 0.05);
+    gain.connect(context.destination);
+    [220, 233.1, 311.1].forEach((frequency) => {
+        const osc = context.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.frequency.exponentialRampToValueAtTime(frequency * 3.2, now + seconds);
+        osc.connect(gain);
+        osc.start(now);
+        osc.stop(now + seconds + 0.1);
+    });
+}
 
-        await pic.animate([
-            { transform: 'scale(0) rotate(-720deg)' },
-            { transform: 'scale(1.6) rotate(10deg)', offset: 0.75 },
-            { transform: 'scale(1.4) rotate(0deg)' },
-        ], { duration: 900, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' }).finished.catch(() => {});
+/* A tiny dry click for each step of the digits rolling. */
+function tickSound() {
+    const context = ready();
+    if (!context) return;
+    const now = context.currentTime;
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1400 + Math.random() * 900;
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+    osc.connect(gain).connect(context.destination);
+    osc.start(now);
+    osc.stop(now + 0.035);
+}
 
-        const iris = el('div', 'prank-iris');
-        root.append(iris);
-        await iris.animate([
-            { transform: 'translate(-50%, -50%) scale(1)' },
-            { transform: 'translate(-50%, -50%) scale(0)' },
-        ], { duration: 650, easing: 'cubic-bezier(.7,0,.9,.5)', fill: 'forwards' }).finished.catch(() => {});
-        vortex.remove();
-        pic.remove();
-    } else {
-        main?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
-        await wait(300);
+/* The city lands: a sub boom under a detuned, out-of-tune chord that rings off. */
+function stinger() {
+    const context = ready();
+    if (!context) return;
+    const now = context.currentTime;
+
+    const boom = context.createOscillator();
+    const boomGain = context.createGain();
+    boom.type = 'sine';
+    boom.frequency.setValueAtTime(90, now);
+    boom.frequency.exponentialRampToValueAtTime(32, now + 0.9);
+    boomGain.gain.setValueAtTime(0.7, now);
+    boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+    boom.connect(boomGain).connect(context.destination);
+    boom.start(now);
+    boom.stop(now + 1.25);
+
+    [466.2, 493.9, 698.5, 739.9].forEach((frequency) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(frequency * 1.02, now);
+        osc.frequency.exponentialRampToValueAtTime(frequency * 0.97, now + 2.2);
+        gain.gain.setValueAtTime(0.045, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+        osc.connect(gain).connect(context.destination);
+        osc.start(now);
+        osc.stop(now + 2.5);
+    });
+    staticSound(0.3);
+}
+
+/* Breathy, filtered noise that comes and goes under the whisper. */
+function whisperSound(seconds) {
+    const context = ready();
+    if (!context) return null;
+    const now = context.currentTime;
+    const noise = context.createBuffer(2, Math.ceil(context.sampleRate * seconds), context.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+        const data = noise.getChannelData(channel);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     }
+    const source = context.createBufferSource();
+    source.buffer = noise;
+    const band = context.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 2400;
+    band.Q.value = 1.4;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    // In and out, like breathing close to the ear.
+    for (let t = 0; t < seconds; t += 1.4) {
+        gain.gain.exponentialRampToValueAtTime(0.09, now + t + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.012, now + t + 1.3);
+    }
+    source.connect(band).connect(gain).connect(context.destination);
+    source.start(now);
 
-    await party(scene.retry_after || 60, scene.ip, true);
+    return {
+        stop() {
+            const t = context.currentTime;
+            gain.gain.cancelScheduledValues(t);
+            gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+            source.stop(t + 0.45);
+        },
+    };
+}
+
+/* A burst of radio static. */
+function staticSound(seconds) {
+    const context = S.context;
+    if (!context || context.state !== 'running') return;
+    const now = context.currentTime;
+    const noise = context.createBuffer(1, Math.ceil(context.sampleRate * seconds), context.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (Math.random() < 0.08 ? 1 : 0.35);
+    const source = context.createBufferSource();
+    source.buffer = noise;
+    const band = context.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 1800;
+    band.Q.value = 0.7;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + seconds);
+    source.connect(band).connect(gain).connect(context.destination);
+    source.start(now);
+}
+
+/* Low double thumps, like a heartbeat in the dark. */
+function heartbeat(beats) {
+    const context = S.context;
+    if (!context || context.state !== 'running') return;
+    const start = context.currentTime + 0.05;
+    for (let beat = 0; beat < beats; beat++) {
+        [0, 0.22].forEach((offset, index) => {
+            const at = start + beat * 0.85 + offset;
+            const tone = context.createOscillator();
+            const gain = context.createGain();
+            tone.type = 'sine';
+            tone.frequency.setValueAtTime(70, at);
+            tone.frequency.exponentialRampToValueAtTime(38, at + 0.18);
+            gain.gain.setValueAtTime(0.0001, at);
+            gain.gain.exponentialRampToValueAtTime(index ? 0.35 : 0.55, at + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.25);
+            tone.connect(gain).connect(context.destination);
+            tone.start(at);
+            tone.stop(at + 0.26);
+        });
+    }
+}
+
+async function sceneFour(scene) {
+    shake(card(), 18);
+    fahh();
+    const seconds = scene.retry_after || 60;
+    const term = terminal('punishment.sh', { width: 460, place: 'center' });
+    stage().classList.add('is-dim');
+    lockForm(seconds);
+    await term.run([
+        ['cmd', 'sudo rm -rf patience/'],
+        ['err', 'the admin is out of patience.'],
+        ['out', `sign-in locked for ${clockText(seconds)} for IP ${scene.ip || 'yours'}.`],
+        ['cmd', 'play punishment.mp4 --fullscreen'],
+        ['bar', 'loading'],
+        ['big', '3'],
+        ['big', '2'],
+        ['big', '1'],
+    ]);
+    if (term.closed) return;
+    S.current = null;
+    await party(seconds, scene.ip, term.box);
 }
 
 /* ---------- the Kewer Kewer video ---------- */
 
-async function party(seconds, ip, opening = false) {
+/** The terminal window grows from where it is to cover the whole screen, its text falling away. */
+async function grow(box) {
+    const r = box.getBoundingClientRect();
+    const inner = [...box.children];
+    inner.forEach((child) => child.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.9)' }], { duration: 220, fill: 'forwards' }));
+
+    await box.animate([
+        { transform: 'scale(1)' },
+        { transform: 'scale(.94)' },
+    ], { duration: 160, easing: 'ease-out', fill: 'forwards' }).finished.catch(() => {});
+
+    box.getAnimations().forEach((animation) => animation.cancel());
+    await box.animate([
+        { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: '14px', transform: 'scale(.94)' },
+        { left: '0px', top: '0px', width: `${window.innerWidth}px`, height: `${window.innerHeight}px`, borderRadius: '0px', transform: 'scale(1)' },
+    ], { duration: 560, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' }).finished.catch(() => {});
+}
+
+async function party(seconds, ip, from = null) {
     const root = stage();
     root.classList.add('is-dim');
     lockForm(seconds);
@@ -625,22 +683,21 @@ async function party(seconds, ip, opening = false) {
     video.setAttribute('playsinline', '');
 
     const bar = el('div', 'prank-tv-bar');
-    const label = el('span', '', 'login dikunci');
+    const label = el('span', '', 'sign-in locked');
     const clock = el('b');
-    const who = el('span', 'prank-tv-ip', ip ? `IP ${ip} kecatet` : '');
+    const who = el('span', 'prank-tv-ip', ip ? `IP ${ip} logged` : '');
     bar.append(label, clock, who);
 
-    const close = el('button', 'prank-close', 'tutup');
+    const close = el('button', 'prank-close', 'close');
     close.type = 'button';
-    const unmute = el('button', 'prank-hint', 'klik buat nyalain suaranya');
+    const unmute = el('button', 'prank-hint', 'click to turn the sound on');
     unmute.type = 'button';
     unmute.hidden = true;
 
     tv.append(video, bar, close, unmute);
     clock.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-    const iris = root.querySelector('.prank-iris');
-    if (iris) root.insertBefore(tv, iris); else root.append(tv);
+    if (from?.isConnected) root.insertBefore(tv, from); else root.append(tv);
 
     let raf = 0;
 
@@ -669,16 +726,23 @@ async function party(seconds, ip, opening = false) {
         if (!unmute.hidden) start();
     });
 
-    if (opening && iris && !S.reduced) {
+    if (from?.isConnected && !S.reduced) {
+        // The terminal swells to fill the screen, then the screen switches on like an old TV.
+        tv.style.opacity = '0';
         start();
-        await wait(140);
-        await iris.animate([
-            { transform: 'translate(-50%, -50%) scale(0)' },
-            { transform: 'translate(-50%, -50%) scale(1)' },
-        ], { duration: 900, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' }).finished.catch(() => {});
-        iris.remove();
+        await grow(from);
+        const main = document.querySelector('main');
+        main?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 1, fill: 'forwards' });
+        tv.style.opacity = '1';
+        from.remove();
+        await tv.animate([
+            { clipPath: 'inset(50% 0 50% 0)', filter: 'brightness(3) saturate(0)' },
+            { clipPath: 'inset(49.6% 0 49.6% 0)', filter: 'brightness(4) saturate(0)', offset: 0.25 },
+            { clipPath: 'inset(0 0 0 0)', filter: 'brightness(1.6) saturate(.6)', offset: 0.6 },
+            { clipPath: 'inset(0 0 0 0)', filter: 'brightness(1) saturate(1)' },
+        ], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }).finished.catch(() => {});
     } else {
-        iris?.remove();
+        from?.remove();
         tv.animate([{ opacity: 0 }, { opacity: 1 }], { duration: S.reduced ? 1 : 300 });
         start();
     }
@@ -732,7 +796,7 @@ function lockForm(seconds) {
 
     fieldset.disabled = true;
     label.dataset.original ??= label.textContent;
-    label.textContent = 'Dikunci';
+    label.textContent = 'Locked';
 
     const until = Date.now() + seconds * 1000;
     window.clearInterval(formTimer);
@@ -765,26 +829,19 @@ export function play(scene, { context = null } = {}) {
     adopt(context);
     preload();
 
-    if (S.busy && scene.stage !== 4 && scene.stage !== 'paused') return S.busy;
-
-    clearStage();
+    // A quicker next miss never gets lost: the window still on screen makes way for the new one.
+    S.current?.dismiss();
+    S.current = null;
 
     const run = {
         1: sceneOne,
         2: sceneTwo,
         3: sceneThree,
         4: sceneFour,
-        paused: (s) => party(s.retry_after || 60, s.ip, false),
+        paused: (s) => party(s.retry_after || 60, s.ip),
     }[scene.stage];
 
-    if (!run) return Promise.resolve();
-
-    S.busy = Promise.resolve(run(scene)).catch(() => {}).finally(() => {
-        S.busy = null;
-        if (scene.stage !== 4 && scene.stage !== 'paused') clearStage();
-    });
-
-    return S.busy;
+    return run ? Promise.resolve(run(scene)).catch(() => {}) : Promise.resolve();
 }
 
 /** A page opened (or reloaded) while its address is still paused. */

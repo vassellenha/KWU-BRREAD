@@ -44,4 +44,27 @@ class ForwardedAddressTest extends TestCase
             ->assertSee('203.0.113.7')
             ->assertDontSee('9.9.9.9');
     }
+
+    public function test_on_railway_the_address_the_edge_saw_wins_over_its_own_edge_hop(): void
+    {
+        Route::get('/__ip', fn (\Illuminate\Http\Request $request) => $request->ip());
+
+        // What Railway really sends: the visitor first, its own Singapore edge last, X-Real-IP set.
+        $this->withServerVariables(['REMOTE_ADDR' => '100.64.0.5'])
+            ->withHeaders(['X-Forwarded-For' => '103.171.164.172, 152.233.15.120', 'X-Real-IP' => '103.171.164.172'])
+            ->get('/__ip')
+            ->assertSee('103.171.164.172')
+            ->assertDontSee('152.233.15.120');
+    }
+
+    public function test_a_forged_chain_cannot_beat_the_edge_set_real_ip(): void
+    {
+        Route::get('/__ip', fn (\Illuminate\Http\Request $request) => $request->ip());
+
+        $this->withServerVariables(['REMOTE_ADDR' => '100.64.0.5'])
+            ->withHeaders(['X-Forwarded-For' => '9.9.9.9, 103.171.164.172, 152.233.15.120', 'X-Real-IP' => '103.171.164.172'])
+            ->get('/__ip')
+            ->assertSee('103.171.164.172')
+            ->assertDontSee('9.9.9.9');
+    }
 }

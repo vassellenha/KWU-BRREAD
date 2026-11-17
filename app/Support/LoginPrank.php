@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * The joke a person meets when they guess passwords by hand: the first three wrong passwords
- * each bring a different Batman scene, the fourth plays "Kewer Kewer" and pauses sign-in for
- * that address. Each pause is longer than the last (1, 3, then 5 minutes at most). Scripts that
+ * each pop up a cheeky terminal (the third reads out their IP, city and provider), the fourth
+ * plays the "Kewer Kewer" video and pauses sign-in for that address. Each pause is longer than the last (1, 3, then 5 minutes at most). Scripts that
  * keep hammering still hit the rate limits and the lockdown screen; this is for curious humans.
  */
 class LoginPrank
@@ -46,7 +46,7 @@ class LoginPrank
     /**
      * Counts a wrong password and says which scene to play.
      *
-     * @return array{stage: int, ip: ?string, city: ?string, country: ?string, retry_after?: int}
+     * @return array{stage: int, ip: ?string, city: ?string, country: ?string, isp: ?string, retry_after?: int}
      */
     public static function miss(Request $request): array
     {
@@ -57,6 +57,7 @@ class LoginPrank
             'ip' => $request->ip(),
             'city' => $place['city'],
             'country' => $place['country'],
+            'isp' => $place['isp'],
         ];
 
         if ($misses < self::STRIKE_AT) {
