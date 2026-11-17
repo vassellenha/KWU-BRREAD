@@ -436,7 +436,7 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
 
             if (response.status === 429 && data.locked) {
                 const lockdown = await import('./lockdown.js');
-                lockdown.start({ seconds: data.retry_after, context, ip: data.ip, trace: data.trace });
+                lockdown.start({ seconds: data.retry_after, context, ip: data.ip, trace: data.trace, username: this.username });
                 return;
             }
 
@@ -492,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
             instant: true,
             ip: lockdown.dataset.ip,
             trace: readTrace(lockdown),
+            username: lockdown.dataset.name,
         }));
     }
 });

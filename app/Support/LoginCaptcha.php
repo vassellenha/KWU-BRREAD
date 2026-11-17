@@ -52,8 +52,8 @@ class LoginCaptcha
 
     private static function render(string $code): string
     {
-        $width = 240;
-        $height = 80;
+        $width = 200;
+        $height = 64;
         $font = resource_path('fonts/DejaVuSans-Bold.ttf');
 
         $text = imagecreatetruecolor($width, $height);
@@ -69,10 +69,10 @@ class LoginCaptcha
 
         // Each letter gets its own size, tilt and height.
         $ink = imagecolorallocate($text, 24, 24, 28);
-        $x = 14;
+        $x = 11;
         foreach (str_split($code) as $letter) {
-            imagettftext($text, random_int(30, 35), random_int(-28, 28), $x, random_int(54, 64), $ink, $font, $letter);
-            $x += random_int(43, 46);
+            imagettftext($text, random_int(24, 28), random_int(-26, 26), $x, random_int(43, 51), $ink, $font, $letter);
+            $x += random_int(35, 37);
         }
 
         // A sine wave pushes every pixel column up or down, bending the whole word.
@@ -81,7 +81,7 @@ class LoginCaptcha
         $phase = random_int(0, 628) / 100;
         $period = random_int(14, 20);
         for ($column = 0; $column < $width; $column++) {
-            $shift = (int) round(sin($column / $period + $phase) * 5);
+            $shift = (int) round(sin($column / $period + $phase) * 4);
             imagecopy($bent, $text, $column, $shift, $column, 0, 1, $height);
         }
 
@@ -89,7 +89,7 @@ class LoginCaptcha
         $stroke = imagecolorallocate($bent, 70, 70, 76);
         imagesetthickness($bent, 2);
         for ($i = 0; $i < 3; $i++) {
-            imageline($bent, 0, random_int(15, 65), $width, random_int(15, 65), $stroke);
+            imageline($bent, 0, random_int(12, 52), $width, random_int(12, 52), $stroke);
         }
         for ($i = 0; $i < 50; $i++) {
             imagesetpixel($bent, random_int(0, $width - 1), random_int(0, $height - 1), $stroke);

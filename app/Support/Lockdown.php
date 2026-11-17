@@ -83,7 +83,28 @@ class Lockdown
             'locked' => true,
             'lockSeconds' => $seconds,
             'trace' => self::trace($request),
+            // A reload has no username in it, so the name typed when the lock began is kept with it.
+            'typedUsername' => $request->input('username') ?: Cache::get(self::nameKey($request)),
         ], 429)->header('Retry-After', (string) $seconds);
+    }
+
+    /**
+     * The name the locked page greets the caller with: the username they typed, or else
+     * their system ("Windows user"). Browsers never reveal the computer or profile name.
+     *
+     * @param  array<string, mixed>|null  $trace
+     */
+    public static function greeting(mixed $typed, ?array $trace): string
+    {
+        $typed = is_string($typed) ? trim(preg_replace('/\s+/', ' ', $typed)) : '';
+
+        if ($typed !== '') {
+            return Str::limit($typed, 22, '...');
+        }
+
+        $os = is_string($trace['os'] ?? null) ? trim(preg_replace('/\s*[\d.\/]+$/', '', $trace['os'])) : '';
+
+        return $os !== '' && ! str_starts_with($os, 'Unknown') ? $os.' user' : 'stranger';
     }
 
     /**
@@ -101,6 +122,11 @@ class Lockdown
     private static function key(Request $request): string
     {
         return 'lockdown:'.$request->ip();
+    }
+
+    private static function nameKey(Request $request): string
+    {
+        return 'lockdown-name:'.$request->ip();
     }
 
     /**
@@ -135,6 +161,10 @@ class Lockdown
     private static function log(Request $request, string $reason): void
     {
         $username = is_string($request->input('username')) ? Str::limit($request->input('username'), 37) : null;
+
+        if ($username !== null && $username !== '') {
+            Cache::put(self::nameKey($request), $username, self::PAYLOAD_SECONDS);
+        }
 
         Log::warning('security.lockdown', [
             'reason' => $reason,

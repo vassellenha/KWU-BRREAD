@@ -44,12 +44,12 @@ class LoginLockdownTest extends TestCase
     {
         $this->post('/staff', ['username' => $payload, 'password' => 'x'])
             ->assertStatus(429)
-            ->assertSee('PERCOBAAN MASUK DIHENTIKAN')
+            ->assertSee('SIGN-IN HALTED')
             ->assertHeader('Retry-After', (string) Lockdown::PAYLOAD_SECONDS);
 
         // The lock sticks: even the real credentials and the plain login page are refused now.
         $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])->assertStatus(429);
-        $this->get('/staff')->assertStatus(429)->assertSee('SISTEM TERKUNCI');
+        $this->get('/staff')->assertStatus(429)->assertSee('SYSTEM LOCKED');
         $this->assertGuest();
     }
 
@@ -124,7 +124,7 @@ class LoginLockdownTest extends TestCase
     {
         $response = $this->post('/staff', ['username' => "x'--", 'password' => 'x'])->assertStatus(429);
 
-        $response->assertSee('id="lockdown-sound"', false);
+        $response->assertDontSee('id="lockdown-sound"', false);
 
         if (! file_exists(public_path('audio/lockdown.mp3'))) {
             $response->assertDontSee('<audio', false);
@@ -157,5 +157,26 @@ class LoginLockdownTest extends TestCase
 
         $staff = \App\Models\User::where('username', 'staffmrp')->first();
         $this->actingAs($staff)->get($path)->assertNotFound();
+    }
+
+    public function test_the_locked_page_greets_the_caller_by_the_name_they_typed(): void
+    {
+        $this->post('/superadmin', ['username' => "admin' OR 1=1 --", 'password' => 'x'])
+            ->assertStatus(429)
+            ->assertSee('welcome,')
+            ->assertSee("admin&#039; OR 1=1 --", false)
+            ->assertDontSee('behind the counter')
+            ->assertDontSee('<script>', false);
+
+        // A reload still knows who it is talking to.
+        $this->get('/superadmin')->assertStatus(429)->assertSee("admin&#039; OR 1=1 --", false);
+    }
+
+    public function test_the_greeting_falls_back_to_the_system_and_never_runs_long(): void
+    {
+        $this->assertSame('Windows user', Lockdown::greeting(null, ['os' => 'Windows 10/11']));
+        $this->assertSame('macOS user', Lockdown::greeting('', ['os' => 'macOS 14.5']));
+        $this->assertSame('stranger', Lockdown::greeting(null, ['os' => 'Unknown OS']));
+        $this->assertSame(str_repeat('a', 22).'...', Lockdown::greeting(str_repeat('a', 300), null));
     }
 }

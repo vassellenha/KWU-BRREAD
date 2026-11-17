@@ -263,7 +263,7 @@ class AuthPortalTest extends TestCase
 
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])
             ->assertStatus(429)
-            ->assertSee('PERCOBAAN MASUK DIHENTIKAN');
+            ->assertSee('SIGN-IN HALTED');
 
         $this->assertGuest();
     }
