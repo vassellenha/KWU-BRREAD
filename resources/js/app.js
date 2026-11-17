@@ -406,6 +406,11 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
         const warm = () => import('./prank.js').then((prank) => prank.preload()).catch(() => {});
         this.$el.querySelector('#password')?.addEventListener('focus', warm, { once: true });
 
+        // Three misses in and reloaded: the form comes back cursed for the last try.
+        if ('prankCursed' in this.$el.dataset) {
+            import('./prank.js').then((prank) => prank.curse());
+        }
+
         const paused = Number(this.$el.dataset.prankSeconds || 0);
         if (paused > 0) {
             import('./prank.js').then((prank) => prank.resumePause(paused, this.$el.dataset.prankIp || null));

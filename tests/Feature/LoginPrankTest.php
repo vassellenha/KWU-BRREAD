@@ -91,4 +91,17 @@ class LoginPrankTest extends TestCase
             $this->wrong()->assertStatus(422)->assertJsonMissingPath('prank');
         }
     }
+
+    public function test_after_three_misses_the_page_comes_back_cursed_for_the_last_try(): void
+    {
+        $this->wrong();
+        $this->wrong();
+        $this->get('/staff')->assertDontSee('data-prank-cursed', false);
+
+        $this->wrong();
+        $this->get('/staff')->assertSee('data-prank-cursed', false);
+
+        $this->wrong();
+        $this->get('/staff')->assertDontSee('data-prank-cursed', false);
+    }
 }

@@ -27,6 +27,7 @@ class AuthController extends Controller
             'quickLoginEnabled' => false,
             'captchaEnabled' => LoginCaptcha::enabled(),
             'prankSeconds' => LoginPrank::remaining($request),
+            'prankMisses' => LoginPrank::misses($request),
         ]);
     }
 
@@ -39,6 +40,7 @@ class AuthController extends Controller
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
             'captchaEnabled' => LoginCaptcha::enabled(),
             'prankSeconds' => LoginPrank::remaining($request),
+            'prankMisses' => LoginPrank::misses($request),
         ]);
     }
 

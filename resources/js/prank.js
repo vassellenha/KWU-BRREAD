@@ -408,6 +408,7 @@ async function sceneThree(scene) {
 
     await wait(2600);
     await done();
+    curse();
 }
 
 // Digits roll and settle one by one; the text is mirrored in data-text for the red/cyan split.
@@ -628,6 +629,8 @@ function heartbeat(beats) {
 }
 
 async function sceneFour(scene) {
+    curse();
+    arm();
     shake(card(), 18);
     fahh();
     const seconds = scene.retry_after || 60;
@@ -673,6 +676,8 @@ async function party(seconds, ip, from = null) {
     const root = stage();
     root.classList.add('is-dim');
     lockForm(seconds);
+    curse();
+    arm();
 
     const tv = el('div', 'prank-tv');
     const video = el('video');
@@ -688,13 +693,13 @@ async function party(seconds, ip, from = null) {
     const who = el('span', 'prank-tv-ip', ip ? `IP ${ip} logged` : '');
     bar.append(label, clock, who);
 
-    const close = el('button', 'prank-close', 'close');
-    close.type = 'button';
+    const back = el('button', 'prank-close', 'Back to Brread!');
+    back.type = 'button';
     const unmute = el('button', 'prank-hint', 'click to turn the sound on');
     unmute.type = 'button';
     unmute.hidden = true;
 
-    tv.append(video, bar, close, unmute);
+    tv.append(video, bar, back, unmute);
     clock.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
     if (from?.isConnected) root.insertBefore(tv, from); else root.append(tv);
@@ -766,14 +771,16 @@ async function party(seconds, ip, from = null) {
         document.querySelector('main')?.getAnimations().forEach((animation) => animation.cancel());
     };
 
-    // Closing early only stops the video; the form stays locked until the time is up.
-    close.addEventListener('click', (event) => {
+    // There is no way out of the video: "back" only gets a terminal that makes fun of the try.
+    back.addEventListener('click', (event) => {
         event.stopPropagation();
-        finish();
+        taunt('back');
     });
 
     const end = () => {
         window.clearInterval(timer);
+        release();
+        uncurse();
         unlockForm();
         if (tv.isConnected) finish();
     };
@@ -820,6 +827,236 @@ function unlockForm() {
     if (timer) timer.textContent = '';
 }
 
+/* ---------- the broken form before the last try ---------- */
+
+const JUNK = '█▓▒░#@%&$!?<>/\\|_~^*01';
+
+// Diacritics stacked on each letter: the text looks corrupted but is still readable.
+function corrupt(text, amount = 0.6) {
+    const marks = ['̴', '̵', '̶', '̷', '̸', '̕', '̛', '̀', '́', '͘', '̡', '̢', '̧', '̨', '̴'];
+    return [...text].map((letter) => (letter.trim() && Math.random() < amount
+        ? letter + marks[Math.floor(Math.random() * marks.length)] + (Math.random() < 0.4 ? marks[Math.floor(Math.random() * marks.length)] : '')
+        : letter)).join('');
+}
+
+function scramble(text, amount) {
+    return [...text].map((letter) => (letter.trim() && Math.random() < amount ? JUNK[Math.floor(Math.random() * JUNK.length)] : letter)).join('');
+}
+
+/**
+ * After the trace the sign-in page looks properly broken: warped, torn, colour-split, with dead
+ * pixels and corrupted labels. The fields and the button still work, so the last try is possible.
+ */
+export function curse() {
+    if (S.curse) return;
+    const body = document.body;
+    const main = document.querySelector('main');
+    const formCard = card();
+    if (!main || !formCard) return;
+
+    body.classList.add('is-broken');
+    const timers = [];
+    const restore = [];
+    const keep = (node, prop) => {
+        if (node) restore.push([node, prop, node[prop]]);
+    };
+
+    // Warp filters: strong on the header, gentle on the card so the fields stay legible.
+    const ns = 'http://www.w3.org/2000/svg';
+    const defs = document.createElementNS(ns, 'svg');
+    defs.setAttribute('class', 'prank-defs');
+    defs.setAttribute('aria-hidden', 'true');
+    defs.innerHTML = [
+        '<filter id="prank-warp"><feTurbulence type="fractalNoise" baseFrequency="0.01 0.09" numOctaves="2" seed="3"><animate attributeName="seed" values="1;2;3;4;5;6;7;8" dur="0.8s" repeatCount="indefinite"/></feTurbulence><feDisplacementMap in="SourceGraphic" scale="14"/></filter>',
+        '<filter id="prank-warp-soft"><feTurbulence type="fractalNoise" baseFrequency="0.004 0.08" numOctaves="1" seed="2"><animate attributeName="seed" values="1;2;3;4" dur="1.6s" repeatCount="indefinite"/></feTurbulence><feDisplacementMap in="SourceGraphic" scale="5"/></filter>',
+    ].join('');
+    body.append(defs);
+
+    // A colour-split ghost of the card that tears in bands. It is only a picture: inert and hidden from readers.
+    const ghost = formCard.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id],[name]').forEach((node) => {
+        node.removeAttribute('id');
+        node.removeAttribute('name');
+    });
+    ghost.classList.remove('staff-login-card');
+    ghost.classList.add('prank-ghost');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.inert = true;
+    formCard.parentElement.style.position = 'relative';
+    formCard.after(ghost);
+    const placeGhost = () => {
+        ghost.style.top = `${formCard.offsetTop}px`;
+        ghost.style.left = `${formCard.offsetLeft}px`;
+        ghost.style.width = `${formCard.offsetWidth}px`;
+        ghost.style.height = `${formCard.offsetHeight}px`;
+    };
+    placeGhost();
+    timers.push(window.setInterval(placeGhost, 500));
+
+    // Dead pixels and broken blocks popping up around the screen.
+    const junk = el('div', 'prank-junk');
+    junk.setAttribute('aria-hidden', 'true');
+    body.append(junk);
+    const block = () => {
+        const bit = el('span');
+        const wide = Math.random() < 0.3;
+        bit.style.left = `${Math.random() * 100}vw`;
+        bit.style.top = `${Math.random() * 100}vh`;
+        bit.style.width = `${wide ? 80 + Math.random() * 260 : 6 + Math.random() * 40}px`;
+        bit.style.height = `${wide ? 2 + Math.random() * 6 : 6 + Math.random() * 30}px`;
+        bit.style.background = ['#ff003c', '#7a0016', '#14030a', '#ffc2ca', '#b80028', '#3a0610'][Math.floor(Math.random() * 6)];
+        junk.append(bit);
+        window.setTimeout(() => bit.remove(), 90 + Math.random() * 400);
+    };
+    if (!S.reduced) timers.push(window.setInterval(block, 140));
+
+    // Labels, tagline, title and button text keep re-corrupting; the inputs are left alone.
+    const labels = [...document.querySelectorAll('#login-card label, [data-login-tagline], [data-login-title], #login-submit [data-login-label], #login-back')];
+    const texts = labels.map((node) => {
+        const target = node.querySelector('[data-login-label]') || node;
+        const textNode = [...target.childNodes].reverse().find((child) => child.nodeType === Node.TEXT_NODE && child.nodeValue.trim());
+        if (!textNode) return null;
+        keep(textNode, 'nodeValue');
+        return { node: textNode, text: textNode.nodeValue };
+    }).filter(Boolean);
+    const rot = () => texts.forEach(({ node, text }) => {
+        node.nodeValue = Math.random() < 0.15 ? scramble(text, 0.45) : corrupt(text, 0.55);
+    });
+    rot();
+    if (!S.reduced) timers.push(window.setInterval(rot, 650));
+
+    const password = document.getElementById('password');
+    keep(password, 'placeholder');
+    if (password) password.placeholder = corrupt('password', 0.9);
+
+    S.curse = () => {
+        timers.forEach((timer) => window.clearInterval(timer));
+        restore.forEach(([node, prop, value]) => {
+            node[prop] = value;
+        });
+        [defs, ghost, junk].forEach((node) => node.remove());
+        body.classList.remove('is-broken');
+    };
+}
+
+function uncurse() {
+    S.curse?.();
+    S.curse = null;
+}
+
+/* ---------- the way out is shut ---------- */
+
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+const TAUNTS = {
+    back: [
+        ['cd /brread', 'permission denied: the way back is closed.'],
+        ['cd ..', 'there is no ".." here. only kewer.'],
+        ['git checkout main', 'error: you have unsaved patience.'],
+        ['ssh brread.shop', 'connection refused. take a seat.'],
+    ],
+    reload: [
+        ['sudo reload --force', 'ctrl+R? we took that key away.'],
+        ['F5', 'refresh is busy watching kewer kewer.'],
+        ['kill -9 this_page', 'operation not permitted.'],
+    ],
+};
+
+const JABS = [
+    'nice try. escape attempt #N logged.',
+    'the back button has left the building.',
+    'history is gone. only kewer remains.',
+    'still here? the video is not over.',
+    'attempt #N to leave. the answer is still no.',
+];
+
+/** A terminal pops up to make fun of whoever tried to leave: Back to Brread, Ctrl+R, F5, the Back button. */
+async function taunt(kind) {
+    S.hits = (S.hits || 0) + 1;
+    const [command, refusal] = pick(TAUNTS[kind] || TAUNTS.back);
+
+    shake(document.querySelector('.prank-tv') || card(), 16);
+    fahh();
+
+    S.taunting?.dismiss();
+    const term = terminal('escape.sh', { width: 400, place: 'center' });
+    S.taunting = term;
+    await term.run([
+        ['cmd', command],
+        ['err', refusal],
+        ['say', pick(JABS).replace('N', String(S.hits))],
+        ['out', 'exits: close the tab, or enjoy the video.'],
+    ]);
+    await wait(2000);
+    if (S.taunting === term) {
+        S.taunting = null;
+        await term.dismiss();
+    }
+}
+
+/**
+ * While the address is paused the page cannot be left by the usual ways: Ctrl+R, F5, the Back
+ * button and every link only get a terminal that mocks the try. The browser's own reload button and
+ * closing the tab cannot be stopped by a website (reload at least asks first, and lands on the same
+ * paused page), and the trap lets go the moment the pause is over.
+ */
+function arm() {
+    if (S.trap) return;
+
+    const stop = new AbortController();
+    const on = (target, type, listener, options = {}) => target.addEventListener(type, listener, { ...options, signal: stop.signal });
+    const bait = () => {
+        try {
+            history.pushState({ prank: Date.now() }, '', window.location.href);
+        } catch {
+            // No history to fill.
+        }
+    };
+
+    bait();
+    bait();
+    // Browsers skip history entries that never got a click, so one more is added on the first touch.
+    on(window, 'pointerdown', bait, { once: true });
+    on(window, 'keydown', bait, { once: true });
+    on(window, 'popstate', () => {
+        bait();
+        taunt('back');
+    });
+    on(window, 'keydown', (event) => {
+        const key = event.key.toLowerCase();
+        const mod = event.ctrlKey || event.metaKey;
+        const reload = event.key === 'F5' || (mod && key === 'r');
+        const back = (event.altKey && event.key === 'ArrowLeft') || (event.metaKey && event.key === '[');
+        if (!reload && !back) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        taunt(reload ? 'reload' : 'back');
+    }, { capture: true });
+    on(window, 'beforeunload', (event) => {
+        event.preventDefault();
+        event.returnValue = '';
+    });
+    on(document, 'contextmenu', (event) => event.preventDefault());
+    on(document, 'click', (event) => {
+        if (!event.target.closest?.('a[href]')) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        taunt('back');
+    }, { capture: true });
+
+    S.trap = stop;
+}
+
+function release() {
+    S.trap?.abort();
+    S.trap = null;
+    S.taunting?.dismiss();
+    S.taunting = null;
+}
+
 /* ---------- entry points ---------- */
 
 /**
@@ -847,5 +1084,5 @@ export function play(scene, { context = null } = {}) {
 /** A page opened (or reloaded) while its address is still paused. */
 export function resumePause(seconds, ip) {
     preload();
-    party(seconds, ip, false);
+    party(seconds, ip, null);
 }

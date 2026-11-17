@@ -44,6 +44,14 @@ class LoginPrank
     }
 
     /**
+     * Wrong passwords so far from this address since its last pause (0 to 3).
+     */
+    public static function misses(Request $request): int
+    {
+        return self::enabled() ? (int) Cache::get(self::key('misses', $request), 0) : 0;
+    }
+
+    /**
      * Counts a wrong password and says which scene to play.
      *
      * @return array{stage: int, ip: ?string, city: ?string, country: ?string, isp: ?string, retry_after?: int}
