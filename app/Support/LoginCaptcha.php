@@ -67,12 +67,19 @@ class LoginCaptcha
             imageline($text, random_int(0, $width), random_int(0, $height), random_int(0, $width), random_int(0, $height), $faint);
         }
 
-        // Each letter gets its own size, tilt and height.
+        // Every letter sits centred in its own equal slot, so the gaps stay even whatever the tilt.
         $ink = imagecolorallocate($text, 24, 24, 28);
-        $x = 16;
-        foreach (str_split($code) as $letter) {
-            imagettftext($text, random_int(32, 36), random_int(-16, 16), $x, random_int(54, 62), $ink, $font, $letter);
-            $x += random_int(54, 56);
+        $slot = $width / self::LENGTH;
+        foreach (str_split($code) as $i => $letter) {
+            $size = 32;
+            $angle = random_int(-12, 12);
+            $box = imagettfbbox($size, $angle, $font, $letter);
+            $glyphWidth = max($box[0], $box[2], $box[4], $box[6]) - min($box[0], $box[2], $box[4], $box[6]);
+            $glyphTop = min($box[1], $box[3], $box[5], $box[7]);
+            $glyphBottom = max($box[1], $box[3], $box[5], $box[7]);
+            $x = (int) round($slot * $i + ($slot - $glyphWidth) / 2 - min($box[0], $box[2], $box[4], $box[6]));
+            $y = (int) round(($height - ($glyphBottom - $glyphTop)) / 2 - $glyphTop) + random_int(-3, 3);
+            imagettftext($text, $size, $angle, $x, $y, $ink, $font, $letter);
         }
 
         // A sine wave pushes every pixel column up or down, bending the whole word.
@@ -81,7 +88,7 @@ class LoginCaptcha
         $phase = random_int(0, 628) / 100;
         $period = random_int(14, 20);
         for ($column = 0; $column < $width; $column++) {
-            $shift = (int) round(sin($column / $period + $phase) * 4);
+            $shift = (int) round(sin($column / $period + $phase) * 3);
             imagecopy($bent, $text, $column, $shift, $column, 0, 1, $height);
         }
 
