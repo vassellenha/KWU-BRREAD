@@ -4,6 +4,7 @@ use App\Http\Middleware\BlockBannedAddresses;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\LoginLockdown;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustOnlyTheProxyHop;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // an https:// page. The app has no other public entry point, so trusting all proxies
         // here is safe.
         $middleware->trustProxies(at: '*');
+        // Before the proxies are read: only the address the edge itself saw counts, never one the visitor wrote.
+        $middleware->prepend(TrustOnlyTheProxyHop::class);
 
         $middleware->append(SecurityHeaders::class);
         $middleware->append(BlockBannedAddresses::class);
