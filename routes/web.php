@@ -66,6 +66,9 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 
     Route::middleware($rolesFor(User::MODULE_SECURITY))->prefix('security')->name('security.')->group(function () {
         Route::get('/', [SecurityController::class, 'index'])->name('index');
+        Route::post('/blocks', [SecurityController::class, 'block'])->name('block');
+        Route::delete('/blocks/{ipBlock}', [SecurityController::class, 'unblock'])->name('unblock');
+        Route::delete('/records', [SecurityController::class, 'forget'])->name('forget');
     });
 });
 

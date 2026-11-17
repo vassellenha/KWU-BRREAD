@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\BlockBannedAddresses;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\LoginLockdown;
 use App\Http\Middleware\SecurityHeaders;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->append(SecurityHeaders::class);
+        $middleware->append(BlockBannedAddresses::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

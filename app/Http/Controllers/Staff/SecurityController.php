@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Models\IpBlock;
 use App\Models\SecurityEvent;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -40,6 +42,48 @@ class SecurityController extends Controller
                 'top_country' => $topCountry,
             ],
             'keepDays' => (int) config('services.security_events.keep_days'),
+            'blocks' => IpBlock::with('blocker')->latest('id')->get(),
         ]);
+    }
+
+    /**
+     * Shuts an address out of the whole site until it is unblocked.
+     */
+    public function block(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ip' => ['required', 'ip'],
+            'note' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        if ($data['ip'] === $request->ip()) {
+            return back()->withErrors(['ip' => 'That is the address you are using right now, so blocking it would lock you out too.']);
+        }
+
+        IpBlock::firstOrCreate(
+            ['ip' => $data['ip']],
+            ['note' => $data['note'] ?? null, 'blocked_by' => $request->user()->id],
+        );
+
+        return back()->with('status', "{$data['ip']} is blocked from the whole site.");
+    }
+
+    public function unblock(IpBlock $ipBlock): RedirectResponse
+    {
+        $ipBlock->delete();
+
+        return back()->with('status', "{$ipBlock->ip} is unblocked.");
+    }
+
+    /**
+     * Deletes every lockdown record for an address. A block on it stays until lifted.
+     */
+    public function forget(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['ip' => ['required', 'ip']]);
+
+        $count = SecurityEvent::where('ip', $data['ip'])->delete();
+
+        return back()->with('status', "Deleted {$count} ".str('record')->plural($count)." for {$data['ip']}.");
     }
 }

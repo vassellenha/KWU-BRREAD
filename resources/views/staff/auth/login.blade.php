@@ -34,7 +34,7 @@
 
         <div id="login-card" class="staff-login-card relative bg-surface-container-lowest rounded-lg border border-outline-variant/40 p-space-lg">
             <div id="lockdown-banner" class="lockdown-banner" role="alert" @unless ($locked) hidden @endunless>
-                TOO MANY ATTEMPTS.<br>WE KNOW.<br>SIGN-IN HALTED.
+                <span>TOO MANY ATTEMPTS.</span><span>WE KNOW.</span><span>SIGN-IN HALTED.</span>
             </div>
 
             @if ($errors->any())
@@ -100,20 +100,22 @@
                 </div>
                 @if ($captchaEnabled)
                     <div>
-                        <div class="flex items-center gap-space-xs rounded-lg border border-outline-variant bg-white p-1">
-                            <img
-                                src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
-                                :src="captchaUrl"
-                                alt="Letters to type below"
-                                width="200"
-                                height="64"
-                                class="h-12 w-auto min-w-0 max-w-full flex-1 object-contain"
-                            >
+                        <div class="flex items-center gap-space-xs">
+                            <div class="flex h-14 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant bg-white">
+                                <img
+                                    src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
+                                    :src="captchaUrl"
+                                    alt="Letters to type below"
+                                    width="200"
+                                    height="64"
+                                    class="block h-full w-full object-contain"
+                                >
+                            </div>
                             <button
                                 type="button"
                                 x-on:click="refreshCaptcha(); $refs.captcha.focus()"
                                 aria-label="Show a new image"
-                                class="press-scale flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
+                                class="press-scale flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
                             >
                                 <span class="material-symbols-outlined text-[22px]">refresh</span>
                             </button>

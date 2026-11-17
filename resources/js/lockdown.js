@@ -19,6 +19,7 @@ const S = {
     music: null,
     musicGain: null,
     analyser: null,
+    hit: null,
     reduced: false,
     small: false,
     trace: {},
@@ -69,6 +70,18 @@ function setupAudio(context) {
     S.out = ctx.createGain();
     S.out.gain.value = 0.9;
     S.out.connect(limiter);
+
+    // The recorded impact, decoded once so it plays with no delay when it is needed.
+    const hitUrl = S.root?.dataset.hit;
+    if (hitUrl) {
+        fetch(hitUrl)
+            .then((response) => response.arrayBuffer())
+            .then((data) => ctx.decodeAudioData(data))
+            .then((buffer) => {
+                S.hit = buffer;
+            })
+            .catch(() => {});
+    }
 
     if (S.music) {
         try {
@@ -253,27 +266,167 @@ function crackleSound() {
     tone('square', 220, 55, at, 0.06, 0.005, 0.2);
 }
 
-/** The scream that comes with the face. */
+/** The recorded impact hit. */
+function hitSound(level = 1) {
+    if (!live() || !S.hit) return;
+    const ctx = S.context;
+    const source = ctx.createBufferSource();
+    source.buffer = S.hit;
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    source.connect(gain);
+    gain.connect(S.out);
+    source.start();
+}
+
+let shaperCurve = null;
+/** Hard clipping, so a tone turns into a tearing, broken sound. */
+function distortion(ctx, amount = 90) {
+    if (!shaperCurve) {
+        const samples = 2048;
+        shaperCurve = new Float32Array(samples);
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            shaperCurve[i] = ((3 + amount) * x * 20 * (Math.PI / 180)) / (Math.PI + amount * Math.abs(x));
+        }
+    }
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = shaperCurve;
+    shaper.oversample = '4x';
+    return shaper;
+}
+
+/** The music drops away for a moment so the next sound lands in silence. */
+function duckMusic(seconds = 1.4) {
+    if (!S.musicGain || !live()) return;
+    const now = S.context.currentTime;
+    const gain = S.musicGain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(0.08, now + 0.05);
+    gain.linearRampToValueAtTime(MUSIC_VOLUME, now + seconds);
+}
+
+/** A sucking, rising swell that warns something is about to happen. */
+function riserSound() {
+    if (!live()) return;
+    const at = S.context.currentTime + 0.005;
+    burst(at, 0.3, 0.55, 'bandpass', 300, 5000, 2.5);
+    tone('sawtooth', 60, 260, at, 0.12, 0.25, 0.05);
+}
+
+/** The scream that comes with the face: a torn, distorted shriek over the recorded hit. */
 function screamSound() {
     if (!live()) return;
     const ctx = S.context;
     const at = ctx.currentTime + 0.005;
-    const bus = ctx.createGain();
-    bus.gain.value = 1;
+    duckMusic(1.8);
+    hitSound(1);
+
+    const shaper = distortion(ctx);
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 2300;
+    band.Q.value = 0.9;
+    const bus = envelope(ctx, at, 0.42, 0.01, 1.5);
+    shaper.connect(band);
+    band.connect(bus);
+    bus.connect(S.out);
+
     const vibrato = ctx.createOscillator();
-    vibrato.frequency.value = 23;
+    vibrato.type = 'square';
+    vibrato.frequency.value = 31;
     const depth = ctx.createGain();
-    depth.gain.value = 26;
+    depth.gain.value = 70;
     vibrato.connect(depth);
     vibrato.start(at);
-    vibrato.stop(at + 1.2);
-    bus.connect(S.out);
-    [420, 447, 466, 503].forEach((f) => {
-        const osc = tone('sawtooth', f, f * 0.42, at, 0.13, 0.02, 1.0, bus);
+    vibrato.stop(at + 1.6);
+
+    // Five voices that never agree, sliding down together.
+    [1180, 1263, 1377, 1490, 1655].forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = i % 2 ? 'square' : 'sawtooth';
+        osc.frequency.setValueAtTime(f * 1.25, at);
+        osc.frequency.exponentialRampToValueAtTime(f, at + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.45, at + 1.5);
         depth.connect(osc.frequency);
+        osc.connect(shaper);
+        osc.start(at);
+        osc.stop(at + 1.6);
     });
-    burst(at, 1.0, 0.7, 'bandpass', 1200, 3400, 1.2);
-    tone('sine', 90, 28, at, 1, 0.005, 0.9);
+
+    // A throat under it.
+    const growl = ctx.createOscillator();
+    growl.type = 'sawtooth';
+    growl.frequency.setValueAtTime(130, at);
+    growl.frequency.exponentialRampToValueAtTime(48, at + 1.4);
+    const growlShaper = distortion(ctx);
+    const growlGain = envelope(ctx, at, 0.35, 0.02, 1.3);
+    growl.connect(growlShaper);
+    growlShaper.connect(growlGain);
+    growlGain.connect(S.out);
+    growl.start(at);
+    growl.stop(at + 1.5);
+
+    burst(at, 1.2, 0.6, 'highpass', 2500, 6000, 0.7);
+    tone('sine', 80, 24, at, 1, 0.005, 1.1);
+}
+
+/** A broken system error beep for each pop-up. */
+function errorSound() {
+    if (!live()) return;
+    const ctx = S.context;
+    const at = ctx.currentTime + 0.005;
+    const shaper = distortion(ctx, 40);
+    const gain = envelope(ctx, at, 0.16, 0.005, 0.28);
+    shaper.connect(gain);
+    gain.connect(S.out);
+    [[880, 0], [622, 0.09]].forEach(([f, offset]) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(f, at + offset);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.7, at + offset + 0.12);
+        osc.connect(shaper);
+        osc.start(at + offset);
+        osc.stop(at + offset + 0.14);
+    });
+}
+
+/** A low drone that grows while the trace runs. Returns a function that stops it. */
+function droneSound(seconds) {
+    if (!live()) return () => {};
+    const ctx = S.context;
+    const at = ctx.currentTime;
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.setValueAtTime(180, at);
+    low.frequency.linearRampToValueAtTime(900, at + seconds);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.45, at + seconds);
+    low.connect(gain);
+    gain.connect(S.out);
+    const oscs = [43, 45.5, 86.3].map((f) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, at);
+        osc.frequency.linearRampToValueAtTime(f * 1.5, at + seconds);
+        osc.connect(low);
+        osc.start(at);
+        return osc;
+    });
+    return () => {
+        const now = ctx.currentTime;
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+        oscs.forEach((osc) => osc.stop(now + 0.1));
+    };
+}
+
+function tickSound() {
+    if (!live()) return;
+    burst(S.context.currentTime + 0.002, 0.012, 0.1, 'highpass', 3000, 5000, 0.7, rand(-0.3, 0.3));
 }
 
 /* ------------------------------------------------------------- movement */
@@ -574,6 +727,11 @@ function stalker() {
 
 function scare() {
     if (S.reduced) return;
+    riserSound();
+    later(showFace, 280);
+}
+
+function showFace() {
     const element = S.root.querySelector('[data-scare]');
     if (!element) return;
     element.style.visibility = 'visible';
@@ -716,11 +874,11 @@ function rotLoop() {
 function setBanner(lines) {
     const banner = document.getElementById('lockdown-banner');
     if (!banner) return;
-    banner.replaceChildren();
-    lines.forEach((line, i) => {
-        if (i) banner.append(document.createElement('br'));
-        banner.append(document.createTextNode(line));
-    });
+    banner.replaceChildren(...lines.map((line) => {
+        const span = document.createElement('span');
+        span.textContent = line;
+        return span;
+    }));
 }
 
 function bannerLoop() {
@@ -793,13 +951,42 @@ function reactions() {
         shake(0.3);
     });
 
-    document.addEventListener('keydown', () => {
+    document.addEventListener('keydown', (event) => {
+        // Volume keys reach the page on some keyboards. The slider and the tab mute never do.
+        if (/^(Audio)?Volume(Down|Mute)$/.test(event.key)) {
+            whisper("TURNING US DOWN WON'T HELP");
+            popup(0);
+            return;
+        }
         const now = performance.now();
         if (now - lastKey < 700 || S.reduced) return;
         lastKey = now;
         crackleSound();
         shake(0.5);
         setBanner(['STOP', 'TYPING.']);
+    });
+
+    document.addEventListener('keyup', (event) => {
+        if (event.key === 'PrintScreen') whisper('SMILE.');
+    });
+
+    document.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        crackleSound();
+        setBanner(['NO.']);
+    });
+
+    // Developer tools docked to the window shrink the page well below the window.
+    let lastTools = 0;
+    window.addEventListener('resize', () => {
+        if (document.fullscreenElement) return;
+        const now = performance.now();
+        const docked = window.outerWidth - window.innerWidth > 220 || window.outerHeight - window.innerHeight > 260;
+        if (!docked || now - lastTools < 8000) return;
+        lastTools = now;
+        whisper('CLOSE THE CONSOLE.');
+        setBanner(['WE SEE YOUR', 'DEVTOOLS.']);
+        stingSound();
     });
 
     // Heading for the tab bar or the close button.
@@ -826,6 +1013,243 @@ function reactions() {
 
     document.addEventListener('fullscreenchange', () => {
         if (!document.fullscreenElement && !S.reduced) whisper("YOU CAN'T HIDE");
+    });
+}
+
+/* ------------------------------------------------------------ takeover */
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Red code pouring down behind the trace. Returns a function that stops it. */
+function codeRain(canvas) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const size = 16;
+    const columns = Math.ceil(canvas.width / size);
+    const drops = Array.from({ length: columns }, () => rand(-40, 0));
+    const glyphs = '01<>/\\{}[]$#%&*+=ABCDEF0123456789アイウエオカキクケコ';
+    ctx.font = `${size}px ui-monospace, Consolas, monospace`;
+    const timer = setInterval(() => {
+        ctx.fillStyle = 'rgba(2, 0, 1, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < columns; i++) {
+            ctx.fillStyle = Math.random() < 0.05 ? '#ffb3b8' : '#c3101d';
+            ctx.fillText(pick(glyphs), i * size, drops[i] * size);
+            drops[i] = drops[i] * size > canvas.height && Math.random() > 0.96 ? 0 : drops[i] + 1;
+        }
+    }, 40);
+    return () => clearInterval(timer);
+}
+
+/**
+ * The attacker's screen stops being theirs: code pours down, a trace types out who and where
+ * they are, "WE HAVE YOU." slams in, and the screen collapses like an old monitor switching
+ * off, revealing the locked page underneath.
+ */
+async function takeover(reveal) {
+    const screen = document.getElementById('lockdown-takeover');
+    if (!screen) {
+        reveal();
+        return;
+    }
+    const t = S.trace;
+    const term = screen.querySelector('[data-term]');
+    const bar = screen.querySelector('[data-bar]');
+    const verdict = screen.querySelector('[data-verdict]');
+    screen.hidden = false;
+    const stopRain = codeRain(screen.querySelector('[data-rain]'));
+    const stopDrone = droneSound(5);
+
+    const type = async (text, speed = 11) => {
+        let node = document.createTextNode('');
+        term.append(node);
+        for (let i = 0; i < text.length; i++) {
+            node.nodeValue += text[i];
+            if (i % 3 === 0) tickSound();
+            if (text[i] !== ' ') await wait(speed);
+        }
+        return node;
+    };
+    const dots = (label, value) => `> ${label} ${'.'.repeat(Math.max(3, 18 - label.length))} ${value || 'unknown'}\n`;
+
+    await type('> unauthorized access detected\n');
+    await type(dots('source', t.ip));
+    await type('> tracing route ');
+    bar.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1000, easing: 'steps(14, end)', fill: 'forwards' });
+    await wait(1000);
+    await type('done\n');
+    await type(dots('location', [t.city, t.country].filter(Boolean).join(', ')), 8);
+    await type(dots('network', t.isp), 8);
+    await type(dots('machine', [t.browser, t.os].filter(Boolean).join(' / ')), 8);
+    await type(dots('username', `"${S.name}"`), 8);
+    const last = document.createElement('b');
+    term.append(last);
+    for (const character of 'TRACE COMPLETE. LOCKING SESSION.') {
+        last.textContent += character;
+        await wait(16);
+    }
+    await wait(300);
+
+    stopDrone();
+    screen.querySelector('.lockdown-takeover-panel')?.animate([{ opacity: 1 }, { opacity: 0.18 }], { duration: 160, fill: 'forwards' });
+    verdict.animate(
+        [
+            { opacity: 0, transform: 'scale(2.6)' },
+            { opacity: 1, transform: 'scale(0.96)', offset: 0.6 },
+            { opacity: 1, transform: 'scale(1)' },
+        ],
+        { duration: 180, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)', fill: 'forwards' },
+    );
+    hitSound(1);
+    if (live()) tone('sine', 90, 30, S.context.currentTime, 0.9, 0.005, 0.7);
+    screen.animate(
+        [0, 1, 2, 3, 4, 5].map((i) => ({ transform: i === 5 ? 'none' : `translate(${rand(-18, 18).toFixed(0)}px, ${rand(-10, 10).toFixed(0)}px)` })),
+        { duration: 380, easing: 'linear' },
+    );
+    await wait(1100);
+
+    // Switch off like a CRT, with the locked page already waiting underneath.
+    reveal();
+    stopRain();
+    await screen
+        .animate(
+            [
+                { transform: 'scale(1, 1)', filter: 'brightness(1)' },
+                { transform: 'scale(1, 0.006)', filter: 'brightness(1.4)', offset: 0.55 },
+                { transform: 'scale(0, 0.006)', filter: 'brightness(1)' },
+            ],
+            { duration: 460, easing: 'cubic-bezier(0.6, 0, 0.8, 0.4)', fill: 'forwards' },
+        )
+        .finished.catch(() => {});
+    screen.hidden = true;
+}
+
+/* ------------------------------------------------- going back, pop-ups */
+
+const POPUP_TITLES = ['it_sees_you.exe', 'no_escape.exe', 'trace_complete.exe', 'look_behind_you.exe', 'dont_go.exe', 'still_here.exe', 'your_address.exe'];
+
+function popupText(attempt) {
+    const t = S.trace;
+    return pick([
+        ["YOU CAN'T GO BACK.", `escape attempt ${attempt} of 10`],
+        ['NOT THAT WAY.', `escape attempt ${attempt} of 10`],
+        [`${t.ip || 'YOUR ADDRESS'} IS STILL HERE.`, 'we kept it'],
+        ['IT FOLLOWED YOU.', 'it always does'],
+        ['WE SAW THAT.', `${S.name}, sit down`],
+        [`${upper(t.city || 'YOUR CITY')} IS NOT FAR.`, 'closer every time'],
+        ['STAY.', 'you were not invited'],
+    ]);
+}
+
+function popup(attempt) {
+    const layer = S.root.querySelector('[data-popups]');
+    if (!layer) return;
+    while (layer.children.length >= 36) layer.firstElementChild.remove();
+
+    const [line, small] = popupText(attempt);
+    const box = document.createElement('div');
+    box.className = 'lockdown-popup';
+    box.setAttribute('role', 'alertdialog');
+
+    const bar = document.createElement('div');
+    bar.className = 'lockdown-popup-bar';
+    const title = document.createElement('span');
+    title.textContent = pick(POPUP_TITLES);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'lockdown-popup-x';
+    close.setAttribute('aria-label', 'Close');
+    close.textContent = '×';
+    bar.append(title, close);
+
+    const body = document.createElement('div');
+    body.className = 'lockdown-popup-body';
+    const eye = document.createElement('div');
+    eye.className = 'lockdown-eye is-open';
+    eye.innerHTML = '<i><b></b></i><i><b></b></i>';
+    const text = document.createElement('div');
+    const big = document.createElement('p');
+    big.textContent = line;
+    const note = document.createElement('small');
+    note.textContent = small;
+    text.append(big, note);
+    body.append(eye, text);
+
+    const actions = document.createElement('div');
+    actions.className = 'lockdown-popup-actions';
+    ['OK', 'CANCEL'].forEach((label) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        actions.append(button);
+    });
+
+    box.append(bar, body, actions);
+    box.style.left = `${rand(8, Math.max(9, window.innerWidth - 310)).toFixed(0)}px`;
+    box.style.top = `${rand(8, Math.max(9, window.innerHeight - 190)).toFixed(0)}px`;
+    layer.append(box);
+
+    // Closing one only opens two more.
+    box.querySelectorAll('button').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            box.remove();
+            later(() => popup(attempt), 60);
+            later(() => popup(attempt), 180);
+        });
+    });
+
+    if (!S.reduced) {
+        box.animate(
+            [
+                { opacity: 0, transform: 'scale(0.4) rotate(-4deg)' },
+                { opacity: 1, transform: 'scale(1.08) rotate(1deg)', offset: 0.6 },
+                { opacity: 1, transform: 'scale(1) rotate(0deg)' },
+            ],
+            { duration: 160, easing: 'steps(5, end)' },
+        );
+    }
+    errorSound();
+}
+
+/** Every press of Back lands here again, with a crowd of windows. The 11th gives up: 404. */
+function backTrap() {
+    let armed = 0;
+    let attempts = 0;
+    const arm = () => {
+        try {
+            history.pushState({ lockdown: Date.now() }, '', window.location.href);
+            armed += 1;
+        } catch {
+            // History is not available here.
+        }
+    };
+    arm();
+    arm();
+
+    // Browsers skip history entries added without a click, so every click re-arms the trap.
+    const rearm = () => {
+        if (armed < 3) arm();
+    };
+    document.addEventListener('pointerdown', rearm, true);
+    document.addEventListener('keydown', rearm, true);
+
+    window.addEventListener('popstate', () => {
+        armed = Math.max(0, armed - 1);
+        attempts += 1;
+        if (attempts > 10) {
+            window.location.replace(`/${Math.random().toString(36).slice(2, 10)}`);
+            return;
+        }
+        arm();
+        setBanner(['ESCAPE ATTEMPT', `${attempts} OF 10`]);
+        whisper(pick(["YOU CAN'T GO BACK", 'NOT THAT WAY', 'WHERE DO YOU THINK YOU ARE GOING', 'STAY']));
+        S.lastShake = 0;
+        shake(1);
+        if (attempts % 3 === 0) hitSound(0.8);
+        const count = Math.min(24, 2 + attempts * 2);
+        for (let i = 0; i < count; i++) later(() => popup(attempts), i * 85);
     });
 }
 
@@ -1081,6 +1505,7 @@ export function start({ seconds = 60, instant = false, context = null, ip = '', 
         whisperLoop();
         titleLoop();
         frameLoop();
+        backTrap();
         if (!S.reduced) {
             heartbeat();
             handsLoop();
@@ -1099,5 +1524,5 @@ export function start({ seconds = 60, instant = false, context = null, ip = '', 
     goFullscreen();
     document.body.classList.add('is-glitching');
     if (live()) glitchSound();
-    later(reveal, 1000);
+    later(() => takeover(reveal), 1000);
 }

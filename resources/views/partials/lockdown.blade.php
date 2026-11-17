@@ -2,6 +2,7 @@
     $open = $open ?? false;
     $hasBackground = file_exists(public_path('img/lockdown-bg.jpg'));
     $hasMusic = file_exists(public_path('audio/lockdown.mp3'));
+    $hasHit = file_exists(public_path('audio/lockdown-hit.mp3'));
 @endphp
 {{-- The decoration around a locked sign-in form. The banner and the locked button live in the form itself. --}}
 <div
@@ -11,6 +12,7 @@
     data-preview="{{ ($preview ?? false) ? '1' : '0' }}"
     data-seconds="{{ $seconds ?? 0 }}"
     data-name="{{ $name ?? '' }}"
+    data-hit="{{ $hasHit ? asset('audio/lockdown-hit.mp3') : '' }}"
     data-ip="{{ ($open || ($preview ?? false)) ? request()->ip() : '' }}"
     data-trace="{{ isset($trace) ? json_encode($trace) : '' }}"
     @unless ($open) hidden @endunless
@@ -164,6 +166,9 @@
         </svg>
     </div>
 
+    {{-- Windows that open when they try to go back. --}}
+    <div class="lockdown-popups" data-popups aria-live="polite"></div>
+
     <p class="lockdown-toast" role="status">
         Your IP address has been recorded. Do not try again.
         <span class="lockdown-toast-trace" data-trace-line></span>
@@ -190,3 +195,15 @@
         <audio id="lockdown-music" src="{{ asset('audio/lockdown.mp3') }}" loop preload="none"></audio>
     @endif
 </div>
+
+{{-- The "your machine has been taken over" moment between the glitch and the locked page. --}}
+<div id="lockdown-takeover" class="lockdown-takeover" hidden aria-hidden="true">
+    <canvas class="lockdown-rain" data-rain></canvas>
+    <div class="lockdown-takeover-panel">
+        <p class="lockdown-takeover-alert" data-alert>&#9888; UNAUTHORIZED ACCESS</p>
+        <pre class="lockdown-takeover-term" data-term></pre>
+        <div class="lockdown-takeover-bar"><span data-bar></span></div>
+    </div>
+    <p class="lockdown-takeover-verdict" data-verdict>WE HAVE YOU.</p>
+</div>
+
