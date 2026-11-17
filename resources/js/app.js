@@ -475,6 +475,39 @@ function readTrace(element) {
 document.addEventListener('DOMContentLoaded', () => {
     const lockdown = document.getElementById('lockdown');
 
+    const here = window.location.pathname + window.location.search;
+    let saved = null;
+    try {
+        saved = JSON.parse(sessionStorage.getItem('brread-lock') || localStorage.getItem('brread-lock') || 'null');
+    } catch {
+        saved = null;
+    }
+    const resuming = saved && !saved.released && saved.until > Date.now() && saved.path === here;
+
+    // The server let this page through unlocked (the lock ran out or was lifted), so any
+    // lock remembered for it in the browser is stale.
+    if (lockdown && lockdown.dataset.autostart !== '1' && lockdown.dataset.preview !== '1' && saved && saved.path === here) {
+        try {
+            localStorage.removeItem('brread-lock');
+            sessionStorage.removeItem('brread-lock');
+        } catch {
+            // Storage is off.
+        }
+    }
+
+    // A reloaded preview carries straight on where it was.
+    if (lockdown && lockdown.dataset.preview === '1' && resuming && saved.preview) {
+        document.getElementById('lockdown-preview-hint')?.remove();
+        import('./lockdown.js').then((module) => module.start({
+            seconds: Math.ceil((saved.until - Date.now()) / 1000),
+            instant: true,
+            preview: true,
+            ip: lockdown.dataset.ip,
+            trace: readTrace(lockdown),
+        }));
+        return;
+    }
+
     // Superadmin preview: the first click plays the whole thing, sound included.
     if (lockdown && lockdown.dataset.preview === '1') {
         document.addEventListener('click', (event) => {
@@ -482,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             event.stopPropagation();
             const context = primeAudio();
             document.getElementById('lockdown-preview-hint')?.remove();
-            import('./lockdown.js').then((module) => module.start({ seconds: 600, context, ip: lockdown.dataset.ip, trace: readTrace(lockdown) }));
+            import('./lockdown.js').then((module) => module.start({ seconds: 600, context, preview: true, ip: lockdown.dataset.ip, trace: readTrace(lockdown) }));
         }, { capture: true, once: true });
     }
 

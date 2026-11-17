@@ -164,6 +164,7 @@
                 <circle cx="254" cy="206" r="4.5"/>
             </g>
         </svg>
+        <div class="lockdown-scare-flash" data-scare-flash></div>
     </div>
 
     {{-- Windows that open when they try to go back. --}}

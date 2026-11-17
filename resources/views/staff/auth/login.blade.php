@@ -14,6 +14,7 @@
     <meta name="theme-color" content="#2d2b33">
     <meta name="robots" content="noindex">
     <title>{{ $portalName }} Login — Brread!</title>
+    @include('partials.lockdown-guard')
     @include('partials.favicon')
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])

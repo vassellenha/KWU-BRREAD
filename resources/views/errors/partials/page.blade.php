@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title>{{ $heading }} | Brread!</title>
+    @include('partials.lockdown-guard')
     @include('partials.favicon')
     @include('partials.fonts')
     @vite(['resources/css/app.css'])

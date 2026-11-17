@@ -107,6 +107,24 @@ class LoginLockdownTest extends TestCase
             ->assertJson(['locked' => true, 'reason' => 'throttle']);
     }
 
+    public function test_a_reload_after_hitting_the_rate_limit_stays_locked(): void
+    {
+        foreach (range(1, 11) as $attempt) {
+            $this->postJson('/superadmin', ['username' => 'admin', 'password' => 'wrong']);
+        }
+
+        // A plain GET never reaches the limiter, so the lock itself has to hold.
+        $this->get('/superadmin')
+            ->assertStatus(429)
+            ->assertSee('data-autostart="1"', false);
+    }
+
+    public function test_every_page_carries_the_way_back_to_the_lockdown(): void
+    {
+        $this->get('/')->assertOk()->assertSee("localStorage.getItem('brread-lock')", false);
+        $this->get('/superadmin')->assertOk()->assertSee("localStorage.getItem('brread-lock')", false);
+    }
+
     public function test_the_address_and_reason_are_written_to_the_log(): void
     {
         Log::spy();
@@ -166,7 +184,8 @@ class LoginLockdownTest extends TestCase
             ->assertSee('welcome,')
             ->assertSee("admin&#039; OR 1=1 --", false)
             ->assertDontSee('behind the counter')
-            ->assertDontSee('<script>', false);
+            // The payload comes back escaped, never as raw markup.
+            ->assertDontSee("admin' OR 1=1 --", false);
 
         // A reload still knows who it is talking to.
         $this->get('/superadmin')->assertStatus(429)->assertSee("admin&#039; OR 1=1 --", false);

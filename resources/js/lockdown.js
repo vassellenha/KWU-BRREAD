@@ -726,41 +726,113 @@ function stalker() {
 }
 
 function scare() {
-    if (S.reduced) return;
+    if (S.reduced || S.scaring) return;
+    const element = S.root.querySelector('[data-scare]');
+    if (!element) return;
+    S.scaring = true;
+    // A beat of total dark first: the music drops out and the room goes black.
+    element.classList.add('is-dark');
+    element.style.visibility = 'visible';
+    element.style.opacity = '1';
+    duckMusic(2.4);
     riserSound();
-    later(showFace, 280);
+    later(showFace, 420);
 }
 
 function showFace() {
     const element = S.root.querySelector('[data-scare]');
     if (!element) return;
-    element.style.visibility = 'visible';
+    element.classList.remove('is-dark');
     const svg = element.querySelector('svg');
+    const flash = element.querySelector('[data-scare-flash]');
+    const length = 1600;
+
+    // It slams into the glass, then jerks and twitches, split into red and cyan.
     svg?.animate(
         [
-            { transform: 'scale(0.6)' },
-            { transform: 'scale(1.12)', offset: 0.14 },
-            { transform: 'scale(1.06) translate(-8px, 5px)', offset: 0.32 },
-            { transform: 'scale(1.16) translate(7px, -4px)', offset: 0.55 },
-            { transform: 'scale(1.1) translate(-3px, 2px)', offset: 0.8 },
-            { transform: 'scale(1.35)' },
+            { transform: 'scale(2.8)', filter: 'brightness(3) contrast(2)' },
+            { transform: 'scale(1.02)', filter: 'none', offset: 0.06 },
+            { transform: 'scale(1.1) translate(-14px, 9px) rotate(-2deg)', filter: 'drop-shadow(14px 0 0 rgba(255,0,20,0.8)) drop-shadow(-14px 0 0 rgba(0,255,240,0.55))', offset: 0.14 },
+            { transform: 'scale(1.06) translate(12px, -6px) rotate(1.5deg)', filter: 'invert(1)', offset: 0.2 },
+            { transform: 'scale(1.14) translate(-6px, 4px)', filter: 'none', offset: 0.27 },
+            { transform: 'scale(1.1) translate(9px, 2px) skewX(6deg)', filter: 'drop-shadow(-18px 0 0 rgba(255,0,20,0.8)) drop-shadow(18px 0 0 rgba(0,255,240,0.5))', offset: 0.4 },
+            { transform: 'scale(1.18) translate(-4px, -3px)', filter: 'contrast(1.8) saturate(2)', offset: 0.55 },
+            { transform: 'scale(1.12) translate(6px, 6px) rotate(-1deg)', filter: 'invert(1) hue-rotate(160deg)', offset: 0.62 },
+            { transform: 'scale(1.22)', filter: 'none', offset: 0.72 },
+            { transform: 'scale(1.3) translate(-10px, 4px)', filter: 'drop-shadow(10px 0 0 rgba(255,0,20,0.9))', offset: 0.85 },
+            { transform: 'scale(1.9)', filter: 'brightness(0)' },
         ],
-        { duration: 820, easing: 'linear' },
+        { duration: length, easing: 'steps(40, end)' },
+    );
+    // Strobe: white, red, black, white.
+    flash?.animate(
+        [
+            { opacity: 0.95, background: '#fff' },
+            { opacity: 0, offset: 0.05 },
+            { opacity: 0.8, background: '#c4000f', offset: 0.12 },
+            { opacity: 0, offset: 0.17 },
+            { opacity: 0.9, background: '#fff', offset: 0.22 },
+            { opacity: 0, offset: 0.26 },
+            { opacity: 0.7, background: '#c4000f', offset: 0.45 },
+            { opacity: 0, offset: 0.5 },
+            { opacity: 0.85, background: '#fff', offset: 0.64 },
+            { opacity: 0, offset: 0.68 },
+            { opacity: 0 },
+        ],
+        { duration: length, easing: 'steps(30, end)' },
     );
     element
-        .animate([{ opacity: 0 }, { opacity: 1, offset: 0.08 }, { opacity: 1, offset: 0.82 }, { opacity: 0 }], { duration: 820 })
+        .animate([{ opacity: 1 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: length })
         .finished.then(() => {
             element.style.visibility = 'hidden';
-        }, () => {});
+            element.style.opacity = '0';
+            S.scaring = false;
+            collapsePopups();
+            for (let i = 0; i < 6; i++) {
+                const spot = freeSpot(80);
+                splat(spot.x, spot.y);
+            }
+        }, () => {
+            S.scaring = false;
+        });
+
     screamSound();
-    S.lastShake = 0;
-    shake(1);
+    later(() => hitSound(1), 640);
+    [0, 220, 520, 900].forEach((at, i) => later(() => {
+        S.lastShake = 0;
+        shake(1 - i * 0.15);
+    }, at));
+}
+
+/** After the face, every open window drops off the screen, then they all come back. */
+function collapsePopups() {
+    const layer = S.root.querySelector('[data-popups]');
+    if (!layer || !layer.children.length) return;
+    const boxes = [...layer.children];
+    const count = boxes.length;
+    const attempt = Math.max(1, S.escapes || 1);
+    layer.dataset.falling = '1';
+
+    boxes.forEach((box, i) => {
+        const top = box.getBoundingClientRect().top;
+        box.style.pointerEvents = 'none';
+        box.animate(
+            [
+                { transform: 'translate(0, 0) rotate(0deg)' },
+                { transform: `translate(${rand(-10, 10).toFixed(0)}px, -${rand(12, 40).toFixed(0)}px) rotate(${rand(-6, 6).toFixed(1)}deg)`, offset: 0.18 },
+                { transform: `translate(${rand(-160, 160).toFixed(0)}px, ${(window.innerHeight - top + 260).toFixed(0)}px) rotate(${rand(-200, 200).toFixed(0)}deg)` },
+            ],
+            { duration: rand(900, 1400), delay: i * 40 + rand(0, 140), easing: 'cubic-bezier(0.55, 0, 0.9, 0.55)', fill: 'forwards' },
+        ).finished.then(() => box.remove(), () => box.remove());
+        if (i < 8) later(() => thudSound(0.5), 500 + i * 110);
+    });
+
+    // A breath of quiet, then the windows pour back in.
     later(() => {
-        for (let i = 0; i < 5; i++) {
-            const spot = freeSpot(80);
-            splat(spot.x, spot.y);
-        }
-    }, 700);
+        delete layer.dataset.falling;
+        whisper(pick(['DID YOU THINK IT WAS OVER', 'THEY ARE BACK', 'STILL HERE']));
+        for (let i = 0; i < count; i++) later(() => popup(attempt), i * 90);
+    }, 3000);
 }
 
 /* -------------------------------------------------------------- words */
@@ -1213,10 +1285,88 @@ function popup(attempt) {
     errorSound();
 }
 
-/** Every press of Back lands here again, with a crowd of windows. The 11th gives up: 404. */
+/* ------------------------------------------------- no way out of here */
+
+// The lock rides along in storage so a reload, a Back that slips past the trap, or the
+// shop's own pages all pull the caller straight back here. The preview only lives in this
+// tab; a real lock is shared by every tab of the browser until it runs out.
+const LOCK_KEY = 'brread-lock';
+
+export function readLock() {
+    try {
+        return JSON.parse(sessionStorage.getItem(LOCK_KEY) || localStorage.getItem(LOCK_KEY) || 'null');
+    } catch {
+        return null;
+    }
+}
+
+export function clearLock() {
+    try {
+        sessionStorage.removeItem(LOCK_KEY);
+        localStorage.removeItem(LOCK_KEY);
+    } catch {
+        // Storage is off; nothing was kept.
+    }
+}
+
+function saveLock() {
+    try {
+        (S.preview ? sessionStorage : localStorage).setItem(LOCK_KEY, JSON.stringify(S.lock));
+    } catch {
+        // Storage is off; the server-side lock still holds.
+    }
+}
+
+/** Picks up a lock already running in this tab (a reload, or pulled back from elsewhere). */
+function resumeLock(seconds) {
+    const saved = readLock();
+    const path = window.location.pathname + window.location.search;
+    const same = saved && !saved.released && saved.until > Date.now() && saved.path === path;
+    S.escapes = same ? saved.attempts || 0 : 0;
+    S.pending = same ? saved.pending || 0 : 0;
+    S.lock = {
+        until: same && S.preview ? saved.until : Date.now() + seconds * 1000,
+        path,
+        preview: S.preview,
+        attempts: S.escapes,
+        pending: 0,
+    };
+    saveLock();
+}
+
+/** Leaving on purpose (the 404, the lock running out) must not count as an escape. */
+function leave(url, release = false) {
+    S.leaving = true;
+    if (release) {
+        S.lock.released = true;
+        saveLock();
+    } else {
+        clearLock();
+    }
+    if (url) window.location.replace(url);
+    else window.location.reload();
+}
+
+/** Every way out lands here: Back, a reload, a shortcut. The 11th gives up: 404. */
+function escapeAttempt() {
+    S.escapes += 1;
+    S.lock.attempts = S.escapes;
+    saveLock();
+    if (S.escapes > 10) {
+        leave(`/${Math.random().toString(36).slice(2, 10)}`, true);
+        return;
+    }
+    setBanner(['ESCAPE ATTEMPT', `${S.escapes} OF 10`]);
+    whisper(pick(["YOU CAN'T GO BACK", 'NOT THAT WAY', 'WHERE DO YOU THINK YOU ARE GOING', 'STAY', 'THERE IS NO OUT']));
+    S.lastShake = 0;
+    shake(1);
+    if (S.escapes % 3 === 0) hitSound(0.8);
+    const count = Math.min(24, 2 + S.escapes * 2);
+    for (let i = 0; i < count; i++) later(() => popup(S.escapes), i * 85);
+}
+
 function backTrap() {
     let armed = 0;
-    let attempts = 0;
     const arm = () => {
         try {
             history.pushState({ lockdown: Date.now() }, '', window.location.href);
@@ -1230,26 +1380,41 @@ function backTrap() {
 
     // Browsers skip history entries added without a click, so every click re-arms the trap.
     const rearm = () => {
-        if (armed < 3) arm();
+        if (armed < 4) arm();
     };
     document.addEventListener('pointerdown', rearm, true);
-    document.addEventListener('keydown', rearm, true);
 
     window.addEventListener('popstate', () => {
         armed = Math.max(0, armed - 1);
-        attempts += 1;
-        if (attempts > 10) {
-            window.location.replace(`/${Math.random().toString(36).slice(2, 10)}`);
-            return;
-        }
         arm();
-        setBanner(['ESCAPE ATTEMPT', `${attempts} OF 10`]);
-        whisper(pick(["YOU CAN'T GO BACK", 'NOT THAT WAY', 'WHERE DO YOU THINK YOU ARE GOING', 'STAY']));
-        S.lastShake = 0;
-        shake(1);
-        if (attempts % 3 === 0) hitSound(0.8);
-        const count = Math.min(24, 2 + attempts * 2);
-        for (let i = 0; i < count; i++) later(() => popup(attempts), i * 85);
+        escapeAttempt();
+    });
+
+    // Reload and Back shortcuts are swallowed and counted.
+    document.addEventListener('keydown', (event) => {
+        rearm();
+        const key = event.key.toLowerCase();
+        const reload = key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r');
+        const back = (event.altKey && key === 'arrowleft') || (event.metaKey && key === '[') || key === 'browserback';
+        if (!reload && !back) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) escapeAttempt();
+    }, true);
+
+    // The browser's own reload button and tab close: ask "leave site?" first.
+    window.addEventListener('beforeunload', (event) => {
+        if (S.leaving) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+
+    // Gone anyway (reload button, a Back that slipped past): counted, and the next page
+    // this tab opens on the shop brings them back here.
+    window.addEventListener('pagehide', () => {
+        if (S.leaving) return;
+        S.lock.pending = (S.lock.pending || 0) + 1;
+        saveLock();
     });
 }
 
@@ -1270,7 +1435,7 @@ function countdown(seconds) {
         if (left === 0) {
             clearInterval(interval);
             // The lock has run out, so a fresh page is the normal sign-in form again.
-            window.location.reload();
+            leave();
         }
     };
 
@@ -1470,7 +1635,7 @@ function goFullscreen() {
  *   instant skips the glitch (a page that opens already locked); context is an AudioContext
  *   created inside the click that sent the sign-in, which is what lets browsers play the sound.
  */
-export function start({ seconds = 60, instant = false, context = null, ip = '', trace = null, username = '' } = {}) {
+export function start({ seconds = 60, instant = false, context = null, ip = '', trace = null, username = '', preview = false } = {}) {
     const root = document.getElementById('lockdown');
     if (!root || started) {
         closeContext(context);
@@ -1485,6 +1650,8 @@ export function start({ seconds = 60, instant = false, context = null, ip = '', 
     S.small = window.innerWidth < 900;
     S.trace = { ...(trace || {}), ip: (trace && trace.ip) || ip || root.dataset.ip };
     S.name = nameFor(username || document.getElementById('username')?.value, S.trace);
+    S.preview = preview;
+    resumeLock(seconds);
 
     setupAudio(context);
     if (!live()) unlockSoundOnFirstTouch();
@@ -1499,13 +1666,18 @@ export function start({ seconds = 60, instant = false, context = null, ip = '', 
         typeLogs();
         noise();
         playMusic();
-        countdown(seconds);
+        countdown(Math.max(1, Math.ceil((S.lock.until - Date.now()) / 1000)));
         eyes();
         stalker();
         whisperLoop();
         titleLoop();
         frameLoop();
         backTrap();
+        // Came back from a reload or from another page: that was an escape attempt.
+        if (S.pending > 0) {
+            S.escapes += S.pending - 1;
+            later(escapeAttempt, 900);
+        }
         if (!S.reduced) {
             heartbeat();
             handsLoop();

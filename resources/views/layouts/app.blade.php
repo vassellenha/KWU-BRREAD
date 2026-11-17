@@ -19,6 +19,7 @@
     <script>try{if(sessionStorage.getItem('brreadIntro')||matchMedia('(prefers-reduced-motion: reduce)').matches){document.documentElement.classList.add('no-intro')}else{sessionStorage.setItem('brreadIntro','1')}}catch(e){document.documentElement.classList.add('no-intro')}</script>
     <link rel="preload" as="image" href="/img/intro/bread-white.webp">
     <link rel="preload" as="image" href="/img/intro/icecream-strawberry.webp">
+    @include('partials.lockdown-guard')
     @include('partials.favicon')
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])

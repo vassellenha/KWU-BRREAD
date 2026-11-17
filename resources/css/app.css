@@ -2487,19 +2487,37 @@ body.is-locked #login-submit [data-login-timer] {
 .lockdown-scare {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    /* Above the pop-up windows (70), below the takeover (200). */
+    z-index: 95;
     display: grid;
     place-items: center;
     overflow: hidden;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    background: radial-gradient(ellipse at 50% 50%, rgba(20, 0, 2, 0.4), rgba(0, 0, 0, 0.92) 70%);
+    /* Solid, so the windows and the room behind it vanish while it is up. */
+    background: radial-gradient(ellipse at 50% 50%, #1a0003, #000 70%);
 }
 
 .lockdown-scare svg {
     height: 104vh;
     overflow: visible;
+}
+
+.lockdown-scare.is-dark {
+    background: #000;
+}
+
+.lockdown-scare.is-dark svg {
+    opacity: 0;
+}
+
+.lockdown-scare-flash {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: #fff;
+    pointer-events: none;
 }
 
 .lockdown-scare-teeth {

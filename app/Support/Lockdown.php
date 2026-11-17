@@ -114,9 +114,14 @@ class Lockdown
      */
     public static function throttled(Request $request, array $headers): Response
     {
+        $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+
+        // Kept as a lock on the address too, so a reload (a plain GET the limiter never sees)
+        // comes back locked instead of showing the normal sign-in form.
+        Cache::put(self::key($request), time() + $seconds, $seconds);
         self::log($request, 'throttle');
 
-        return self::response($request, (int) ($headers['Retry-After'] ?? 60), 'throttle');
+        return self::response($request, $seconds, 'throttle');
     }
 
     private static function key(Request $request): string

@@ -23,6 +23,7 @@
     <meta name="theme-color" content="#f7a3b6">
     <meta name="robots" content="noindex">
     <title>@yield('title', 'Staff Portal') — Brread!</title>
+    @include('partials.lockdown-guard')
     @include('partials.favicon')
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
