@@ -2504,14 +2504,6 @@ body.is-locked #login-submit [data-login-timer] {
     overflow: visible;
 }
 
-.lockdown-scare.is-dark {
-    background: #000;
-}
-
-.lockdown-scare.is-dark svg {
-    opacity: 0;
-}
-
 .lockdown-scare-flash {
     position: absolute;
     inset: 0;

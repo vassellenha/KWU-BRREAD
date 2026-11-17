@@ -1402,14 +1402,7 @@ function backTrap() {
         if (!event.repeat) escapeAttempt();
     }, true);
 
-    // The browser's own reload button and tab close: ask "leave site?" first.
-    window.addEventListener('beforeunload', (event) => {
-        if (S.leaving) return;
-        event.preventDefault();
-        event.returnValue = '';
-    });
-
-    // Gone anyway (reload button, a Back that slipped past): counted, and the next page
+    // Gone (reload button, a Back that slipped past): counted, and the next page
     // this tab opens on the shop brings them back here.
     window.addEventListener('pagehide', () => {
         if (S.leaving) return;
