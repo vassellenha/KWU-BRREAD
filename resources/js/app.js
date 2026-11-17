@@ -397,6 +397,7 @@ function primeAudio() {
 Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
     username: initialUsername,
     password: '',
+    showPassword: false,
     error: '',
     busy: false,
     captchaStamp: Date.now(),
@@ -414,6 +415,14 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
         const paused = Number(this.$el.dataset.prankSeconds || 0);
         if (paused > 0) {
             import('./prank.js').then((prank) => prank.resumePause(paused, this.$el.dataset.prankIp || null));
+        } else {
+            // The server says there is no pause (any more): drop what the browser still remembers of one.
+            try {
+                localStorage.removeItem('brread-prank');
+                sessionStorage.removeItem('brread-prank');
+            } catch {
+                // Storage is blocked.
+            }
         }
     },
 
@@ -445,6 +454,12 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.redirect) {
+                // Winning the last try on the broken page gets the victory scene before the menu.
+                if (document.body.classList.contains('is-broken')) {
+                    const prank = await import('./prank.js');
+                    await prank.success(data.redirect, { context, username: this.username });
+                    return;
+                }
                 context?.close?.();
                 window.location.href = data.redirect;
                 return;

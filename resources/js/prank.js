@@ -8,6 +8,7 @@
 const VIDEO = '/video/prank-kewer.mp4';
 const HIT = '/audio/lockdown-hit.mp3';
 const FAHH = '/audio/prank-fahh.mp3';
+const VICTORY = '/audio/prank-fanfare.mp3';
 
 const S = {
     reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -17,6 +18,10 @@ const S = {
     root: null,
     busy: null,
     party: null,
+    terms: new Set(),
+    tv: null,
+    place: '',
+    hits: 0,
 };
 
 const later = (fn, ms) => window.setTimeout(fn, ms);
@@ -250,6 +255,7 @@ function terminal(title, { width = 380, place = 'right' } = {}) {
         async dismiss() {
             if (closed) return;
             closed = true;
+            S.terms.delete(term);
             if (S.current === term) S.current = null;
             await box.animate([
                 { transform: 'scale(1) translateY(0)', opacity: 1 },
@@ -261,18 +267,21 @@ function terminal(title, { width = 380, place = 'right' } = {}) {
 
     close.addEventListener('click', () => term.dismiss());
     S.current = term;
+    S.terms.add(term);
 
     return term;
 }
 
-async function typeInto(line, text, speed) {
+async function typeInto(line, text, speed, onKey = null, jitter = 30) {
     if (S.reduced) {
         line.textContent = text;
         return;
     }
+    let count = 0;
     for (const letter of text) {
         line.textContent += letter;
-        await wait(speed + Math.random() * 30);
+        if (letter.trim() && onKey && count++ % 2 === 0) onKey();
+        await wait(speed + Math.random() * jitter);
     }
 }
 
@@ -295,11 +304,8 @@ async function sceneOne() {
     await term.run([
         ['cmd', 'sudo login superadmin'],
         ['err', 'access denied: wrong password'],
-        ['say', 'caught you. bored hands, huh?'],
-        ['out', 'relax, that was only try 1 of 4.'],
+        ['say', 'Pencet sekali lagi wak kalo hoki kamu dapet ayam bakar'],
     ]);
-    await wait(2600);
-    await term.dismiss();
 }
 
 async function sceneTwo() {
@@ -307,15 +313,12 @@ async function sceneTwo() {
     fahh();
     const term = terminal('guess_password.exe', { place: 'left' });
     await term.run([
-        ['cmd', './guess_password --mode=random'],
-        ['bar', 'guessing'],
-        ['err', 'still wrong, chief'],
-        ['say', 'go on, press it again. maybe you get lucky.'],
-        ['out', 'hint: it is not "password123"'],
-        ['out', 'lives left: ♥ ♥ ♡'],
+        ['cmd', './cari_ayam --mode=random'],
+        ['bar', 'nyari ayam'],
+        ['err', 'ayam not found'],
+        ['say', 'yahh ayam nya kabur.. coba tebak lagi deh passwordnya kali aja bener'],
+        ['out', 'coba admin12345678 dehh'],
     ]);
-    await wait(2600);
-    await term.dismiss();
 }
 
 // 3: not a window this time. The screen drops into a red trace: a crosshair locks on, their real
@@ -335,7 +338,7 @@ async function sceneThree(scene) {
     const scan = el('div', 'prank-trace-scan');
     const sight = el('div', 'prank-trace-sight');
     sight.append(el('i'), el('i'), el('b'));
-    const label = el('p', 'prank-trace-label', 'tracing signal...');
+    const label = el('p', 'prank-trace-label', 'melacak sinyal...');
     const ip = el('p', 'prank-trace-ip', '');
     ip.dataset.text = '';
     const city = el('p', 'prank-trace-city', '');
@@ -366,19 +369,20 @@ async function sceneThree(scene) {
     const place = [scene.city, scene.country].filter(Boolean).join(', ');
 
     if (S.reduced) {
-        label.textContent = 'target locked';
+        label.textContent = 'target terkunci';
         ip.textContent = scene.ip || '???';
         city.textContent = place.toUpperCase();
         city.dataset.text = city.textContent;
         net.textContent = scene.isp ? `via ${scene.isp}` : '';
-        whisper.textContent = `oh, so you're from ${(scene.city || 'somewhere').toLowerCase()}... we know where you are.`;
+        whisper.textContent = `yey selamat kita dapet IP kamu, ternyata kamu orang ${scene.city || 'entah mana'}...`;
     } else {
         sight.classList.add('is-hunting');
         riser(1.3);
+        chirps(16);
         await wait(1300);
         if (closed) return;
         sight.classList.add('is-locked');
-        label.textContent = 'target locked';
+        label.textContent = 'target terkunci';
         playSound(HIT, { volume: 0.8 });
         heartbeat(5);
 
@@ -387,7 +391,7 @@ async function sceneThree(scene) {
         trace.classList.add('is-hit');
 
         await wait(350);
-        city.textContent = (place || 'location unknown').toUpperCase();
+        city.textContent = (place || 'lokasi tidak diketahui').toUpperCase();
         city.dataset.text = city.textContent;
         city.classList.add('is-in');
         stinger();
@@ -397,12 +401,10 @@ async function sceneThree(scene) {
 
         await wait(700);
         if (closed) return;
-        fahh();
+        modem(1.4);
         const breath = whisperSound(5.5);
-        await typeInto(whisper, `oh, so you're from ${(scene.city || 'somewhere').toLowerCase()}...`, 55);
-        await wait(500);
-        if (closed) return;
-        await typeInto(whisper, '\nwe know where you are.', 70);
+        await typeInto(whisper, `yey selamat kita dapet IP kamu, ternyata kamu orang ${scene.city || 'entah mana'}...`, 48, clack);
+        alarm(1.8);
         breath?.stop();
     }
 
@@ -628,28 +630,218 @@ function heartbeat(beats) {
     }
 }
 
+/* ---------- hacker sounds ---------- */
+
+/* One key press of a keyboard: a dry noise tick over a soft thump. */
+function clack() {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    const length = Math.ceil(context.sampleRate * 0.03);
+    const noise = context.createBuffer(1, length, context.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    const source = context.createBufferSource();
+    const high = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = noise;
+    high.type = 'highpass';
+    high.frequency.value = 1800 + Math.random() * 1500;
+    gain.gain.value = 0.09;
+    source.connect(high).connect(gain).connect(context.destination);
+    source.start(t);
+
+    const thump = context.createOscillator();
+    const thumpGain = context.createGain();
+    thump.frequency.setValueAtTime(160, t);
+    thump.frequency.exponentialRampToValueAtTime(60, t + 0.04);
+    thumpGain.gain.setValueAtTime(0.06, t);
+    thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    thump.connect(thumpGain).connect(context.destination);
+    thump.start(t);
+    thump.stop(t + 0.06);
+}
+
+/* A stream of tiny digital blips, like data scrolling past. */
+function chirps(count = 8) {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    let at = t;
+    for (let i = 0; i < count; i++) {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'square';
+        osc.frequency.value = 500 + Math.random() * 3200;
+        gain.gain.setValueAtTime(0.035, at);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.03);
+        osc.connect(gain).connect(context.destination);
+        osc.start(at);
+        osc.stop(at + 0.035);
+        at += 0.03 + Math.random() * 0.06;
+    }
+}
+
+/* A dial-up style burst: a square wave hopping between tones, then a hiss. */
+function modem(seconds) {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    const osc = context.createOscillator();
+    const band = context.createBiquadFilter();
+    const gain = context.createGain();
+    osc.type = 'square';
+    band.type = 'bandpass';
+    band.frequency.value = 1800;
+    band.Q.value = 1.2;
+    const tones = [1200, 2100, 980, 1650, 2400, 750, 1500];
+    for (let at = 0; at < seconds; at += 0.07) osc.frequency.setValueAtTime(tones[Math.floor(Math.random() * tones.length)], t + at);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.05, t + 0.1);
+    gain.gain.setValueAtTime(0.05, t + seconds - 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
+    osc.connect(band).connect(gain).connect(context.destination);
+    osc.start(t);
+    osc.stop(t + seconds + 0.05);
+}
+
+/* A low warning siren that pulses and sinks. */
+function alarm(seconds) {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    const osc = context.createOscillator();
+    const low = context.createBiquadFilter();
+    const gain = context.createGain();
+    const pulse = context.createOscillator();
+    const depth = context.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(116, t);
+    osc.frequency.exponentialRampToValueAtTime(62, t + seconds);
+    low.type = 'lowpass';
+    low.frequency.value = 520;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.16, t + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
+    pulse.type = 'square';
+    pulse.frequency.value = 3;
+    depth.gain.value = 0.07;
+    pulse.connect(depth).connect(gain.gain);
+    osc.connect(low).connect(gain).connect(context.destination);
+    [osc, pulse].forEach((node) => {
+        node.start(t);
+        node.stop(t + seconds + 0.05);
+    });
+}
+
+/* ---------- miss 4: the punishment ---------- */
+
+const device = () => {
+    const ua = navigator.userAgent;
+    const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'OS tidak dikenal';
+    const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser tidak dikenal';
+    return `${os} / ${browser} / ${window.screen.width}x${window.screen.height}`;
+};
+
+/**
+ * Not a window: the whole screen is taken over. A black console types out everything the page can
+ * tell about them (their IP, place, network, device and time zone), "uploads" their history,
+ * slams "KAMU YANG MINTA." and counts down to the video, under a drone, key clicks, a siren and a
+ * heartbeat. Everything is dark red on black and never flashes bright.
+ */
+async function doom(scene, seconds) {
+    const root = stage();
+    root.classList.remove('is-dim');
+    const box = el('div', 'prank-doom');
+    const log = el('div', 'prank-doom-log');
+    const slam = el('p', 'prank-trace-ip prank-doom-slam');
+    slam.dataset.text = '';
+    box.append(log, slam);
+    root.append(box);
+
+    box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: S.reduced ? 1 : 90, fill: 'both' });
+    playSound(HIT, { volume: 1 });
+    staticSound(0.9);
+    shake(card(), 26);
+    const drone = dread();
+    await wait(S.reduced ? 1 : 700);
+
+    const line = async (text, kind = '', speed = 8) => {
+        const row = el('p', kind);
+        log.append(row);
+        await typeInto(row, text, speed, clack, 5);
+        log.scrollTop = log.scrollHeight;
+        await wait(S.reduced ? 1 : 90);
+    };
+    const place = [scene.city, scene.country].filter(Boolean).join(', ') || 'tidak diketahui';
+
+    await line(`root@brread:~# ./hukuman.sh --target ${scene.ip || 'kamu'}`);
+    modem(1.2);
+    await line('[ OK ] menembus sesi ........ berhasil');
+    chirps(10);
+    await line(`TARGET      : ${scene.ip || '???'}`);
+    await line(`LOKASI      : ${place.toUpperCase()}`);
+    await line(`JARINGAN    : ${(scene.isp || 'tidak diketahui').toUpperCase()}`);
+    await line(`PERANGKAT   : ${device()}`);
+    await line(`ZONA WAKTU  : ${Intl.DateTimeFormat().resolvedOptions().timeZone || '?'}`);
+    await line('');
+    await line('[ !! ] menyalin riwayat percobaan login', 'is-warn');
+    const bar = el('p', 'is-warn');
+    log.append(bar);
+    for (let step = 0; step <= 24; step++) {
+        bar.textContent = `       [${'#'.repeat(step)}${'.'.repeat(24 - step)}] ${Math.round((step / 24) * 100)}%`;
+        if (step % 2 === 0) chirps(3);
+        await wait(S.reduced ? 0 : 55 + Math.random() * 60);
+    }
+    await line('[ !! ] mengirim laporan ke admin ........ terkirim', 'is-warn');
+    await wait(S.reduced ? 1 : 500);
+    await line('kamu udah diperingatin 3 kali.', 'is-dim-line', 40);
+    await wait(S.reduced ? 1 : 900);
+
+    // The slam.
+    box.classList.add('is-slam');
+    const text = 'KAMU YANG MINTA.';
+    slam.textContent = text;
+    slam.dataset.text = text;
+    playSound(HIT, { volume: 1 });
+    alarm(2.6);
+    riser(2.2);
+    shake(box, 30, 600);
+    shake(card(), 30, 600);
+    if (!S.reduced) slam.animate([{ transform: 'scale(1.7)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+    await wait(S.reduced ? 1 : 2200);
+
+    const locked = `login dikunci ${clockText(seconds)} untuk IP ${scene.ip || 'kamu'}`;
+    slam.textContent = locked.toUpperCase();
+    slam.dataset.text = slam.textContent;
+    slam.classList.add('is-small');
+    heartbeat(3);
+    await wait(S.reduced ? 1 : 2100);
+
+    for (const digit of ['3', '2', '1']) {
+        slam.classList.remove('is-small');
+        slam.textContent = digit;
+        slam.dataset.text = digit;
+        playSound(HIT, { volume: 0.7 });
+        shake(box, 16, 300);
+        await wait(S.reduced ? 1 : 900);
+    }
+
+    drone?.stop();
+    return box;
+}
+
 async function sceneFour(scene) {
-    curse();
+    stopBed(0.3);
+    curse({ sound: false });
     arm();
-    shake(card(), 18);
-    fahh();
+    S.place = scene.city || '';
     const seconds = scene.retry_after || 60;
-    const term = terminal('punishment.sh', { width: 460, place: 'center' });
-    stage().classList.add('is-dim');
+    hold(seconds);
     lockForm(seconds);
-    await term.run([
-        ['cmd', 'sudo rm -rf patience/'],
-        ['err', 'the admin is out of patience.'],
-        ['out', `sign-in locked for ${clockText(seconds)} for IP ${scene.ip || 'yours'}.`],
-        ['cmd', 'play punishment.mp4 --fullscreen'],
-        ['bar', 'loading'],
-        ['big', '3'],
-        ['big', '2'],
-        ['big', '1'],
-    ]);
-    if (term.closed) return;
+    const box = await doom(scene, seconds);
     S.current = null;
-    await party(seconds, scene.ip, term.box);
+    await party(seconds, scene.ip, box);
 }
 
 /* ---------- the Kewer Kewer video ---------- */
@@ -676,7 +868,9 @@ async function party(seconds, ip, from = null) {
     const root = stage();
     root.classList.add('is-dim');
     lockForm(seconds);
-    curse();
+    hold(seconds);
+    stopBed(0.3);
+    curse({ sound: false });
     arm();
 
     const tv = el('div', 'prank-tv');
@@ -703,6 +897,9 @@ async function party(seconds, ip, from = null) {
     clock.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
     if (from?.isConnected) root.insertBefore(tv, from); else root.append(tv);
+    S.tv = tv;
+    window.clearTimeout(S.harass);
+    S.harass = later(harass, 5000);
 
     let raf = 0;
 
@@ -731,11 +928,42 @@ async function party(seconds, ip, from = null) {
         if (!unmute.hidden) start();
     });
 
+    // The sound cannot be switched off from the page: the first touch anywhere turns it on, any
+    // later mute or volume change on the video is undone, and the media keys cannot pause it.
+    // (A website cannot see or undo the browser's own tab mute or the system volume.)
+    const guard = new AbortController();
+    let touched = false;
+    const onGesture = () => {
+        touched = true;
+        if (!unmute.hidden || video.muted) start();
+    };
+    ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, onGesture, { signal: guard.signal, capture: true }));
+    const loud = () => {
+        if (!tv.isConnected) return;
+        if (video.paused) video.play().catch(() => {});
+        if (touched && (video.muted || video.volume < 1)) {
+            video.volume = 1;
+            video.muted = false;
+        }
+    };
+    video.addEventListener('volumechange', loud);
+    const loudTimer = window.setInterval(loud, 400);
+    const keys = ['pause', 'stop', 'seekbackward', 'seekforward', 'seekto'];
+    try {
+        keys.forEach((action) => navigator.mediaSession?.setActionHandler(action, () => video.play().catch(() => {})));
+    } catch {
+        // This browser has no such media key.
+    }
+
     if (from?.isConnected && !S.reduced) {
         // The terminal swells to fill the screen, then the screen switches on like an old TV.
         tv.style.opacity = '0';
         start();
-        await grow(from);
+        if (from.classList.contains('prank-doom')) {
+            await from.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }).finished.catch(() => {});
+        } else {
+            await grow(from);
+        }
         const main = document.querySelector('main');
         main?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 1, fill: 'forwards' });
         tv.style.opacity = '1';
@@ -761,6 +989,15 @@ async function party(seconds, ip, from = null) {
     };
 
     const finish = async () => {
+        window.clearTimeout(S.harass);
+        S.tv = null;
+        guard.abort();
+        window.clearInterval(loudTimer);
+        try {
+            keys.forEach((action) => navigator.mediaSession?.setActionHandler(action, null));
+        } catch {
+            // Nothing to undo.
+        }
         window.clearInterval(timer);
         window.cancelAnimationFrame(raf);
         video.pause();
@@ -779,6 +1016,7 @@ async function party(seconds, ip, from = null) {
 
     const end = () => {
         window.clearInterval(timer);
+        letGo();
         release();
         uncurse();
         unlockForm();
@@ -787,6 +1025,35 @@ async function party(seconds, ip, from = null) {
 
     tick();
     timer = window.setInterval(tick, 250);
+}
+
+/* ---------- the pause follows the browser ---------- */
+
+const HOLD_KEY = 'brread-prank';
+
+/** Remembers the pause in the browser so every page of the shop sends it back here (see the lockdown-guard partial). */
+function hold(seconds) {
+    const value = JSON.stringify({ until: Date.now() + seconds * 1000, path: window.location.pathname });
+    try {
+        window.localStorage.setItem(HOLD_KEY, value);
+        window.sessionStorage.setItem(HOLD_KEY, value);
+    } catch {
+        // Storage is blocked: the server still keeps the pause.
+    }
+}
+
+function letGo() {
+    try {
+        window.localStorage.removeItem(HOLD_KEY);
+        window.sessionStorage.removeItem(HOLD_KEY);
+    } catch {
+        // Nothing stored.
+    }
+}
+
+/** A page that opens without a pause on the server forgets any stale hold. */
+export function forgetHold() {
+    letGo();
 }
 
 /* ---------- the form while paused ---------- */
@@ -847,7 +1114,7 @@ function scramble(text, amount) {
  * After the trace the sign-in page looks properly broken: warped, torn, colour-split, with dead
  * pixels and corrupted labels. The fields and the button still work, so the last try is possible.
  */
-export function curse() {
+export function curse({ sound = true } = {}) {
     if (S.curse) return;
     const body = document.body;
     const main = document.querySelector('main');
@@ -856,6 +1123,22 @@ export function curse() {
 
     body.classList.add('is-broken');
     const timers = [];
+    const gate = new AbortController();
+
+    // A glitchy horror bed plays under the form. A reload has no click to start sound on yet, so
+    // it waits for the first touch. The winning fanfare is decoded now so it starts on time.
+    if (sound) {
+        adopt(null);
+        buffer(VICTORY);
+        startBed();
+        if (!S.bed) {
+            ['pointerdown', 'keydown'].forEach((type) => window.addEventListener(type, async () => {
+                adopt(null);
+                await S.context?.resume?.().catch(() => {});
+                startBed();
+            }, { once: true, signal: gate.signal }));
+        }
+    }
     const restore = [];
     const keep = (node, prop) => {
         if (node) restore.push([node, prop, node[prop]]);
@@ -930,13 +1213,39 @@ export function curse() {
     keep(password, 'placeholder');
     if (password) password.placeholder = corrupt('password', 0.9);
 
+    // Heals the page over `ms`: the warping, the tearing and the corrupt text wind down to nothing.
+    S.heal = (ms) => new Promise((resolve) => {
+        timers.forEach((timer) => window.clearInterval(timer));
+        timers.length = 0;
+        body.classList.add('is-healing');
+        const maps = [...defs.querySelectorAll('feDisplacementMap')];
+        const base = maps.map((map) => Number(map.getAttribute('scale')));
+        const began = performance.now();
+        const tick = window.setInterval(() => {
+            const left = Math.max(0, 1 - (performance.now() - began) / ms);
+            maps.forEach((map, i) => map.setAttribute('scale', String(base[i] * left)));
+            texts.forEach(({ node, text }) => {
+                node.nodeValue = left > 0.05 ? corrupt(text, 0.5 * left) : text;
+            });
+            if (password) password.placeholder = left > 0.05 ? corrupt('password', 0.9 * left) : 'password';
+            if (left <= 0) {
+                window.clearInterval(tick);
+                resolve();
+            }
+        }, 70);
+        timers.push(tick);
+    });
+
     S.curse = () => {
+        gate.abort();
+        stopBed(0.5);
         timers.forEach((timer) => window.clearInterval(timer));
         restore.forEach(([node, prop, value]) => {
             node[prop] = value;
         });
         [defs, ghost, junk].forEach((node) => node.remove());
-        body.classList.remove('is-broken');
+        body.classList.remove('is-broken', 'is-healing');
+        S.heal = null;
     };
 }
 
@@ -945,39 +1254,366 @@ function uncurse() {
     S.curse = null;
 }
 
+/* ---------- the sound of the broken form ---------- */
+
+function startBed() {
+    if (!S.bed && ready()) S.bed = glitchBed();
+}
+
+function stopBed(fade = 0.8) {
+    S.bed?.stop(fade);
+    S.bed = null;
+}
+
+/**
+ * A looping horror bed made of glitches: a detuned sub drone with a slow wobble, a thin whine and
+ * random events (stuttering static, bit-crushed blips, dropouts, dull thuds) every second or so.
+ */
+function glitchBed() {
+    const context = ready();
+    if (!context) return null;
+    const now = context.currentTime;
+    const out = context.createGain();
+    out.gain.setValueAtTime(0.0001, now);
+    out.gain.exponentialRampToValueAtTime(0.55, now + 1.2);
+    out.connect(context.destination);
+
+    const lowpass = context.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 260;
+    lowpass.Q.value = 6;
+    const droneGain = context.createGain();
+    droneGain.gain.value = 0.2;
+    lowpass.connect(droneGain).connect(out);
+
+    const voices = [55, 58.4, 82.4].map((frequency, i) => {
+        const osc = context.createOscillator();
+        osc.type = i === 2 ? 'square' : 'sawtooth';
+        osc.frequency.value = frequency;
+        osc.detune.value = (i - 1) * 9;
+        osc.connect(lowpass);
+        osc.start(now);
+        return osc;
+    });
+
+    const wobble = context.createOscillator();
+    const wobbleDepth = context.createGain();
+    wobble.frequency.value = 0.17;
+    wobbleDepth.gain.value = 150;
+    wobble.connect(wobbleDepth).connect(lowpass.frequency);
+    wobble.start(now);
+
+    const whine = context.createOscillator();
+    const whineGain = context.createGain();
+    whine.type = 'sine';
+    whine.frequency.value = 2093;
+    whineGain.gain.value = 0.01;
+    whine.connect(whineGain).connect(out);
+    whine.start(now);
+
+    const noise = context.createBuffer(1, context.sampleRate, context.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    const hiss = () => {
+        const t = context.currentTime;
+        const source = context.createBufferSource();
+        source.buffer = noise;
+        source.loop = true;
+        const band = context.createBiquadFilter();
+        band.type = 'bandpass';
+        band.frequency.value = 600 + Math.random() * 6400;
+        band.Q.value = 3 + Math.random() * 9;
+        const gate = context.createGain();
+        let at = t;
+        for (let i = 0; i < 3 + Math.floor(Math.random() * 5); i++) {
+            gate.gain.setValueAtTime(0.2, at);
+            at += 0.02 + Math.random() * 0.03;
+            gate.gain.setValueAtTime(0, at);
+            at += 0.015 + Math.random() * 0.04;
+        }
+        source.connect(band).connect(gate).connect(out);
+        source.start(t);
+        source.stop(at + 0.05);
+    };
+
+    const blip = () => {
+        const t = context.currentTime;
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = Math.random() < 0.5 ? 'square' : 'sawtooth';
+        const length = 0.1 + Math.random() * 0.2;
+        for (let at = 0; at < length; at += 0.025) osc.frequency.setValueAtTime(120 + Math.random() * 2300, t + at);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
+        osc.connect(gain).connect(out);
+        osc.start(t);
+        osc.stop(t + length + 0.02);
+    };
+
+    const thud = () => {
+        const t = context.currentTime;
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(95, t);
+        osc.frequency.exponentialRampToValueAtTime(36, t + 0.35);
+        gain.gain.setValueAtTime(0.5, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+        osc.connect(gain).connect(out);
+        osc.start(t);
+        osc.stop(t + 0.42);
+    };
+
+    const dropout = () => {
+        const t = context.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setValueAtTime(out.gain.value, t);
+        out.gain.linearRampToValueAtTime(0.04, t + 0.01);
+        out.gain.setValueAtTime(0.04, t + 0.14);
+        out.gain.linearRampToValueAtTime(0.55, t + 0.2);
+    };
+
+    let alive = true;
+    let timer = 0;
+    const events = [hiss, hiss, blip, blip, thud, dropout];
+    const next = () => {
+        if (!alive) return;
+        events[Math.floor(Math.random() * events.length)]();
+        timer = window.setTimeout(next, 200 + Math.random() * 1100);
+    };
+    timer = window.setTimeout(next, 600);
+
+    return {
+        stop(fade = 0.8) {
+            alive = false;
+            window.clearTimeout(timer);
+            const t = context.currentTime;
+            out.gain.cancelScheduledValues(t);
+            out.gain.setValueAtTime(Math.max(out.gain.value, 0.0001), t);
+            out.gain.exponentialRampToValueAtTime(0.0001, t + fade);
+            [...voices, wobble, whine].forEach((osc) => {
+                try {
+                    osc.stop(t + fade + 0.05);
+                } catch {
+                    // Already stopped.
+                }
+            });
+        },
+    };
+}
+
+/* ---------- the right password on the last try ---------- */
+
+/**
+ * The broken page heals slowly while the victory fanfare plays, then a dark green "access
+ * granted" screen draws a ring and a tick, greets the user and fills a loading bar before the
+ * browser goes on to the menu.
+ */
+export async function success(redirect, { context = null, username = '' } = {}) {
+    adopt(context);
+    stopBed(0.6);
+    S.current?.dismiss();
+    S.current = null;
+    playSound(VICTORY, { volume: 1 });
+
+    await S.heal?.(S.reduced ? 1 : 1900);
+
+    const root = stage();
+    const ok = el('div', 'prank-ok');
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 120 120');
+    svg.setAttribute('class', 'prank-ok-ring');
+    svg.setAttribute('aria-hidden', 'true');
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', '60');
+    circle.setAttribute('cy', '60');
+    circle.setAttribute('r', '52');
+    const tick = document.createElementNS(ns, 'path');
+    tick.setAttribute('d', 'M36 62 L53 78 L84 44');
+    svg.append(circle, tick);
+
+    const title = el('h2', 'prank-ok-title');
+    [...'ACCESS GRANTED'].forEach((letter) => title.append(el('span', '', letter === ' ' ? '\u00a0' : letter)));
+    const hello = el('p', 'prank-ok-hello');
+    const bar = el('div', 'prank-ok-bar');
+    const fill = el('i');
+    bar.append(fill);
+    const status = el('p', 'prank-ok-status', 'verifying session');
+    ok.append(svg, title, hello, bar, status);
+    root.append(ok);
+
+    // A burst of sprinkles from the ring.
+    const colors = ['#f4a7b9', '#9cc9cf', '#f3c969', '#b7a6e0', '#3ddc97'];
+    const sprinkles = [];
+    if (!S.reduced) {
+        for (let i = 0; i < 30; i++) {
+            const bit = el('b', 'prank-ok-bit');
+            bit.style.background = colors[i % colors.length];
+            ok.append(bit);
+            sprinkles.push(bit);
+        }
+    }
+
+    await ok.animate([{ opacity: 0 }, { opacity: 1 }], { duration: S.reduced ? 1 : 500, fill: 'forwards' }).finished.catch(() => {});
+    uncurse();
+
+    if (!S.reduced) {
+        circle.animate([{ strokeDashoffset: 327 }, { strokeDashoffset: 0 }], { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'both' });
+        tick.animate([{ strokeDashoffset: 90 }, { strokeDashoffset: 90, offset: 0.55 }, { strokeDashoffset: 0 }], { duration: 1000, easing: 'ease-out', fill: 'both' });
+        svg.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 700, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+        sprinkles.forEach((bit, i) => {
+            const angle = (i / sprinkles.length) * Math.PI * 2 + Math.random() * 0.4;
+            const distance = 120 + Math.random() * 190;
+            bit.animate([
+                { transform: 'translate(-50%, -50%) rotate(0) scale(1)', opacity: 1 },
+                { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance + 40}px)) rotate(${Math.random() * 540}deg) scale(.4)`, opacity: 0 },
+            ], { duration: 1100 + Math.random() * 500, delay: 500 + Math.random() * 150, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
+        });
+        [...title.children].forEach((letter, i) => {
+            letter.animate([
+                { opacity: 0, transform: 'translateY(14px) scale(1.4)', filter: 'blur(6px)' },
+                { opacity: 1, transform: 'none', filter: 'blur(0)' },
+            ], { duration: 360, delay: 420 + i * 38, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+        });
+    }
+
+    await wait(S.reduced ? 1 : 950);
+    await typeInto(hello, `welcome back${username ? `, ${username.trim().slice(0, 24)}` : ''}`, 32);
+
+    const steps = ['verifying session', 'unlocking the panel', 'opening the menu...'];
+    const total = S.reduced ? 400 : 1900;
+    fill.animate([{ width: '0%' }, { width: '100%' }], { duration: total, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'forwards' });
+    for (const step of steps) {
+        status.textContent = step;
+        await wait(total / steps.length);
+    }
+
+    window.location.href = redirect;
+}
+
 /* ---------- the way out is shut ---------- */
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 const TAUNTS = {
     back: [
-        ['cd /brread', 'permission denied: the way back is closed.'],
-        ['cd ..', 'there is no ".." here. only kewer.'],
-        ['git checkout main', 'error: you have unsaved patience.'],
-        ['ssh brread.shop', 'connection refused. take a seat.'],
+        ['cd /brread', 'permission denied: jalan baliknya ditutup.'],
+        ['cd ..', 'ga ada ".." disini. cuma kewer.'],
+        ['git checkout main', 'error: kesabaran kamu belum di-commit.'],
+        ['ssh brread.shop', 'connection refused. duduk manis aja.'],
     ],
     reload: [
-        ['sudo reload --force', 'ctrl+R? we took that key away.'],
-        ['F5', 'refresh is busy watching kewer kewer.'],
+        ['sudo reload --force', 'ctrl+R? tombolnya udah kami ambil.'],
+        ['F5', 'refresh lagi sibuk nonton kewer kewer.'],
         ['kill -9 this_page', 'operation not permitted.'],
     ],
 };
 
 const JABS = [
-    'nice try. escape attempt #N logged.',
-    'the back button has left the building.',
-    'history is gone. only kewer remains.',
-    'still here? the video is not over.',
-    'attempt #N to leave. the answer is still no.',
+    'nice try. percobaan kabur #N tercatat.',
+    'tombol back-nya udah pulang duluan.',
+    'history udah hilang. cuma kewer yang tersisa.',
+    'masih disini? videonya belum abis.',
+    'percobaan kabur #N. jawabannya tetep nggak.',
 ];
+
+const CROWD = [
+    ['no_escape.exe', 'ga ada jalan keluar.'],
+    ['kewer.exe', 'tonton sampai habis.'],
+    ['ayam_bakar.exe', 'ayamnya udah kabur.'],
+    ['laporan.pdf', 'sudah dikirim ke admin.'],
+    ['ip_logger.exe', 'IP kamu sudah tercatat.'],
+    ['pasrah.bat', 'pasrah aja, lebih tenang.'],
+    ['kapok.sh', 'kapok belom?'],
+    ['sabar.txt', 'sebentar lagi. mungkin.'],
+];
+
+const harassLines = () => [
+    S.place ? `${S.place} ga jauh kok.` : 'kami tau kamu dimana.',
+    'kami lihat kamu.',
+    'masih disini? sabar ya.',
+    'nonton aja yang anteng.',
+    'kapok belom?',
+    'jangan tutup tabnya... eh, boleh sih.',
+    'IP kamu udah tercatat.',
+];
+
+/** Big red words over the video for a moment. */
+function whisperTv(text, ms = 2200) {
+    if (!S.tv) return;
+    const word = el('p', 'prank-tv-whisper', text);
+    S.tv.append(word);
+    if (!S.reduced) word.animate([{ opacity: 0, transform: 'translate(-50%, -50%) scale(1.3)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }], { duration: 160, fill: 'both' });
+    later(() => word.remove(), ms);
+}
+
+/** The video tears for a moment: dark colour shifts and slices, never a bright flash. */
+function glitchTv() {
+    if (!S.tv || S.reduced) return;
+    S.tv.classList.add('is-glitching');
+    later(() => S.tv?.classList.remove('is-glitching'), 950);
+}
+
+/** Something creepy every few seconds, so sitting through the video is not restful. */
+function harass() {
+    if (!S.tv) return;
+    whisperTv(pick(harassLines()));
+    glitchTv();
+    heartbeat(2);
+    chirps(10);
+    S.harass = later(harass, 7000 + Math.random() * 6000);
+}
+
+/** A little window nobody asked for. Closing it opens two more, up to a crowd. */
+function spawnWindow() {
+    const root = stage();
+    if (root.querySelectorAll('.prank-mini').length >= 16) return;
+
+    const [title, text] = pick(CROWD);
+    const box = el('div', 'prank-term prank-mini');
+    const bar = el('div', 'prank-term-bar');
+    const dots = el('span', 'prank-term-dots');
+    dots.append(el('i'), el('i'), el('i'));
+    const close = el('button', 'prank-term-x', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close');
+    bar.append(dots, el('span', 'prank-term-title', title), close);
+    const body = el('div', 'prank-term-body');
+    body.append(el('p', 'is-err', text));
+    box.append(bar, body);
+    root.append(box);
+
+    const w = Math.min(250, window.innerWidth - 24);
+    box.style.width = `${w}px`;
+    box.style.left = `${12 + Math.random() * Math.max(0, window.innerWidth - w - 24)}px`;
+    box.style.top = `${56 + Math.random() * Math.max(0, window.innerHeight - 190)}px`;
+    if (!S.reduced) box.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 220, easing: 'cubic-bezier(.2,.9,.3,1)' });
+    chirps(3);
+
+    close.addEventListener('click', () => {
+        box.remove();
+        clack();
+        later(spawnWindow, 80);
+        later(spawnWindow, 220);
+    });
+}
 
 /** A terminal pops up to make fun of whoever tried to leave: Back to Brread, Ctrl+R, F5, the Back button. */
 async function taunt(kind) {
     S.hits = (S.hits || 0) + 1;
     const [command, refusal] = pick(TAUNTS[kind] || TAUNTS.back);
 
-    shake(document.querySelector('.prank-tv') || card(), 16);
-    fahh();
+    shake(S.tv || card(), Math.min(30, 12 + S.hits * 3));
+    glitchTv();
+    playSound(HIT, { volume: 0.6 });
+    chirps(8);
+    if (S.hits % 4 === 0) {
+        whisperTv('KAPOK?', 1600);
+        alarm(1.3);
+    }
+    for (let i = 0; i < Math.min(1 + S.hits, 5); i++) later(spawnWindow, 500 + i * 160);
 
     S.taunting?.dismiss();
     const term = terminal('escape.sh', { width: 400, place: 'center' });
@@ -985,8 +1621,8 @@ async function taunt(kind) {
     await term.run([
         ['cmd', command],
         ['err', refusal],
-        ['say', pick(JABS).replace('N', String(S.hits))],
-        ['out', 'exits: close the tab, or enjoy the video.'],
+        ['say', pick(JABS).replace('#N', `#${S.hits}`)],
+        ['out', 'jalan keluar: tutup tab, atau nikmatin videonya.'],
     ]);
     await wait(2000);
     if (S.taunting === term) {
@@ -998,7 +1634,7 @@ async function taunt(kind) {
 /**
  * While the address is paused the page cannot be left by the usual ways: Ctrl+R, F5, the Back
  * button and every link only get a terminal that mocks the try. The browser's own reload button and
- * closing the tab cannot be stopped by a website (reload at least asks first, and lands on the same
+ * closing the tab cannot be stopped by a website (reload lands on the same
  * paused page), and the trap lets go the moment the pause is over.
  */
 function arm() {
@@ -1034,10 +1670,6 @@ function arm() {
         event.stopPropagation();
         taunt(reload ? 'reload' : 'back');
     }, { capture: true });
-    on(window, 'beforeunload', (event) => {
-        event.preventDefault();
-        event.returnValue = '';
-    });
     on(document, 'contextmenu', (event) => event.preventDefault());
     on(document, 'click', (event) => {
         if (!event.target.closest?.('a[href]')) return;
@@ -1051,6 +1683,7 @@ function arm() {
 }
 
 function release() {
+    window.clearTimeout(S.harass);
     S.trap?.abort();
     S.trap = null;
     S.taunting?.dismiss();
@@ -1066,9 +1699,12 @@ export function play(scene, { context = null } = {}) {
     adopt(context);
     preload();
 
-    // A quicker next miss never gets lost: the window still on screen makes way for the new one.
-    S.current?.dismiss();
-    S.current = null;
+    // The windows of miss 1 and 2 stay on screen until the trace (miss 3) takes over.
+    if (scene.stage !== 2) {
+        [...S.terms].forEach((term) => term.dismiss());
+        S.current?.dismiss();
+        S.current = null;
+    }
 
     const run = {
         1: sceneOne,

@@ -89,15 +89,28 @@
                 </div>
                 <div>
                     <label for="password" class="block font-label-md text-label-md text-on-surface-variant mb-1">Password</label>
-                    <input
-                        id="password"
-                        type="password"
-                        name="password"
-                        x-model="password"
-                        required
-                        autocomplete="current-password"
-                        class="{{ $fieldClasses }}"
-                    >
+                    <div class="relative">
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            x-model="password"
+                            x-bind:type="showPassword ? 'text' : 'password'"
+                            required
+                            autocomplete="current-password"
+                            class="{{ $fieldClasses }} pr-12"
+                        >
+                        <button
+                            type="button"
+                            x-on:click="showPassword = ! showPassword"
+                            x-bind:aria-label="showPassword ? 'Hide password' : 'Show password'"
+                            x-bind:aria-pressed="showPassword"
+                            aria-label="Show password"
+                            class="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
+                        >
+                            <span class="material-symbols-outlined text-[20px]" x-text="showPassword ? 'visibility_off' : 'visibility'">visibility</span>
+                        </button>
+                    </div>
                 </div>
                 @if ($captchaEnabled)
                     <div>

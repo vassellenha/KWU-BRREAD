@@ -3385,6 +3385,269 @@ body.is-broken #password::placeholder {
     color: #a3303f;
 }
 
+/* Healing: when the last try is right the glitch winds down instead of stopping dead. */
+body.is-healing main,
+body.is-healing main > div:first-child,
+body.is-healing .staff-login-card,
+body.is-healing #login-submit {
+    animation: none;
+    transform: none;
+    clip-path: none;
+    transition: transform 0.7s ease-out;
+}
+
+body.is-healing::after {
+    opacity: 0;
+    animation: none;
+    transition: opacity 1.5s ease-out;
+}
+
+body.is-healing.staff-login.doodle::before {
+    animation: none;
+    opacity: 0.2;
+    transition: opacity 1.6s ease-out;
+}
+
+body.is-healing .prank-ghost {
+    animation: none;
+    opacity: 0;
+    transition: opacity 0.9s ease-out;
+}
+
+body.is-healing .prank-junk {
+    opacity: 0;
+    transition: opacity 0.6s ease-out;
+}
+
+/* Miss 4: the screen is taken over by a black console. Dark red on black, nothing bright. */
+.prank-doom {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: auto;
+    background: #040102;
+    color: #ff2a3d;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    animation: prank-doom-flicker 3.7s steps(1) infinite;
+}
+
+.prank-doom::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(to bottom, rgb(255 0 40 / 0.05) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at 50% 45%, rgb(120 0 18 / 0.35), transparent 70%);
+}
+
+.prank-doom::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 18%, #000 88%);
+    opacity: 0.35;
+    animation: prank-doom-close 16s ease-in forwards;
+}
+
+@keyframes prank-doom-close {
+    to { opacity: 1; }
+}
+
+@keyframes prank-doom-flicker {
+    0%, 100% { opacity: 1; }
+    31% { opacity: 0.6; }
+    32% { opacity: 1; }
+    63% { opacity: 0.45; transform: translateX(-4px); }
+    64% { opacity: 1; transform: none; }
+}
+
+.prank-doom-log {
+    position: absolute;
+    inset: 0;
+    padding: clamp(18px, 4vw, 56px);
+    overflow: hidden;
+    font-size: clamp(13px, 1.7vw, 20px);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    text-shadow: 0 0 10px rgb(255 0 40 / 0.55);
+    transition: opacity 0.3s, filter 0.3s;
+}
+
+.prank-doom-log p {
+    margin: 0;
+}
+
+.prank-doom-log .is-warn {
+    color: #ff6b81;
+}
+
+.prank-doom-log .is-dim-line {
+    color: rgb(255 42 61 / 0.6);
+}
+
+.prank-doom.is-slam .prank-doom-log {
+    opacity: 0.12;
+    filter: blur(2px);
+}
+
+.prank-doom-slam {
+    z-index: 2;
+    margin: 0;
+    padding: 0 16px;
+    max-width: 96vw;
+    font-size: clamp(40px, 9.5vw, 120px);
+    text-align: center;
+}
+
+.prank-doom-slam.is-small {
+    font-size: clamp(24px, 4.6vw, 56px);
+}
+
+/* The video and the people who will not sit still for it. */
+.prank-tv-whisper {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    margin: 0;
+    padding: 10px 20px;
+    max-width: 92vw;
+    background: rgb(10 0 3 / 0.6);
+    color: #ff2a3a;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow', 'Liberation Sans Narrow', sans-serif;
+    font-size: clamp(24px, 5vw, 60px);
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+    text-align: center;
+    text-shadow: -3px 0 rgb(90 0 16 / 0.9), 3px 0 rgb(255 0 40 / 0.6), 0 0 22px rgb(255 0 30 / 0.6);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.prank-tv.is-glitching video {
+    animation: prank-tv-glitch 0.9s steps(2) 1;
+}
+
+@keyframes prank-tv-glitch {
+    0% { filter: none; transform: none; }
+    15% { filter: hue-rotate(-50deg) saturate(3) contrast(1.4) brightness(0.7); transform: translateX(-14px) skewX(6deg); }
+    30% { transform: translateX(10px); clip-path: inset(30% 0 40% 0); }
+    45% { filter: saturate(0) brightness(0.6) contrast(1.6); transform: none; clip-path: none; }
+    60% { filter: hue-rotate(80deg) saturate(4) brightness(0.65); transform: translateY(8px) scaleX(1.04); }
+    100% { filter: none; transform: none; }
+}
+
+.prank-mini {
+    z-index: 3;
+}
+
+.prank-mini .prank-term-body {
+    min-height: 0;
+    padding: 12px 14px;
+}
+
+/* Access granted. */
+.prank-ok {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    pointer-events: auto;
+    background: radial-gradient(ellipse at 50% 42%, #12392a, #050c09 78%);
+    color: #d7fbe8;
+    text-align: center;
+    overflow: hidden;
+}
+
+.prank-ok-ring {
+    width: 128px;
+    height: 128px;
+    overflow: visible;
+    filter: drop-shadow(0 0 18px rgb(61 220 151 / 0.55));
+}
+
+.prank-ok-ring circle,
+.prank-ok-ring path {
+    fill: none;
+    stroke: #3ddc97;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.prank-ok-ring circle {
+    stroke-dasharray: 327;
+}
+
+.prank-ok-ring path {
+    stroke-dasharray: 90;
+}
+
+.prank-ok-title {
+    margin: 6px 0 0;
+    font-size: clamp(30px, 7vw, 56px);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: #eafff4;
+    text-shadow: 0 0 22px rgb(61 220 151 / 0.6);
+}
+
+.prank-ok-title span {
+    display: inline-block;
+}
+
+.prank-ok-hello {
+    min-height: 1.4em;
+    margin: 0;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 16px;
+    color: #8fe9bd;
+}
+
+.prank-ok-bar {
+    width: min(320px, 80vw);
+    height: 8px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgb(61 220 151 / 0.16);
+}
+
+.prank-ok-bar i {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #3ddc97, #b8ffd9);
+    box-shadow: 0 0 14px rgb(61 220 151 / 0.7);
+}
+
+.prank-ok-status {
+    margin: 0;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: rgb(215 251 232 / 0.65);
+}
+
+.prank-ok-bit {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    width: 12px;
+    height: 5px;
+    border-radius: 3px;
+    opacity: 0;
+}
+
 /* The ghost copy of the card: shifted, tinted and sliced into bands that jump. */
 body.is-broken .prank-ghost {
     position: absolute;
@@ -3540,6 +3803,10 @@ body.is-broken .prank-ghost {
     body.is-broken.staff-login.doodle::before,
     body.is-broken main,
     .prank-tv::after,
+    .prank-ok-ring,
+    .prank-doom,
+    .prank-doom::after,
+    .prank-tv.is-glitching video,
     body.is-broken main > div:first-child,
     body.is-broken .staff-login-card,
     body.is-broken #login-submit,

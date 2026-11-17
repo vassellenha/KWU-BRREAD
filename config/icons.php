@@ -103,6 +103,8 @@ return [
         'verified',
         'verified_user',
         'view_in_ar',
+        'visibility',
+        'visibility_off',
         'volume_off',
         'volume_up',
         'warning',

@@ -16,7 +16,24 @@
                 }
             } catch (e) {}
         }
+        // The Kewer Kewer pause (the fourth wrong password) follows the browser to every page of the
+        // shop too: until it runs out, any address sends it back to the sign-in page that set it off.
+        function prank(restored) {
+            try {
+                var hold = JSON.parse(localStorage.getItem('brread-prank') || sessionStorage.getItem('brread-prank') || 'null');
+                if (!hold || !(hold.until > Date.now())) return;
+                if (location.pathname !== hold.path) {
+                    document.documentElement.style.background = '#000';
+                    location.replace(hold.path);
+                } else if (restored) {
+                    location.reload();
+                }
+            } catch (e) {}
+        }
         check(false);
-        addEventListener('pageshow', function (event) { if (event.persisted) check(true); });
+        prank(false);
+        addEventListener('pageshow', function (event) {
+            if (event.persisted) { check(true); prank(true); }
+        });
     })();
 </script>
