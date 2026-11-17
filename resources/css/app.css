@@ -2783,3 +2783,407 @@ body.is-locked #login-submit [data-login-timer] {
     opacity: 0.35;
     filter: grayscale(1);
 }
+
+/* ---------- Wrong-password Batman scenes (resources/js/prank.js) ---------- */
+
+.prank {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    pointer-events: none;
+    font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.prank::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(20 18 24 / 0.82);
+    opacity: 0;
+    transition: opacity 260ms ease;
+}
+
+.prank.is-dim::before {
+    opacity: 1;
+}
+
+.prank-photo {
+    position: absolute;
+    width: 170px;
+    aspect-ratio: 676 / 760;
+    /* A cream outline and a soft shadow keep the dark suit readable on the dark page. */
+    filter:
+        drop-shadow(2px 0 0 #fbeee4) drop-shadow(-2px 0 0 #fbeee4)
+        drop-shadow(0 2px 0 #fbeee4) drop-shadow(0 -2px 0 #fbeee4)
+        drop-shadow(0 16px 24px rgb(0 0 0 / 0.5));
+}
+
+.prank-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* The cut-out ends at the belt; fade that straight edge out. */
+    mask-image: linear-gradient(to bottom, #000 82%, transparent);
+}
+
+
+.prank-bubble {
+    position: absolute;
+    margin: 0;
+    padding: 10px 18px;
+    border-radius: 18px;
+    background: #fbeee4;
+    color: #40000e;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.8);
+    transition: opacity 180ms ease, transform 320ms cubic-bezier(.2, 1.4, .4, 1);
+}
+
+.prank-bubble.is-in {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+}
+
+
+
+
+
+
+.prank-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 26px solid #f7a3b6;
+    filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.4));
+    opacity: 0;
+    transform: translateX(-50%);
+}
+
+.prank-arrow.is-in {
+    opacity: 1;
+    animation: prank-point 520ms ease-in-out infinite alternate;
+}
+
+@keyframes prank-point {
+    to { transform: translate(-50%, 12px); }
+}
+
+/* The grappling hook rig: hook in the top edge, rope, and him holding on. */
+.prank-rig {
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+}
+
+.prank-hook {
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 56px;
+    height: 51px;
+    overflow: visible;
+    transform: translate(-50%, -140%);
+    filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.5));
+}
+
+.prank-rope {
+    position: absolute;
+    left: -1.5px;
+    top: 50px;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #1b1a20, #fbeee4 45%, #8d8a94);
+    transform-origin: 50% 0;
+}
+
+.prank-photo.is-rigged {
+    position: absolute;
+}
+
+.prank-spark {
+    position: absolute;
+    left: -3px;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffd27a;
+    box-shadow: 0 0 8px 2px #ff9f43;
+}
+
+.prank-bubble.is-free {
+    z-index: 1;
+}
+
+/* 3: the call-out in the middle of a dark screen. */
+.prank-callout {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    transition: opacity 420ms ease, transform 420ms ease;
+}
+
+.prank-callout.is-out {
+    opacity: 0;
+    transform: scale(1.06);
+}
+
+
+
+.prank-photo.is-small {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 140px;
+    margin: -79px 0 0 -70px;
+}
+
+.prank-rings {
+    position: absolute;
+    left: 50%;
+    width: 0;
+    height: 0;
+}
+
+.prank-rings span {
+    position: absolute;
+    left: -160px;
+    top: -160px;
+    width: 320px;
+    height: 320px;
+    border: 3px solid #f7a3b6;
+    border-radius: 50%;
+    opacity: 0;
+}
+
+.prank-rings.is-on span {
+    animation: prank-ring 1.8s ease-out infinite;
+}
+
+.prank-rings.is-on span:nth-child(2) { animation-delay: 0.6s; }
+.prank-rings.is-on span:nth-child(3) { animation-delay: 1.2s; }
+
+@keyframes prank-ring {
+    from { opacity: 0.8; transform: scale(0.6); }
+    to { opacity: 0; transform: scale(2.2); }
+}
+
+.prank-words {
+    position: relative;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 0.3em;
+    max-width: 92vw;
+    color: #fbeee4;
+    font-size: clamp(40px, 8vw, 88px);
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 6px 0 #c74659, 0 12px 30px rgb(0 0 0 / 0.5);
+}
+
+.prank-words span {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(40px) scale(0.4) rotate(-8deg);
+    transition: opacity 120ms ease, transform 380ms cubic-bezier(.2, 1.6, .4, 1);
+}
+
+.prank-words span.is-in {
+    opacity: 1;
+    transform: none;
+}
+
+.prank-words .is-place {
+    color: #f7a3b6;
+    text-shadow: 0 6px 0 #40000e, 0 12px 30px rgb(0 0 0 / 0.5);
+}
+
+.prank-ip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 8px 18px;
+    border: 2px solid #f7a3b6;
+    border-radius: 999px;
+    background: rgb(64 0 14 / 0.6);
+    color: #fbeee4;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: clamp(18px, 3vw, 26px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 200ms ease, transform 300ms ease;
+}
+
+.prank-ip.is-in {
+    opacity: 1;
+    transform: none;
+}
+
+.prank-pin {
+    width: 14px;
+    height: 14px;
+    border-radius: 50% 50% 50% 0;
+    background: #f7a3b6;
+    transform: rotate(-45deg);
+}
+
+/* 4: the vortex and the iris. */
+.prank-vortex {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 180vmax;
+    height: 180vmax;
+}
+
+.prank-vortex span {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, #1b1a20 3%, transparent 26%),
+        repeating-conic-gradient(from 0deg, #c74659 0 10deg, #2d2b33 10deg 20deg, #f7a3b6 20deg 30deg, #2d2b33 30deg 40deg);
+    animation: prank-spin 1.4s linear infinite;
+}
+
+@keyframes prank-spin {
+    to { rotate: 360deg; }
+}
+
+.prank-iris {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 170vmax;
+    height: 170vmax;
+    border-radius: 50%;
+    box-shadow: 0 0 0 200vmax #1b1a20;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+
+/* The Kewer Kewer video, Rickroll style: the whole screen becomes the video. */
+.prank-tv {
+    position: absolute;
+    inset: 0;
+    pointer-events: auto;
+    background: #000;
+}
+
+.prank-tv video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.prank-tv-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    color: #fbeee4;
+    font-size: clamp(56px, 14vw, 180px);
+    font-weight: 800;
+    line-height: 0.9;
+    text-align: center;
+    transform: scale(calc(1 + var(--punch, 0) * 0.12));
+}
+
+.prank-tv-bar {
+    position: absolute;
+    left: 50%;
+    top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fbeee4;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    backdrop-filter: blur(6px);
+}
+
+.prank-tv-bar b {
+    color: #f7a3b6;
+    font-variant-numeric: tabular-nums;
+}
+
+.prank-tv-ip {
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgb(251 238 228 / 0.7);
+}
+
+.prank-close {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 1;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fbeee4;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.prank-close:hover {
+    background: #40000e;
+}
+
+.prank-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    margin: 0;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: #f7a3b6;
+    color: #40000e;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .prank-vortex span,
+    .prank-rings.is-on span,
+    .prank-arrow.is-in {
+        animation: none;
+    }
+}

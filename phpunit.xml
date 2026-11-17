@@ -20,6 +20,7 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="LOGIN_CAPTCHA" value="false"/>
+        <env name="LOGIN_PRANK" value="false"/>
         <env name="GEOIP_ENABLED" value="false"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

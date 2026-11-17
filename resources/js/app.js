@@ -401,6 +401,17 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
     busy: false,
     captchaStamp: Date.now(),
 
+    init() {
+        // Fetch the scenes' photo and sounds once someone starts typing a password.
+        const warm = () => import('./prank.js').then((prank) => prank.preload()).catch(() => {});
+        this.$el.querySelector('#password')?.addEventListener('focus', warm, { once: true });
+
+        const paused = Number(this.$el.dataset.prankSeconds || 0);
+        if (paused > 0) {
+            import('./prank.js').then((prank) => prank.resumePause(paused, this.$el.dataset.prankIp || null));
+        }
+    },
+
     get captchaUrl() {
         return `${captchaBase}?v=${this.captchaStamp}`;
     },
@@ -440,7 +451,14 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
                 return;
             }
 
-            context?.close?.();
+            // A wrong password (or a paused address) gets its Batman scene; the scene owns the sound.
+            if (data.prank && (response.status === 422 || response.status === 423)) {
+                const prank = await import('./prank.js');
+                prank.play(data.prank, { context });
+                if (response.status === 423) return;
+            } else {
+                context?.close?.();
+            }
 
             if (response.status === 422) {
                 const errors = data.errors || {};

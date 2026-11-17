@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\LoginCaptcha;
+use App\Support\LoginPrank;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,13 +19,14 @@ class AuthController extends Controller
 {
     public const QUICK_LOGIN_USERNAME = 'superadmin';
 
-    public function showStaffLogin(): View
+    public function showStaffLogin(Request $request): View
     {
         return view('staff.auth.login', [
             'portal' => 'staff',
             'attemptRoute' => 'staff.login.attempt',
             'quickLoginEnabled' => false,
             'captchaEnabled' => LoginCaptcha::enabled(),
+            'prankSeconds' => LoginPrank::remaining($request),
         ]);
     }
 
@@ -36,6 +38,7 @@ class AuthController extends Controller
             'quickLoginEnabled' => $this->quickLoginEnabled($request),
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
             'captchaEnabled' => LoginCaptcha::enabled(),
+            'prankSeconds' => LoginPrank::remaining($request),
         ]);
     }
 
@@ -100,6 +103,21 @@ class AuthController extends Controller
 
     private function attemptLogin(Request $request, bool $adminPortal): RedirectResponse|JsonResponse
     {
+        // Paused after four wrong passwords: nothing is checked until the pause runs out.
+        $paused = LoginPrank::remaining($request);
+        if ($paused > 0) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Sign-in is paused. Try again in a moment.',
+                    'prank' => ['stage' => 'paused', 'retry_after' => $paused],
+                ], 423)->header('Retry-After', (string) $paused);
+            }
+
+            throw ValidationException::withMessages([
+                'username' => 'Sign-in is paused for '.$paused.' seconds.',
+            ]);
+        }
+
         // Checked before the password so a wrong answer never reveals whether the
         // credentials were right, and a bot gets no password feedback at all.
         if (LoginCaptcha::enabled() && ! LoginCaptcha::passes($request, $request->input('captcha'))) {
@@ -117,9 +135,21 @@ class AuthController extends Controller
         $credentials['username'] = Str::lower($credentials['username']);
 
         if (! Auth::validate($credentials)) {
-            throw ValidationException::withMessages([
-                'username' => 'That username and password do not match.',
-            ]);
+            $message = 'That username and password do not match.';
+
+            if (LoginPrank::enabled() && $request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'errors' => ['username' => [$message]],
+                    'prank' => LoginPrank::miss($request),
+                ], 422);
+            }
+
+            if (LoginPrank::enabled()) {
+                LoginPrank::miss($request);
+            }
+
+            throw ValidationException::withMessages(['username' => $message]);
         }
 
         /** @var User $user */
@@ -134,6 +164,7 @@ class AuthController extends Controller
         }
 
         Auth::login($user, $request->boolean('remember'));
+        LoginPrank::clear($request);
 
         return $this->enterPortal($request, $user);
     }

@@ -22,7 +22,7 @@
 <body class="staff staff-login doodle {{ $locked ? 'is-locked' : '' }} bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
     @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 2, 'drops' => false])
 
-    <main class="w-full max-w-sm" x-data="staffLogin(@js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')), @js(route('captcha.image')))">
+    <main class="w-full max-w-sm" x-data="staffLogin(@js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')), @js(route('captcha.image')))" @if (($prankSeconds ?? 0) > 0 && ! $locked) data-prank-seconds="{{ $prankSeconds }}" data-prank-ip="{{ request()->ip() }}" @endif>
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
             <p class="login-tagline font-hand text-[28px] leading-none -rotate-2" data-login-tagline>{{ $locked ? 'welcome,' : 'behind the counter' }}</p>
