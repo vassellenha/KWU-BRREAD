@@ -14,10 +14,10 @@ $rolesFor = fn (string $module): string => 'role:'.implode(',', User::MODULE_ROL
 
 Route::middleware('guest')->group(function () {
     Route::get('/staff', [AuthController::class, 'showStaffLogin'])->name('staff.login');
-    Route::post('/staff', [AuthController::class, 'staffLogin'])->middleware('throttle:login')->name('staff.login.attempt');
+    Route::post('/staff', [AuthController::class, 'staffLogin'])->middleware(['throttle:login', 'throttle:login-username'])->name('staff.login.attempt');
 
     Route::get('/superadmin', [AuthController::class, 'showAdminLogin'])->name('admin.login');
-    Route::post('/superadmin', [AuthController::class, 'adminLogin'])->middleware('throttle:login')->name('admin.login.attempt');
+    Route::post('/superadmin', [AuthController::class, 'adminLogin'])->middleware(['throttle:login', 'throttle:login-username'])->name('admin.login.attempt');
     Route::post('/superadmin/quick-login', [AuthController::class, 'adminQuickLogin'])->middleware('throttle:login')->name('admin.quick-login');
 });
 
@@ -77,6 +77,10 @@ Route::get('/about', function () {
 Route::get('/contact', function () {
     return view('pages.contact');
 })->name('contact');
+
+Route::get('/privacy', function () {
+    return view('pages.privacy');
+})->name('privacy');
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->name('order.review');

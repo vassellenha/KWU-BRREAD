@@ -39,6 +39,20 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // IP-independent backstop: the two limits above are both keyed on the
+        // caller's IP, so an attacker spreading attempts across many IPs (a
+        // botnet or proxy/VPN rotation) never trips either one. This limit is
+        // keyed only on the username, so it still catches that pattern.
+        RateLimiter::for('login-username', function (Request $request) {
+            $username = $request->input('username');
+            $username = is_string($username) ? Str::lower($username) : '';
+            $tooMany = fn () => back()
+                ->withErrors(['username' => 'Too many sign-in attempts for this account. Wait a while and try again.'])
+                ->onlyInput('username');
+
+            return Limit::perMinutes(10, 20)->by('user-only:'.$username)->response($tooMany);
+        });
+
         RateLimiter::for('orders', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
     }
 }
