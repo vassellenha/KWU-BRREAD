@@ -183,6 +183,8 @@ Five public pages: home (`/`), the builder (`/builder`), the full menu (`/menu`)
 
 ### Staff portal
 
+Every module opens with the same header (`resources/views/components/staff/page-header.blade.php`): an icon tile, the page title, a one-line description and, where it helps, a back link or an action button. Confirmations such as cancelling an order or removing an expense use an in-page dialog instead of the browser's own popup.
+
 <table>
 <tr>
 <td width="50%" valign="top">

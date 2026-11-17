@@ -10,21 +10,18 @@
         $isRestoredForm = old('_form') === 'expense';
     @endphp
 
-    <div class="flex items-center justify-between mb-space-lg flex-wrap gap-space-sm">
-        <div>
-            <h1 class="font-headline-md text-headline-md text-on-surface">Cashflow &amp; Financial Report</h1>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-                Income from customer orders, expenses logged by staff, and the running balance between them.
-            </p>
-        </div>
-        <a
-            href="{{ route('staff.accounting.export', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}"
-            class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full bg-surface-container-lowest border border-outline-variant/40 font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors duration-200"
-        >
-            <span class="material-symbols-outlined text-[18px]">download</span>
-            Export to Excel
-        </a>
-    </div>
+    <x-staff.page-header icon="account_balance" title="Cashflow & Financial Report">
+        Income from customer orders, expenses logged by staff, and the running balance between them.
+        <x-slot:actions>
+            <a
+                href="{{ route('staff.accounting.export', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}"
+                class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full bg-surface-container-lowest border border-outline-variant/40 font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors duration-200"
+            >
+                <span class="material-symbols-outlined text-[18px]">download</span>
+                Export to Excel
+            </a>
+        </x-slot:actions>
+    </x-staff.page-header>
 
     {{-- DATE RANGE FILTER --}}
     <form method="GET" action="{{ route('staff.accounting.index') }}" class="flex flex-wrap items-end gap-space-sm mb-space-lg">

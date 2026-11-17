@@ -111,8 +111,11 @@
             @endif
         </div>
 
-        <p class="text-center font-body-sm text-body-sm text-on-surface-variant mt-space-md">
-            <a href="{{ route('home') }}" class="hover:text-primary transition-colors">&larr; Back to Brread!</a>
+        <p class="text-center mt-space-md">
+            <a href="{{ route('home') }}" class="group inline-flex items-center gap-2 rounded-full border border-[#fbeee4]/20 bg-[#fbeee4]/5 px-5 py-2.5 font-label-lg text-label-lg text-[#fbeee4]/85 transition-all duration-200 hover:border-[#f7a3b6] hover:bg-[#f7a3b6] hover:text-[#40000e] active:translate-y-px">
+                <span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-hover:-translate-x-1">arrow_back</span>
+                Back to Brread!
+            </a>
         </p>
     </main>
 

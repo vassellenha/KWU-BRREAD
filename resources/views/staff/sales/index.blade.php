@@ -51,12 +51,9 @@
         };
     @endphp
 
-    <div class="mb-space-lg">
-        <h1 class="font-headline-md text-headline-md text-on-surface">Sales</h1>
-        <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-            What customers actually buy: the best-selling combinations, ingredients, and when orders come in.
-        </p>
-    </div>
+    <x-staff.page-header icon="monitoring" title="Sales">
+        What customers actually buy: the best-selling combinations, ingredients, and when orders come in.
+    </x-staff.page-header>
 
     {{-- DATE RANGE FILTER --}}
     <div class="flex flex-wrap items-end gap-x-space-lg gap-y-space-sm mb-space-lg">

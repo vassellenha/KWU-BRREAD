@@ -1508,13 +1508,9 @@ body.staff {
 }
 .staff-side-brand img {
     display: block;
-    height: 46px;
+    height: 64px;
     width: auto;
-    padding: 6px 12px 8px;
-    box-sizing: content-box;
-    border-radius: 16px;
-    background: #fff8f4;
-    box-shadow: 0 4px 0 #c9728a;
+    filter: drop-shadow(0 3px 0 rgba(201, 114, 138, 0.9));
     transform: rotate(-3deg);
 }
 .staff-side-brand .drip {

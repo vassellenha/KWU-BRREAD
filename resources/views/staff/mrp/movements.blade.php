@@ -4,15 +4,9 @@
 
 @section('content')
 
-    <div class="flex items-center gap-space-sm mb-space-lg">
-        <a href="{{ route('staff.mrp.index') }}" aria-label="Back to stock" class="text-on-surface-variant hover:text-on-surface">
-            <span class="material-symbols-outlined text-[22px]">arrow_back</span>
-        </a>
-        <div>
-            <h1 class="font-headline-md text-headline-md text-on-surface">Stock Movement Log</h1>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">Every restock, order consumption, and manual adjustment, newest first.</p>
-        </div>
-    </div>
+    <x-staff.page-header icon="history" title="Stock Movement Log" :back="route('staff.mrp.index')" back-label="Back to stock">
+        Every restock, order consumption, and manual adjustment, newest first.
+    </x-staff.page-header>
 
     <form method="GET" action="{{ route('staff.mrp.movements') }}" class="flex flex-wrap items-end gap-space-sm mb-space-md">
         <div>

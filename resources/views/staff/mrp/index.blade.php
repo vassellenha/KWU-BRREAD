@@ -4,18 +4,15 @@
 
 @section('content')
 
-    <div class="flex items-center justify-between mb-space-lg flex-wrap gap-space-sm">
-        <div>
-            <h1 class="font-headline-md text-headline-md text-on-surface">Stock &amp; Materials</h1>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-                Ingredient stock for the Builder. Levels drop automatically as customer orders come in.
-            </p>
-        </div>
-        <a href="{{ route('staff.mrp.movements') }}" class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full bg-surface-container-lowest border border-outline-variant/40 font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors duration-200">
-            <span class="material-symbols-outlined text-[18px]">history</span>
-            View movement log
-        </a>
-    </div>
+    <x-staff.page-header icon="inventory_2" title="Stock & Materials">
+        Ingredient stock for the Builder. Levels drop automatically as customer orders come in.
+        <x-slot:actions>
+            <a href="{{ route('staff.mrp.movements') }}" class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full bg-surface-container-lowest border border-outline-variant/40 font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors duration-200">
+                <span class="material-symbols-outlined text-[18px]">history</span>
+                View movement log
+            </a>
+        </x-slot:actions>
+    </x-staff.page-header>
 
     {{-- STAT SUMMARY --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-lg">

@@ -10,17 +10,9 @@
     @endphp
 
     {{-- PAGE HEADER --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-space-sm mb-space-lg">
-        <div>
-            <div class="flex items-center gap-space-xs">
-                <span class="material-symbols-outlined text-[28px] text-primary">receipt_long</span>
-                <h1 class="font-headline-md text-headline-md text-on-surface font-bold">Customer Orders</h1>
-            </div>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-                Kelola pesanan masuk, konfirmasi via WhatsApp, buat tautan tracking pembeli, serta pantau ulasan pelanggan.
-            </p>
-        </div>
-    </div>
+    <x-staff.page-header icon="receipt_long" title="Customer Orders">
+        Kelola pesanan masuk, konfirmasi via WhatsApp, buat tautan tracking pembeli, serta pantau ulasan pelanggan.
+    </x-staff.page-header>
 
     {{-- FLASH NOTIFICATIONS --}}
     @if (session('success'))

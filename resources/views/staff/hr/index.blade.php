@@ -9,15 +9,10 @@
         $isRestoredAddForm = old('_form') === 'add';
     @endphp
 
-    <div class="flex items-center justify-between mb-space-lg flex-wrap gap-space-sm">
-        <div>
-            <h1 class="font-headline-md text-headline-md text-on-surface">Team &amp; Duty Schedule</h1>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">
-                Staff directory and the automatic {{ \App\Services\ShiftScheduler::GROUP_SIZE }}-person /
-                {{ \App\Services\ShiftScheduler::SHIFT_LENGTH_DAYS }}-day duty rotation.
-            </p>
-        </div>
-    </div>
+    <x-staff.page-header icon="groups" title="Team & Duty Schedule">
+        Staff directory and the automatic {{ \App\Services\ShiftScheduler::GROUP_SIZE }}-person /
+        {{ \App\Services\ShiftScheduler::SHIFT_LENGTH_DAYS }}-day duty rotation.
+    </x-staff.page-header>
 
     {{-- STAT SUMMARY --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-lg">
