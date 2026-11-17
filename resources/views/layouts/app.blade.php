@@ -4,7 +4,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f7a3b6">
-    <title>@yield('title', 'Brread!') — Singapore Ice Cream Sandwich</title>
+    <title>@hasSection('title')@yield('title') | @endif{{ 'Brread!' }} Singapore Ice Cream Sandwich</title>
+    <meta name="description" content="@yield('description', 'Brread! makes Singapore-style ice cream sandwiches to order: soft bread, a thick slab of ice cream and a topping. Build your own, we deliver cold across Jakarta.')">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Brread!">
+    <meta property="og:title" content="@hasSection('title')@yield('title') | @endif{{ 'Brread!' }} Singapore Ice Cream Sandwich">
+    <meta property="og:description" content="@yield('description', 'Pick the bread, pick the ice cream, add a topping. Made to order and delivered cold across Jakarta.')">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:image" content="{{ asset('img/social-preview.jpg') }}">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="640">
+    <meta name="twitter:card" content="summary_large_image">
     {{-- Entry intro plays once per browser session; decided before first paint so it never flashes. --}}
     <script>try{if(sessionStorage.getItem('brreadIntro')||matchMedia('(prefers-reduced-motion: reduce)').matches){document.documentElement.classList.add('no-intro')}else{sessionStorage.setItem('brreadIntro','1')}}catch(e){document.documentElement.classList.add('no-intro')}</script>
     <link rel="preload" as="image" href="/img/intro/bread-white.webp">

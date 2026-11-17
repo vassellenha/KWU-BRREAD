@@ -2,6 +2,8 @@
 
 @section('title', 'Status Pesanan #' . $order->order_number)
 
+@section('description', 'Track your Brread! order status and delivery updates.')
+
 @section('content')
 
     @php

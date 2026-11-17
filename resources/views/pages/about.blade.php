@@ -2,6 +2,8 @@
 
 @section('title', 'About')
 
+@section('description', 'The story behind Brread!: a Singapore-style ice cream sandwich business made by students, built around fresh ingredients and made-to-order combos.')
+
 @section('content')
 
     {{--

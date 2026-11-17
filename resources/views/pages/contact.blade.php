@@ -2,6 +2,8 @@
 
 @section('title', 'Contact')
 
+@section('description', 'Get in touch with Brread! for orders, questions or feedback about our Singapore-style ice cream sandwiches.')
+
 @section('content')
 
     {{-- Opening hours live here once: the "open now" pill and the week strip both read them. --}}

@@ -2,6 +2,8 @@
 
 @section('title', 'Menu')
 
+@section('description', 'Browse every Brread! combo: white or wheat bread, vanilla, chocolate or strawberry ice cream, and toppings. Filter by bread and order online.')
+
 @section('content')
 
     <div

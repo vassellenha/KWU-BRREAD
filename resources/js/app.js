@@ -5,13 +5,13 @@ window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
 export const INGREDIENT_IMAGES = {
-    'Plain White Bread': '/img/ingredients/bread-white.png',
-    'Whole Wheat Bread': '/img/ingredients/bread-wheat.png',
-    Vanilla: '/img/ingredients/icecream-vanilla.png',
-    Strawberry: '/img/ingredients/icecream-strawberry.png',
-    Chocolate: '/img/ingredients/icecream-chocolate.png',
-    'Chocolate Sauce': '/img/ingredients/topping-chocolate-sauce.png',
-    'Rainbow Sprinkles': '/img/ingredients/topping-sprinkles.png',
+    'Plain White Bread': '/img/ingredients/bread-white.webp',
+    'Whole Wheat Bread': '/img/ingredients/bread-wheat.webp',
+    Vanilla: '/img/ingredients/icecream-vanilla.webp',
+    Strawberry: '/img/ingredients/icecream-strawberry.webp',
+    Chocolate: '/img/ingredients/icecream-chocolate.webp',
+    'Chocolate Sauce': '/img/ingredients/topping-chocolate-sauce.webp',
+    'Rainbow Sprinkles': '/img/ingredients/topping-sprinkles.webp',
 };
 window.INGREDIENT_IMAGES = INGREDIENT_IMAGES;
 

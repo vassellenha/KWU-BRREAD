@@ -2,6 +2,8 @@
 
 @section('title', 'Home')
 
+@section('description', 'Build your own Singapore-style ice cream sandwich: pick the bread, the ice cream and a topping. Ordered online, delivered cold across Jakarta.')
+
 @section('content')
 
     <div class="w-full font-plus-jakarta" x-data="signatureMenu([
@@ -181,19 +183,19 @@
                             type="button"
                             @click="activeFilter = 'all'"
                             class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
-                            :class="activeFilter === 'all' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
+                            :class="activeFilter === 'all' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
                         >All</button>
                         <button
                             type="button"
                             @click="activeFilter = 'white-bread'"
                             class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
-                            :class="activeFilter === 'white-bread' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
+                            :class="activeFilter === 'white-bread' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
                         >White bread</button>
                         <button
                             type="button"
                             @click="activeFilter = 'wheat-bread'"
                             class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
-                            :class="activeFilter === 'wheat-bread' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
+                            :class="activeFilter === 'wheat-bread' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
                         >Wheat bread</button>
                     </div>
                 </div>

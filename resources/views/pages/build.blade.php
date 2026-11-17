@@ -2,6 +2,8 @@
 
 @section('title', 'Brread! Studio')
 
+@section('description', 'Mix and match bread, ice cream and toppings in the Brread! Studio, then order your one-of-a-kind ice cream sandwich.')
+
 @section('content')
 
     <div x-data="brreadBuilder()" class="doodle doodle--clip w-full font-plus-jakarta bg-surface-container-low">
@@ -126,7 +128,7 @@
                     <div class="bg-gradient-to-br from-secondary-fixed/40 via-surface-container-lowest to-tertiary-fixed/30 rounded-lg p-space-md border border-outline-variant/30 shadow-sm">
                         <div class="flex items-center gap-1.5 mb-space-sm">
                             <span class="material-symbols-outlined text-[16px] text-primary">stars</span>
-                            <span class="font-label-md text-label-md text-on-surface uppercase tracking-wide">Signature Combos — 1-Click</span>
+                            <span class="font-label-md text-label-md text-on-surface uppercase tracking-wide">Signature Combos: 1-Click</span>
                         </div>
                         <div class="grid grid-cols-2 gap-space-xs">
                             <template x-for="preset in presets" :key="preset.name">
@@ -409,7 +411,7 @@
                             class="rounded bg-primary-container shadow-[0_4px_16px_rgba(113,59,44,0.15)] p-space-md flex items-center gap-space-sm"
                         >
                             <span class="material-symbols-outlined text-[22px] text-on-primary-container">check_circle</span>
-                            <p class="font-label-lg text-label-lg text-on-primary-container">Added to your cart — build another one, or check out.</p>
+                            <p class="font-label-lg text-label-lg text-on-primary-container">Added to your cart. Build another one, or check out.</p>
                         </div>
 
                         <p x-show="stockNotice" x-cloak class="font-body-sm text-body-sm text-on-surface-variant" x-text="stockNotice"></p>
