@@ -107,7 +107,7 @@
                                     src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
                                     :src="captchaUrl"
                                     alt="Letters to type below"
-                                    width="200"
+                                    width="260"
                                     height="64"
                                     class="block h-full w-full object-contain"
                                 >

@@ -52,7 +52,7 @@ class LoginCaptcha
 
     private static function render(string $code): string
     {
-        $width = 200;
+        $width = 260;
         $height = 64;
         $font = resource_path('fonts/DejaVuSans-Bold.ttf');
 
@@ -69,10 +69,10 @@ class LoginCaptcha
 
         // Each letter gets its own size, tilt and height.
         $ink = imagecolorallocate($text, 24, 24, 28);
-        $x = 11;
+        $x = 16;
         foreach (str_split($code) as $letter) {
-            imagettftext($text, random_int(24, 28), random_int(-26, 26), $x, random_int(43, 51), $ink, $font, $letter);
-            $x += random_int(35, 37);
+            imagettftext($text, random_int(24, 27), random_int(-20, 20), $x, random_int(43, 51), $ink, $font, $letter);
+            $x += random_int(47, 49);
         }
 
         // A sine wave pushes every pixel column up or down, bending the whole word.
