@@ -130,5 +130,10 @@ return [
     // never offers it even when this file's default or a committed .env says otherwise.
     'admin_quick_login' => (bool) env('ADMIN_QUICK_LOGIN', env('APP_ENV') === 'local'),
 
+    // A small arithmetic question on the staff and superadmin sign-in forms, so a script
+    // that only knows the username and password field cannot try passwords unattended.
+    // On by default everywhere; the test suite switches it off except in its own tests.
+    'login_captcha' => (bool) env('LOGIN_CAPTCHA', true),
+
 
 ];

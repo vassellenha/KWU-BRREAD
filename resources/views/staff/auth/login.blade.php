@@ -90,6 +90,22 @@
                         class="{{ $fieldClasses }}"
                     >
                 </div>
+                @if ($captchaQuestion)
+                    <div>
+                        <label for="captcha" class="block font-label-md text-label-md text-on-surface-variant mb-1">Quick check: what is {{ $captchaQuestion }}?</label>
+                        <input
+                            id="captcha"
+                            type="text"
+                            name="captcha"
+                            inputmode="numeric"
+                            pattern="[0-9\-]*"
+                            required
+                            autocomplete="off"
+                            maxlength="3"
+                            class="{{ $fieldClasses }}"
+                        >
+                    </div>
+                @endif
                 <label class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface-variant">
                     <input type="checkbox" name="remember" class="rounded border-outline-variant text-primary focus:ring-primary">
                     Keep me signed in

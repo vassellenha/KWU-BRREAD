@@ -172,6 +172,77 @@ class AuthPortalTest extends TestCase
             ->assertRedirect('/superadmin');
     }
 
+    public function test_the_login_forms_ask_a_math_question_when_the_captcha_is_on(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/staff')->assertOk()->assertSee('Quick check: what is');
+        $this->get('/superadmin')->assertOk()->assertSee('Quick check: what is');
+    }
+
+    public function test_the_login_forms_have_no_question_when_the_captcha_is_off(): void
+    {
+        config(['auth.login_captcha' => false]);
+
+        $this->get('/staff')->assertOk()->assertDontSee('Quick check');
+    }
+
+    public function test_a_login_without_the_captcha_answer_is_refused(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/staff');
+        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678'])
+            ->assertRedirect('/staff')
+            ->assertSessionHasErrors('captcha');
+
+        $this->assertGuest();
+    }
+
+    public function test_a_wrong_captcha_answer_is_refused_even_with_the_right_password(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/staff');
+        $answer = session('login_captcha_answer');
+
+        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => (string) ($answer + 1)])
+            ->assertSessionHasErrors('captcha');
+
+        $this->assertGuest();
+    }
+
+    public function test_a_captcha_answer_cannot_be_replayed(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/staff');
+        $answer = (string) session('login_captcha_answer');
+
+        // First attempt uses up the question, even though the password is wrong.
+        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => 'wrong', 'captcha' => $answer])
+            ->assertSessionHasErrors('username');
+
+        // Same answer again, now with the right password: the old question is gone.
+        $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => $answer])
+            ->assertSessionHasErrors('captcha');
+
+        $this->assertGuest();
+    }
+
+    public function test_a_staff_login_succeeds_with_the_right_captcha_answer(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $this->get('/staff');
+        $answer = session('login_captcha_answer');
+
+        $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => (string) $answer])
+            ->assertRedirect('/staff/orders');
+
+        $this->assertAuthenticated();
+    }
+
     public function test_repeated_failed_logins_are_throttled(): void
     {
         foreach (range(1, 10) as $attempt) {
