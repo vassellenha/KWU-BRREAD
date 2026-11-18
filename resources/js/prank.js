@@ -9,8 +9,20 @@ const VIDEO = '/video/prank-kewer.mp4';
 const HIT = '/audio/lockdown-hit.mp3';
 const FAHH = '/audio/prank-fahh.mp3';
 const VICTORY = '/audio/prank-fanfare.mp3';
+const SANS = '/audio/prank-sanstalk.mp3';
+const NOTIFY = '/audio/prank-winnotify.mp3';
+const XPERROR = '/audio/prank-xperror.mp3';
+const BSOD = '/video/prank-bsod.mp4';
+
+// Kewer lasts at least this long after a blue screen, and spamming escape this often brings the blue screen.
+const AFTER_BSOD = 120;
+const SPAM_TRIES = 6;
+const SPAM_WINDOW = 15000;
+const BSOD_MS = 10000;
+const TOAST_MS = 15000;
 
 const S = {
+    z: 10,
     reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     context: null,
     bytes: {},
@@ -22,6 +34,11 @@ const S = {
     tv: null,
     place: '',
     hits: 0,
+    tries: [],
+    ip: null,
+    kewer: null,
+    bsod: false,
+    toast: null,
 };
 
 const later = (fn, ms) => window.setTimeout(fn, ms);
@@ -41,7 +58,7 @@ let preloading = null;
 export function preload() {
     if (preloading) return preloading;
 
-    preloading = Promise.all([FAHH].map(async (url) => {
+    preloading = Promise.all([FAHH, SANS].map(async (url) => {
         try {
             const response = await fetch(url, { credentials: 'same-origin' });
             S.bytes[url] = await response.arrayBuffer();
@@ -103,7 +120,7 @@ async function buffer(url) {
     return S.buffers[url];
 }
 
-async function playSound(url, { loop = false, volume = 1, analyser = false } = {}) {
+async function playSound(url, { loop = false, volume = 1, analyser = false, rate = 1, pan = 0 } = {}) {
     const context = S.context;
     const audio = await buffer(url);
     if (!context || !audio) return null;
@@ -112,6 +129,7 @@ async function playSound(url, { loop = false, volume = 1, analyser = false } = {
     const gain = context.createGain();
     source.buffer = audio;
     source.loop = loop;
+    source.playbackRate.value = rate;
     gain.gain.value = volume;
     source.connect(gain);
 
@@ -122,7 +140,13 @@ async function playSound(url, { loop = false, volume = 1, analyser = false } = {
         gain.connect(meter);
     }
 
-    gain.connect(context.destination);
+    if (pan && context.createStereoPanner) {
+        const panner = context.createStereoPanner();
+        panner.pan.value = pan;
+        gain.connect(panner).connect(context.destination);
+    } else {
+        gain.connect(context.destination);
+    }
     source.start();
 
     return {
@@ -139,6 +163,44 @@ async function playSound(url, { loop = false, volume = 1, analyser = false } = {
 }
 
 const fahh = () => playSound(FAHH, { volume: 0.95 });
+
+/** Makes sure sound can play: creates or wakes the audio context and decodes what the scenes need. */
+function awake() {
+    adopt(null);
+    S.context?.resume?.().catch?.(() => {});
+    [HIT, FAHH, SANS, NOTIFY, XPERROR].forEach((url) => buffer(url));
+}
+
+/* ---------- Sans: every letter the terminals type is a little voice blip ---------- */
+
+let lastBlip = 0;
+
+/** One short grain of the voice clip at a given time, pitch and length (the clip is a steady voice, so any slice sounds like him). */
+function sansAt(when, rate = 1, length = 0.08, volume = 0.5) {
+    const context = ready();
+    const audio = S.buffers[SANS];
+    if (!context || !audio) return;
+
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = audio;
+    source.playbackRate.value = rate;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.linearRampToValueAtTime(volume, when + 0.006);
+    gain.gain.setValueAtTime(volume, when + length - 0.022);
+    gain.gain.linearRampToValueAtTime(0.0001, when + length);
+    source.connect(gain).connect(context.destination);
+    source.start(when, 0.86 + Math.random() * 0.5, length + 0.02);
+    source.stop(when + length + 0.03);
+}
+
+/** The typing sound of the terminals. */
+function sans() {
+    const now = performance.now();
+    if (now - lastBlip < 52) return;
+    lastBlip = now;
+    sansAt(S.context?.currentTime ?? 0, 0.93 + Math.random() * 0.2, 0.07 + Math.random() * 0.03);
+}
 
 /* ---------- shared pieces ---------- */
 
@@ -173,14 +235,12 @@ const clockText = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padSta
 /* ---------- the terminal window ---------- */
 
 /**
- * A small terminal that pops up next to the form and types a script:
- * ['cmd', text] types a command, ['out'|'ok'|'err'|'say'|'big', text] prints a line,
- * ['bar', label] runs a progress bar, ['wait', ms] pauses.
+ * Builds the window every terminal in the prank wears: an ice cream sandwich. The title bar is the
+ * top slice of bread, the text sits in the strawberry cream and a second slice closes it below.
+ * Both slices are handles to drag it by.
  */
-function terminal(title, { width = 380, place = 'right' } = {}) {
+function sandwich(title) {
     const box = el('div', 'prank-term');
-    box.style.width = `${Math.min(width, window.innerWidth - 24)}px`;
-    box.setAttribute('role', 'status');
 
     const bar = el('div', 'prank-term-bar');
     const dots = el('span', 'prank-term-dots');
@@ -192,15 +252,68 @@ function terminal(title, { width = 380, place = 'right' } = {}) {
     bar.append(dots, name, close);
 
     const body = el('div', 'prank-term-body');
+    const foot = el('div', 'prank-term-foot');
+    box.append(bar, body, foot);
+    draggable(box, [bar, foot]);
+
+    return { box, bar, body, close };
+}
+
+/** Lets a window be picked up by its handles and dropped anywhere on screen (mouse, pen and touch). */
+function draggable(box, handles) {
+    let drag = null;
+
+    const down = (event) => {
+        if (event.button > 0 || event.target.closest?.('button')) return;
+        const rect = box.getBoundingClientRect();
+        drag = { id: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top, handle: event.currentTarget };
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        box.style.zIndex = String(++S.z);
+        box.classList.add('is-dragging');
+        event.preventDefault();
+    };
+    const move = (event) => {
+        if (!drag || event.pointerId !== drag.id) return;
+        const x = event.clientX - drag.dx;
+        const y = event.clientY - drag.dy;
+        box.style.left = `${Math.min(Math.max(x, 90 - box.offsetWidth), window.innerWidth - 90)}px`;
+        box.style.top = `${Math.min(Math.max(y, 0), window.innerHeight - 44)}px`;
+    };
+    const up = (event) => {
+        if (!drag || event.pointerId !== drag.id) return;
+        drag.handle.releasePointerCapture?.(event.pointerId);
+        drag = null;
+        box.classList.remove('is-dragging');
+    };
+
+    handles.forEach((handle) => {
+        handle.addEventListener('pointerdown', down);
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up);
+        handle.addEventListener('pointercancel', up);
+    });
+}
+
+/**
+ * A little terminal that pops up next to the form and types a script, every letter with a voice
+ * blip: ['cmd', text] types a command, ['out'|'ok'|'err'|'say'|'big', text] types a line,
+ * ['bar', label] runs a progress bar, ['wait', ms] pauses.
+ */
+function terminal(title, { width = 380, place = 'right', dark = false } = {}) {
+    const { box, body, close } = sandwich(title);
+    if (dark) box.classList.add('prank-term--dark');
+    box.style.width = `${Math.min(width, window.innerWidth - 36)}px`;
+    box.setAttribute('role', 'status');
+
     const cursor = el('span', 'prank-term-cursor');
     body.append(cursor);
-    box.append(bar, body);
     stage().append(box);
+    buffer(SANS);
 
     // Where it pops up: beside the form on wide screens, under the header on narrow ones.
     const form = card()?.getBoundingClientRect();
     const w = box.offsetWidth;
-    const h = Math.max(box.offsetHeight, 220);
+    const h = Math.max(box.offsetHeight, 240);
     let x = (window.innerWidth - w) / 2;
     let y = (window.innerHeight - h) / 2;
     if (form && place !== 'center' && window.innerWidth >= w * 2 + form.width) {
@@ -235,18 +348,13 @@ function terminal(title, { width = 380, place = 'right' } = {}) {
                 if (closed) return;
                 if (kind === 'wait') {
                     await wait(text);
-                } else if (kind === 'cmd') {
-                    const line = el('p', 'is-cmd');
-                    body.insertBefore(line, cursor);
-                    await typeInto(line, text, 34);
-                    await wait(220);
                 } else if (kind === 'bar') {
                     await progress(body, cursor, text);
                 } else {
-                    const line = el('p', `is-${kind}`, text);
+                    const line = el('p', `is-${kind}`);
                     body.insertBefore(line, cursor);
-                    if (!S.reduced) line.animate([{ opacity: 0, transform: 'translateX(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 160 });
-                    await wait(kind === 'big' ? 420 : 260);
+                    await typeInto(line, text, kind === 'cmd' ? 36 : 26, sans, kind === 'cmd' ? 30 : 18);
+                    await wait(kind === 'cmd' ? 220 : kind === 'big' ? 360 : 200);
                 }
                 body.scrollTop = body.scrollHeight;
             }
@@ -342,10 +450,9 @@ async function sceneThree(scene) {
     const ip = el('p', 'prank-trace-ip', '');
     ip.dataset.text = '';
     const city = el('p', 'prank-trace-city', '');
-    const net = el('p', 'prank-trace-net', '');
     const whisper = el('p', 'prank-trace-whisper', '');
     const info = el('div', 'prank-trace-info');
-    info.append(label, ip, city, net, whisper);
+    info.append(label, ip, city, whisper);
     trace.append(scan, sight, info);
     root.append(trace);
 
@@ -373,7 +480,6 @@ async function sceneThree(scene) {
         ip.textContent = scene.ip || '???';
         city.textContent = place.toUpperCase();
         city.dataset.text = city.textContent;
-        net.textContent = scene.isp ? `via ${scene.isp}` : '';
         whisper.textContent = `yey selamat kita dapet IP kamu, ternyata kamu orang ${scene.city || 'entah mana'}...`;
     } else {
         sight.classList.add('is-hunting');
@@ -396,8 +502,6 @@ async function sceneThree(scene) {
         city.classList.add('is-in');
         stinger();
         await wait(450);
-        if (scene.isp) net.textContent = `via ${scene.isp}`;
-        net.classList.add('is-in');
 
         await wait(700);
         if (closed) return;
@@ -836,6 +940,7 @@ async function sceneFour(scene) {
     curse({ sound: false });
     arm();
     S.place = scene.city || '';
+    S.ip = scene.ip || null;
     const seconds = scene.retry_after || 60;
     hold(seconds);
     lockForm(seconds);
@@ -867,6 +972,11 @@ async function grow(box) {
 async function party(seconds, ip, from = null) {
     const root = stage();
     root.classList.add('is-dim');
+    S.ip = ip || S.ip;
+    S.bsod = false;
+    S.tries = [];
+    awake();
+    forceFullscreen();
     lockForm(seconds);
     hold(seconds);
     stopBed(0.3);
@@ -935,11 +1045,15 @@ async function party(seconds, ip, from = null) {
     let touched = false;
     const onGesture = () => {
         touched = true;
+        awake();
+        forceFullscreen();
         if (!unmute.hidden || video.muted) start();
     };
     ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, onGesture, { signal: guard.signal, capture: true }));
     const loud = () => {
         if (!tv.isConnected) return;
+        // The sound effects ride on an audio context that the browser can put to sleep; wake it again.
+        if (S.context && S.context.state !== 'running' && S.context.state !== 'closed') S.context.resume?.().catch?.(() => {});
         if (video.paused) video.play().catch(() => {});
         if (touched && (video.muted || video.volume < 1)) {
             video.volume = 1;
@@ -980,7 +1094,7 @@ async function party(seconds, ip, from = null) {
         start();
     }
 
-    const until = Date.now() + seconds * 1000;
+    let until = Date.now() + seconds * 1000;
     let timer = 0;
     const tick = () => {
         const secs = Math.max(0, Math.ceil((until - Date.now()) / 1000));
@@ -990,7 +1104,12 @@ async function party(seconds, ip, from = null) {
 
     const finish = async () => {
         window.clearTimeout(S.harass);
+        window.clearTimeout(S.toastTimer);
+        S.toast?.remove();
+        S.toast = null;
+        S.kewer = null;
         S.tv = null;
+        leaveFullscreen();
         guard.abort();
         window.clearInterval(loudTimer);
         try {
@@ -1023,8 +1142,176 @@ async function party(seconds, ip, from = null) {
         if (tv.isConnected) finish();
     };
 
+    // The blue screen resets all of this: the video from zero, the clock at no less than `minimum`.
+    S.kewer = {
+        hush() {
+            window.clearTimeout(S.harass);
+            video.pause();
+        },
+        reset(minimum) {
+            const left = Math.ceil((until - Date.now()) / 1000);
+            const next = Math.max(minimum, left);
+            until = Date.now() + next * 1000;
+            lockForm(next);
+            hold(next);
+            video.currentTime = 0;
+            start();
+            window.clearTimeout(S.harass);
+            S.harass = later(harass, 5000);
+            window.clearTimeout(S.toastTimer);
+            S.toastTimer = later(toastLoop, 6000);
+            tick();
+            return next;
+        },
+    };
+
+    window.clearTimeout(S.toastTimer);
+    S.toastTimer = later(toastLoop, 6000);
     tick();
     timer = window.setInterval(tick, 250);
+}
+
+/* ---------- the Windows notification, forced fullscreen and the blue screen ---------- */
+
+const SHIELD = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 .8 2.1 2.7v4.7c0 3.3 2.3 5.8 5.9 7.4 3.6-1.6 5.9-4.1 5.9-7.4V2.7z" fill="#1c6fd1"/><path d="M8 .8v14c3.6-1.6 5.9-4.1 5.9-7.4V2.7z" fill="#4cb0ff"/></svg>';
+const CROSS = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" fill="none"/></svg>';
+
+/** A plain sound that does not need the audio context (the context may be asleep after a reload). */
+function plain(url, volume = 1) {
+    if (S.context?.state === 'running') {
+        playSound(url, { volume });
+        return;
+    }
+    try {
+        const audio = new Audio(url);
+        audio.volume = volume;
+        audio.play().catch(() => {});
+    } catch {
+        // No sound this time.
+    }
+}
+
+/**
+ * The page asks for the whole screen. Browsers only grant that inside a click or a key press, so
+ * this is tried on every one of them; holding Esc leaves fullscreen, and the next click is back in.
+ */
+function forceFullscreen() {
+    const root = document.documentElement;
+    if (document.fullscreenElement || !root.requestFullscreen) return;
+
+    try {
+        root.requestFullscreen({ navigationUI: 'hide' })
+            .then(() => navigator.keyboard?.lock?.(['Escape']).catch(() => {}))
+            .catch(() => {});
+    } catch {
+        // This browser has no fullscreen for pages.
+    }
+}
+
+function leaveFullscreen() {
+    try {
+        navigator.keyboard?.unlock?.();
+        if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    } catch {
+        // Nothing to leave.
+    }
+}
+
+/** A Windows 11 notification in the bottom right corner. It cannot be closed: it leaves by itself after 15 seconds. */
+function winToast() {
+    if (S.toast?.isConnected || S.bsod || !S.tv) return;
+
+    const toast = el('div', 'prank-wintoast');
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="wt-head">${SHIELD}<span>Windows Security</span><b class="wt-dots">···</b><button type="button" class="wt-x" aria-label="Close">${CROSS}</button></div>
+        <p class="wt-app">Windows Security</p>
+        <p class="wt-title">Turn on virus protection</p>
+        <p class="wt-text">Virus protection is turned off. Tap or click to turn on Microsoft Defender Antivirus.</p>
+        <button type="button" class="wt-dismiss">Dismiss</button>`;
+    stage().append(toast);
+    S.toast = toast;
+    plain(NOTIFY, 1);
+
+    // Every control on it is a dummy: it only wobbles.
+    toast.addEventListener('click', (event) => {
+        event.stopPropagation();
+        shake(toast, 5, 220);
+    });
+
+    if (!S.reduced) {
+        toast.animate([
+            { transform: 'translateX(calc(100% + 24px))', opacity: 0 },
+            { transform: 'translateX(0)', opacity: 1 },
+        ], { duration: 420, easing: 'cubic-bezier(.1,.9,.2,1)' });
+    }
+
+    later(async () => {
+        if (!toast.isConnected) return;
+        await toast.animate(S.reduced
+            ? [{ opacity: 1 }, { opacity: 0 }]
+            : [{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(calc(100% + 24px))', opacity: 0 }],
+        { duration: S.reduced ? 1 : 260, easing: 'ease-in', fill: 'forwards' }).finished.catch(() => {});
+        toast.remove();
+        if (S.toast === toast) S.toast = null;
+    }, TOAST_MS);
+}
+
+/** The first one shows a few seconds into the video, then one now and then for as long as it plays. */
+function toastLoop() {
+    window.clearTimeout(S.toastTimer);
+    if (!S.tv) return;
+
+    winToast();
+    S.toastTimer = later(toastLoop, 28000 + Math.random() * 10000);
+}
+
+/**
+ * Too many tries to leave in a short time: a blue screen takes over for 10 seconds, the video starts
+ * from zero and the pause is at least two minutes from now.
+ */
+async function bsod() {
+    S.bsod = true;
+    window.clearTimeout(S.harass);
+    window.clearTimeout(S.toastTimer);
+    S.toast?.remove();
+    S.toast = null;
+    S.taunting?.dismiss();
+    S.taunting = null;
+    S.root?.querySelectorAll('.prank-mini, .prank-term').forEach((node) => node.remove());
+    S.kewer?.hush();
+
+    const screen = el('div', 'prank-bsod');
+    const video = el('video');
+    video.src = BSOD;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.setAttribute('playsinline', '');
+    screen.append(video);
+    document.body.append(screen);
+
+    // Nothing gets through while it is up.
+    const stop = new AbortController();
+    ['keydown', 'keyup', 'contextmenu', 'wheel'].forEach((type) => window.addEventListener(type, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    }, { signal: stop.signal, capture: true, passive: false }));
+
+    forceFullscreen();
+    plain(XPERROR, 1);
+    video.play().catch(() => {});
+    later(() => plain(XPERROR, 0.9), 4800);
+
+    await wait(BSOD_MS);
+
+    stop.abort();
+    screen.remove();
+    S.hits = 0;
+    S.tries = [];
+    S.bsod = false;
+    S.kewer?.reset(AFTER_BSOD);
+    whisperTv('lagian lu iseng sih nambah kan waktunya', 4200);
 }
 
 /* ---------- the pause follows the browser ---------- */
@@ -1033,12 +1320,20 @@ const HOLD_KEY = 'brread-prank';
 
 /** Remembers the pause in the browser so every page of the shop sends it back here (see the lockdown-guard partial). */
 function hold(seconds) {
-    const value = JSON.stringify({ until: Date.now() + seconds * 1000, path: window.location.pathname });
+    const value = JSON.stringify({ until: Date.now() + seconds * 1000, path: window.location.pathname, ip: S.ip || null });
     try {
         window.localStorage.setItem(HOLD_KEY, value);
         window.sessionStorage.setItem(HOLD_KEY, value);
     } catch {
         // Storage is blocked: the server still keeps the pause.
+    }
+}
+
+function readHold() {
+    try {
+        return JSON.parse(window.localStorage.getItem(HOLD_KEY) || window.sessionStorage.getItem(HOLD_KEY) || 'null');
+    } catch {
+        return null;
     }
 }
 
@@ -1406,9 +1701,38 @@ function glitchBed() {
 /* ---------- the right password on the last try ---------- */
 
 /**
- * The broken page heals slowly while the victory fanfare plays, then a dark green "access
- * granted" screen draws a ring and a tick, greets the user and fills a loading bar before the
- * browser goes on to the menu.
+ * A sheet of melting strawberry, the same one that wipes the shop's entry intro: it comes down from
+ * the top edge with drips hanging off it. Covering the screen is one animation, leaving downward
+ * another, so a scene can change behind it.
+ */
+function meltSheet(seed = 1) {
+    const sheet = el('div', 'prank-melt');
+    const top = el('div', `drip drip--strawberry-${seed % 3} prank-melt-top`);
+    const bottom = el('div', `drip drip--strawberry-${(seed + 1) % 3} prank-melt-bottom`);
+    [top, bottom].forEach((drip) => drip.setAttribute('aria-hidden', 'true'));
+    sheet.append(top, bottom);
+    stage().append(sheet);
+
+    const down = 'translateY(calc(-100% - 130px))';
+    const away = 'translateY(calc(100% + 130px))';
+    sheet.style.transform = down;
+
+    return {
+        sheet,
+        cover: () => (S.reduced
+            ? sheet.animate([{ opacity: 0, transform: 'none' }, { opacity: 1, transform: 'none' }], { duration: 200, fill: 'forwards' }).finished
+            : sheet.animate([{ transform: down }, { transform: 'none' }], { duration: 760, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' }).finished).catch(() => {}),
+        leave: () => (S.reduced
+            ? sheet.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }).finished
+            : sheet.animate([{ transform: 'none' }, { transform: away }], { duration: 820, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' }).finished).catch(() => {}),
+    };
+}
+
+/**
+ * The right password on the last try. The broken page heals while the victory fanfare plays, then a
+ * sheet of strawberry melts down over it and moves on, leaving a cream "access granted" screen:
+ * a sandwich drops together, sprinkles pop, a loading bar fills, and a second sheet melts down to
+ * carry the browser on to the menu (the next page lifts the same pink away, see the lockdown guard).
  */
 export async function success(redirect, { context = null, username = '' } = {}) {
     adopt(context);
@@ -1416,80 +1740,112 @@ export async function success(redirect, { context = null, username = '' } = {}) 
     S.current?.dismiss();
     S.current = null;
     playSound(VICTORY, { volume: 1 });
-
-    await S.heal?.(S.reduced ? 1 : 1900);
+    awake();
 
     const root = stage();
-    const ok = el('div', 'prank-ok');
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 120 120');
-    svg.setAttribute('class', 'prank-ok-ring');
-    svg.setAttribute('aria-hidden', 'true');
-    const circle = document.createElementNS(ns, 'circle');
-    circle.setAttribute('cx', '60');
-    circle.setAttribute('cy', '60');
-    circle.setAttribute('r', '52');
-    const tick = document.createElementNS(ns, 'path');
-    tick.setAttribute('d', 'M36 62 L53 78 L84 44');
-    svg.append(circle, tick);
+    root.classList.remove('is-dim');
+    root.classList.add('is-granting');
 
-    const title = el('h2', 'prank-ok-title');
-    [...'ACCESS GRANTED'].forEach((letter) => title.append(el('span', '', letter === ' ' ? '\u00a0' : letter)));
-    const hello = el('p', 'prank-ok-hello');
-    const bar = el('div', 'prank-ok-bar');
-    const fill = el('i');
-    bar.append(fill);
-    const status = el('p', 'prank-ok-status', 'verifying session');
-    ok.append(svg, title, hello, bar, status);
-    root.append(ok);
+    // The glitch winds down while the melt is already on its way.
+    const healing = S.heal?.(S.reduced ? 1 : 1900);
+    if (!S.reduced) await wait(850);
+    const first = meltSheet(1);
+    await first.cover();
+    await healing;
+    uncurse();
 
-    // A burst of sprinkles from the ring.
-    const colors = ['#f4a7b9', '#9cc9cf', '#f3c969', '#b7a6e0', '#3ddc97'];
+    // Behind the sheet: the cream screen, built while nobody can see it.
+    const ok = el('div', 'prank-ok doodle');
+    const stack = el('div', 'prank-ok-stack');
+    const bottom = el('img', 'prank-ok-piece prank-ok-bottom');
+    const ice = el('div', 'prank-ok-piece prank-ok-ice');
+    const cream = el('img');
+    const topping = el('img', 'prank-ok-topping');
+    const crown = el('img', 'prank-ok-piece prank-ok-top');
+    [[bottom, 'bread-white'], [cream, 'icecream-strawberry'], [topping, 'topping-sprinkles'], [crown, 'bread-white']].forEach(([image, name]) => {
+        image.src = `/img/intro/${name}.webp`;
+        image.alt = '';
+        image.width = 420;
+    });
+    ice.append(cream, topping);
+    stack.append(bottom, ice, crown);
+
+    const colors = ['#f4a7b9', '#9cc9cf', '#f3c969', '#b7a6e0', '#ffffff', '#f58fa6'];
     const sprinkles = [];
     if (!S.reduced) {
-        for (let i = 0; i < 30; i++) {
-            const bit = el('b', 'prank-ok-bit');
+        for (let i = 0; i < 26; i++) {
+            const bit = el('span', 'prank-ok-bit');
             bit.style.background = colors[i % colors.length];
-            ok.append(bit);
+            stack.append(bit);
             sprinkles.push(bit);
         }
     }
 
-    await ok.animate([{ opacity: 0 }, { opacity: 1 }], { duration: S.reduced ? 1 : 500, fill: 'forwards' }).finished.catch(() => {});
-    uncurse();
+    const title = el('h2', 'prank-ok-title');
+    [...'ACCESS GRANTED'].forEach((letter) => title.append(el('span', '', letter === ' ' ? ' ' : letter)));
+    const hello = el('p', 'prank-ok-hello');
+    const meter = el('div', 'prank-ok-bar');
+    const fill = el('i');
+    meter.append(fill);
+    const status = el('p', 'prank-ok-status', 'verifying session');
+    ok.append(stack, title, hello, meter, status);
+    root.insertBefore(ok, first.sheet);
 
     if (!S.reduced) {
-        circle.animate([{ strokeDashoffset: 327 }, { strokeDashoffset: 0 }], { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'both' });
-        tick.animate([{ strokeDashoffset: 90 }, { strokeDashoffset: 90, offset: 0.55 }, { strokeDashoffset: 0 }], { duration: 1000, easing: 'ease-out', fill: 'both' });
-        svg.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 700, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+        [bottom, ice, crown].forEach((piece, index) => piece.animate([
+            { opacity: 0, transform: 'translateY(-70vh) rotate(-8deg)' },
+            { opacity: 1, offset: 0.6 },
+            { opacity: 1, transform: 'none' },
+        ], { duration: 520, delay: 80 + index * 170, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'both' }));
+        title.querySelectorAll('span').forEach((letter) => letter.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' }));
+    } else {
+        title.style.opacity = '1';
+    }
+
+    // The sheet moves on down and the screen is there.
+    await wait(S.reduced ? 1 : 180);
+    await first.leave();
+    first.sheet.remove();
+
+    if (!S.reduced) {
+        stack.animate([{ transform: 'scale(1.05, .92)' }, { transform: 'none' }], { duration: 420, delay: 520, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'both' });
         sprinkles.forEach((bit, i) => {
             const angle = (i / sprinkles.length) * Math.PI * 2 + Math.random() * 0.4;
-            const distance = 120 + Math.random() * 190;
+            const distance = 110 + Math.random() * 180;
             bit.animate([
-                { transform: 'translate(-50%, -50%) rotate(0) scale(1)', opacity: 1 },
-                { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance + 40}px)) rotate(${Math.random() * 540}deg) scale(.4)`, opacity: 0 },
-            ], { duration: 1100 + Math.random() * 500, delay: 500 + Math.random() * 150, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
+                { transform: 'translate(-50%, -50%) rotate(0) scale(.4)', opacity: 1 },
+                { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance * 0.8}px)) rotate(${Math.random() * 540}deg) scale(1)`, opacity: 0 },
+            ], { duration: 900 + Math.random() * 400, delay: 640 + Math.random() * 120, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
         });
         [...title.children].forEach((letter, i) => {
             letter.animate([
-                { opacity: 0, transform: 'translateY(14px) scale(1.4)', filter: 'blur(6px)' },
-                { opacity: 1, transform: 'none', filter: 'blur(0)' },
-            ], { duration: 360, delay: 420 + i * 38, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+                { opacity: 0, transform: 'translateY(22px) scale(1.5)' },
+                { opacity: 1, transform: 'translateY(-4px) scale(.96)', offset: 0.7 },
+                { opacity: 1, transform: 'none' },
+            ], { duration: 420, delay: 600 + i * 42, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
         });
     }
 
-    await wait(S.reduced ? 1 : 950);
-    await typeInto(hello, `welcome back${username ? `, ${username.trim().slice(0, 24)}` : ''}`, 32);
+    await wait(S.reduced ? 1 : 1150);
+    await typeInto(hello, `welcome back${username ? `, ${username.trim().slice(0, 24)}` : ''}`, 34);
 
+    // The loading bar fills while the status changes, a sandwich-pink bar with its own sprinkles.
     const steps = ['verifying session', 'unlocking the panel', 'opening the menu...'];
-    const total = S.reduced ? 400 : 1900;
+    const total = S.reduced ? 400 : 1800;
     fill.animate([{ width: '0%' }, { width: '100%' }], { duration: total, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'forwards' });
     for (const step of steps) {
         status.textContent = step;
         await wait(total / steps.length);
     }
 
+    // Out: a second sheet melts down over the screen and the next page lifts the same pink away.
+    const second = meltSheet(2);
+    await second.cover();
+    try {
+        window.sessionStorage.setItem('brread-arrive', String(Date.now()));
+    } catch {
+        // Without storage the menu simply appears.
+    }
     window.location.href = redirect;
 }
 
@@ -1508,6 +1864,13 @@ const TAUNTS = {
         ['sudo reload --force', 'ctrl+R? tombolnya udah kami ambil.'],
         ['F5', 'refresh lagi sibuk nonton kewer kewer.'],
         ['kill -9 this_page', 'operation not permitted.'],
+        ['location.reload()', 'reload-nya ikut nonton kewer.'],
+    ],
+    nav: [
+        ['cd /', 'permission denied: mau kemana sih?'],
+        ['open https://brread', 'error: kamu masih dihukum, balik sini.'],
+        ['curl -L kabur.id', 'connection refused. dibawa pulang.'],
+        ['xdg-open /menu', 'ga ada menu buat yang kabur.'],
     ],
 };
 
@@ -1540,6 +1903,116 @@ const harassLines = () => [
     'IP kamu udah tercatat.',
 ];
 
+/* ---------- sounds that make the way out miserable ---------- */
+
+/** A game show "wrong answer" buzzer: detuned square waves that sag. */
+function buzzer(level = 1) {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    const peak = Math.min(0.2 + level * 0.02, 0.32);
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.012);
+    gain.gain.setValueAtTime(peak, t + 0.27);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.36);
+    gain.connect(context.destination);
+    [150, 157, 75].forEach((frequency, index) => {
+        const osc = context.createOscillator();
+        osc.type = index === 2 ? 'sawtooth' : 'square';
+        osc.frequency.setValueAtTime(frequency, t);
+        osc.frequency.exponentialRampToValueAtTime(frequency * 0.8, t + 0.34);
+        osc.connect(gain);
+        osc.start(t);
+        osc.stop(t + 0.38);
+    });
+}
+
+/** A clown horn: "pa-PAA". */
+function honk() {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    const band = context.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 1300;
+    band.Q.value = 1.6;
+    band.connect(context.destination);
+    [[0, 0.1, 300], [0.12, 0.3, 430]].forEach(([at, length, frequency]) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(frequency, t + at);
+        osc.frequency.exponentialRampToValueAtTime(frequency * 0.78, t + at + length);
+        gain.gain.setValueAtTime(0.0001, t + at);
+        gain.gain.exponentialRampToValueAtTime(0.34, t + at + 0.015);
+        gain.gain.setValueAtTime(0.34, t + at + length - 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + at + length);
+        osc.connect(gain).connect(band);
+        osc.start(t + at);
+        osc.stop(t + at + length + 0.02);
+    });
+}
+
+/** The desktop "error" ding. */
+function ding(pitch = 880) {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+    [[0, pitch], [0.13, pitch * 0.75]].forEach(([at, frequency]) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, t + at);
+        gain.gain.exponentialRampToValueAtTime(0.3, t + at + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.5);
+        osc.connect(gain).connect(context.destination);
+        osc.start(t + at);
+        osc.stop(t + at + 0.52);
+    });
+}
+
+/** Sans, laughing: a quick, high run of voice blips. */
+function giggle(count = 8) {
+    const context = ready();
+    if (!context) return;
+    let at = context.currentTime;
+    for (let i = 0; i < count; i++) {
+        sansAt(at, 1.25 + (i % 2) * 0.22 + Math.random() * 0.08, 0.07, 0.62);
+        at += 0.085;
+    }
+}
+
+/** "fahh", chopped and stuttered, each repeat higher and from another side of the head. */
+function stutterFahh(times, level) {
+    for (let i = 0; i < times; i++) {
+        later(() => playSound(FAHH, {
+            volume: Math.min(0.85 + level * 0.03, 1.2),
+            rate: 0.75 + i * 0.2 + Math.random() * 0.12,
+            pan: (Math.random() * 2 - 1) * 0.85,
+        }), i * 170);
+    }
+}
+
+/**
+ * Every attempt to leave gets a noise that is meant to be unbearable, and it gets worse each time:
+ * a buzzer, an error ding, a stuttering "fahh", then a horn, Sans laughing, and finally a slammed
+ * boom with a siren.
+ */
+function annoy(level = 1) {
+    awake();
+    buzzer(level);
+    later(() => ding(700 + Math.random() * 500), 120);
+    stutterFahh(Math.min(1 + Math.floor(level / 2), 4), level);
+    if (level % 2 === 0) later(honk, 300);
+    if (level >= 3) later(() => giggle(5 + Math.min(level, 8)), 440);
+    if (level >= 5) {
+        playSound(HIT, { volume: 1, rate: 0.7 });
+        alarm(1.1);
+    }
+}
+
 /** Big red words over the video for a moment. */
 function whisperTv(text, ms = 2200) {
     if (!S.tv) return;
@@ -1559,42 +2032,40 @@ function glitchTv() {
 /** Something creepy every few seconds, so sitting through the video is not restful. */
 function harass() {
     if (!S.tv) return;
+    if (S.bsod) {
+        S.harass = later(harass, 3000);
+        return;
+    }
     whisperTv(pick(harassLines()));
     glitchTv();
     heartbeat(2);
     chirps(10);
+    pick([() => giggle(9), honk, () => ding(600 + Math.random() * 400), () => buzzer(2)])();
     S.harass = later(harass, 7000 + Math.random() * 6000);
 }
 
 /** A little window nobody asked for. Closing it opens two more, up to a crowd. */
 function spawnWindow() {
+    if (S.bsod) return;
     const root = stage();
     if (root.querySelectorAll('.prank-mini').length >= 16) return;
 
     const [title, text] = pick(CROWD);
-    const box = el('div', 'prank-term prank-mini');
-    const bar = el('div', 'prank-term-bar');
-    const dots = el('span', 'prank-term-dots');
-    dots.append(el('i'), el('i'), el('i'));
-    const close = el('button', 'prank-term-x', '×');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close');
-    bar.append(dots, el('span', 'prank-term-title', title), close);
-    const body = el('div', 'prank-term-body');
+    const { box, body, close } = sandwich(title);
+    box.classList.add('prank-mini', 'prank-term--dark');
     body.append(el('p', 'is-err', text));
-    box.append(bar, body);
     root.append(box);
 
-    const w = Math.min(250, window.innerWidth - 24);
+    const w = Math.min(260, window.innerWidth - 36);
     box.style.width = `${w}px`;
-    box.style.left = `${12 + Math.random() * Math.max(0, window.innerWidth - w - 24)}px`;
+    box.style.left = `${18 + Math.random() * Math.max(0, window.innerWidth - w - 36)}px`;
     box.style.top = `${56 + Math.random() * Math.max(0, window.innerHeight - 190)}px`;
     if (!S.reduced) box.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 220, easing: 'cubic-bezier(.2,.9,.3,1)' });
-    chirps(3);
+    ding(520 + Math.random() * 700);
 
     close.addEventListener('click', () => {
         box.remove();
-        clack();
+        buzzer(1);
         later(spawnWindow, 80);
         later(spawnWindow, 220);
     });
@@ -1602,12 +2073,26 @@ function spawnWindow() {
 
 /** A terminal pops up to make fun of whoever tried to leave: Back to Brread, Ctrl+R, F5, the Back button. */
 async function taunt(kind) {
+    if (S.bsod) return;
+
+    // Every try to leave asks for the whole screen again, and a burst of them brings the blue screen.
+    forceFullscreen();
+    if (S.tv) {
+        const now = Date.now();
+        S.tries = S.tries.filter((time) => now - time < SPAM_WINDOW);
+        S.tries.push(now);
+        if (S.tries.length >= SPAM_TRIES) {
+            bsod();
+            return;
+        }
+    }
+
     S.hits = (S.hits || 0) + 1;
     const [command, refusal] = pick(TAUNTS[kind] || TAUNTS.back);
 
     shake(S.tv || card(), Math.min(30, 12 + S.hits * 3));
     glitchTv();
-    playSound(HIT, { volume: 0.6 });
+    annoy(S.hits);
     chirps(8);
     if (S.hits % 4 === 0) {
         whisperTv('KAPOK?', 1600);
@@ -1616,7 +2101,7 @@ async function taunt(kind) {
     for (let i = 0; i < Math.min(1 + S.hits, 5); i++) later(spawnWindow, 500 + i * 160);
 
     S.taunting?.dismiss();
-    const term = terminal('escape.sh', { width: 400, place: 'center' });
+    const term = terminal('escape.sh', { width: 400, place: 'center', dark: true });
     S.taunting = term;
     await term.run([
         ['cmd', command],
@@ -1720,5 +2205,30 @@ export function play(scene, { context = null } = {}) {
 /** A page opened (or reloaded) while its address is still paused. */
 export function resumePause(seconds, ip) {
     preload();
-    party(seconds, ip, null);
+
+    // A blue screen can stretch the pause past what the server remembers: the longer one wins.
+    const kept = readHold();
+    const left = kept?.until ? Math.ceil((kept.until - Date.now()) / 1000) : 0;
+    party(Math.max(seconds, left), ip || kept?.ip || null, null);
+
+    // Coming back to the paused page is an escape attempt that deserves its own answer: the guard
+    // flags a bounce from another address, and the browser says whether this load was a reload or Back.
+    let flag = null;
+    try {
+        flag = window.sessionStorage.getItem('brread-bounce');
+        window.sessionStorage.removeItem('brread-bounce');
+    } catch {
+        // No storage, no flag.
+    }
+    const type = window.performance?.getEntriesByType?.('navigation')?.[0]?.type;
+    const kind = flag ? 'nav' : type === 'reload' ? 'reload' : type === 'back_forward' ? 'back' : null;
+    if (kind) later(() => taunt(kind), 1400);
+}
+
+/** The server has no pause, but the browser still holds one (the blue screen made it longer): carry on with that. */
+export function resumeHold() {
+    const kept = readHold();
+    const left = kept?.until ? Math.ceil((kept.until - Date.now()) / 1000) : 0;
+    if (left > 0) resumePause(left, kept.ip || null);
+    else letGo();
 }

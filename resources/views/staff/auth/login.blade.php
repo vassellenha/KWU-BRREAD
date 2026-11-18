@@ -106,9 +106,9 @@
                             x-bind:aria-label="showPassword ? 'Hide password' : 'Show password'"
                             x-bind:aria-pressed="showPassword"
                             aria-label="Show password"
-                            class="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-150 hover:bg-surface-container"
+                            class="login-eye absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full"
                         >
-                            <span class="material-symbols-outlined text-[20px]" x-text="showPassword ? 'visibility_off' : 'visibility'">visibility</span>
+                            <span class="material-symbols-outlined text-[22px]" x-text="showPassword ? 'visibility_off' : 'visibility'">visibility</span>
                         </button>
                     </div>
                 </div>

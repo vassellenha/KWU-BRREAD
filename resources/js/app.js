@@ -416,12 +416,24 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
         if (paused > 0) {
             import('./prank.js').then((prank) => prank.resumePause(paused, this.$el.dataset.prankIp || null));
         } else {
-            // The server says there is no pause (any more): drop what the browser still remembers of one.
+            // The server has no pause (any more). The browser may still hold a longer one (a blue screen
+            // stretches it), and that is carried on; anything stale is dropped.
+            let kept = null;
             try {
-                localStorage.removeItem('brread-prank');
-                sessionStorage.removeItem('brread-prank');
+                kept = JSON.parse(localStorage.getItem('brread-prank') || sessionStorage.getItem('brread-prank') || 'null');
             } catch {
                 // Storage is blocked.
+            }
+
+            if (kept && kept.until > Date.now()) {
+                import('./prank.js').then((prank) => prank.resumeHold());
+            } else {
+                try {
+                    localStorage.removeItem('brread-prank');
+                    sessionStorage.removeItem('brread-prank');
+                } catch {
+                    // Storage is blocked.
+                }
             }
         }
     },

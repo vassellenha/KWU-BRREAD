@@ -1680,6 +1680,39 @@ body.staff-login .staff-login-card [class*='bg-surface-container']:not(input) {
     border-color: rgba(255, 255, 255, 0.1);
 }
 body.staff-login main a:hover { color: #ff7b8c; }
+
+/* The show/hide password eye. It sits on the pale input, so it carries its own dark colour, a chip
+   background and an outline instead of the page's light text colour, which vanishes there. */
+body.staff-login .login-eye {
+    border: 1.5px solid #2d2b33;
+    background-color: #f7a3b6;
+    color: #2d2b33;
+    box-shadow: 0 2px 0 #2d2b33;
+    transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+body.staff-login .login-eye:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 #2d2b33;
+}
+body.staff-login .login-eye[aria-pressed='true'] {
+    background-color: #2d2b33;
+    color: #ffffff;
+    box-shadow: 0 2px 0 #f7a3b6;
+}
+@media (hover: hover) and (pointer: fine) {
+    body.staff-login .login-eye:hover {
+        background-color: #ff7b8c;
+    }
+    body.staff-login .login-eye[aria-pressed='true']:hover {
+        background-color: #46434f;
+    }
+}
+body.is-broken .login-eye {
+    border-color: #3a0610;
+    background-color: #ff6b81;
+    color: #2a0309;
+    box-shadow: 0 2px 0 #3a0610;
+}
 @media (min-width: 1024px) {
     .site-nav-burger {
         display: none;
@@ -2807,97 +2840,163 @@ body.is-locked #login-submit [data-login-timer] {
     opacity: 1;
 }
 
+/* Every terminal is an ice cream sandwich: toasted bread slices around strawberry cream. The title
+   bar (top slice) and the bottom slice are the handles it is dragged by. */
 .prank-term {
     position: absolute;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    border: 1px solid rgb(247 163 182 / 0.35);
-    border-radius: 14px;
-    background: #16151b;
-    box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(0 0 0 / 0.4);
+    color: #4a2a18;
     pointer-events: auto;
     transform-origin: 50% 40%;
+    filter: drop-shadow(0 18px 20px rgb(60 24 12 / 0.45)) drop-shadow(0 2px 0 rgb(40 16 6 / 0.25));
+    transition: filter 160ms ease, rotate 160ms ease;
+}
+
+.prank-term.is-dragging {
+    rotate: -1.5deg;
+    filter: drop-shadow(0 30px 28px rgb(60 24 12 / 0.5)) drop-shadow(0 2px 0 rgb(40 16 6 / 0.25));
+}
+
+.prank-term-bar,
+.prank-term-foot {
+    position: relative;
+    border: 2px solid #c98a40;
+    background:
+        radial-gradient(ellipse at 50% 0, rgb(255 255 255 / 0.55), transparent 70%),
+        linear-gradient(#f8dca6, #e9b86e);
+    box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.55), inset 0 -3px 0 rgb(176 112 44 / 0.32);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* The little air holes of a slice of bread. */
+.prank-term-bar::before,
+.prank-term-foot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+        radial-gradient(circle, rgb(157 94 33 / 0.34) 1.3px, transparent 1.8px),
+        radial-gradient(circle, rgb(157 94 33 / 0.24) 1px, transparent 1.5px);
+    background-size: 13px 13px, 13px 13px;
+    background-position: 0 0, 6.5px 6.5px;
+}
+
+.prank-term.is-dragging .prank-term-bar,
+.prank-term.is-dragging .prank-term-foot {
+    cursor: grabbing;
 }
 
 .prank-term-bar {
-    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 12px;
-    background: #24222b;
-    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+    padding: 9px 14px;
+    border-radius: 20px 20px 8px 8px;
 }
 
+.prank-term-foot {
+    z-index: 0;
+    height: 18px;
+    margin-top: -2px;
+    border-radius: 8px 8px 20px 20px;
+}
+
+/* The three traffic lights are sprinkles. */
 .prank-term-dots {
+    position: relative;
+    z-index: 1;
     display: flex;
-    gap: 6px;
+    gap: 7px;
 }
 
 .prank-term-dots i {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    background: #ff5f57;
+    width: 15px;
+    height: 6px;
+    border-radius: 3px;
+    background: #f58fa6;
+    transform: rotate(-32deg);
 }
 
-.prank-term-dots i:nth-child(2) { background: #febc2e; }
-.prank-term-dots i:nth-child(3) { background: #28c840; }
+.prank-term-dots i:nth-child(2) { background: #7fb7be; transform: rotate(14deg); }
+.prank-term-dots i:nth-child(3) { background: #e9b949; transform: rotate(-8deg); }
 
 .prank-term-title {
     position: absolute;
     left: 50%;
+    z-index: 1;
     transform: translateX(-50%);
-    color: rgb(251 238 228 / 0.6);
+    color: #6b3b17;
     font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     font-size: 12px;
+    font-weight: 700;
     white-space: nowrap;
 }
 
 .prank-term-x {
+    position: relative;
+    z-index: 1;
     margin-left: auto;
     border: 0;
     background: none;
-    color: rgb(251 238 228 / 0.5);
-    font-size: 18px;
+    color: #6b3b17;
+    font-size: 20px;
+    font-weight: 700;
     line-height: 1;
     cursor: pointer;
 }
 
 .prank-term-x:hover {
-    color: #f7a3b6;
+    color: #b4476a;
 }
 
+/* The cream: a little wider than the bread, as if squeezed out, with scattered sprinkles and drips over the lower slice. */
 .prank-term-body {
+    position: relative;
+    z-index: 1;
     max-height: 60vh;
-    padding: 14px 16px 16px;
+    margin: -4px -7px;
+    padding: 22px 22px 24px;
     overflow: auto;
-    color: #e8e4ea;
+    border-radius: 12px;
+    color: #4a2a18;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='150'%3E%3Cg stroke-width='5' stroke-linecap='round' opacity='.7'%3E%3Cline x1='16' y1='24' x2='28' y2='17' stroke='%23ffffff'/%3E%3Cline x1='84' y1='44' x2='93' y2='55' stroke='%239cc9cf'/%3E%3Cline x1='146' y1='20' x2='158' y2='24' stroke='%23f3c969'/%3E%3Cline x1='40' y1='96' x2='52' y2='90' stroke='%23b7a6e0'/%3E%3Cline x1='118' y1='102' x2='127' y2='113' stroke='%23ffffff'/%3E%3Cline x1='168' y1='82' x2='176' y2='93' stroke='%239cc9cf'/%3E%3Cline x1='72' y1='134' x2='84' y2='130' stroke='%23f3c969'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(ellipse at 18% 0, rgb(255 255 255 / 0.5), transparent 55%),
+        linear-gradient(180deg, #fdd5de 0%, #f9bccb 100%);
+    box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.5), inset 0 -4px 0 rgb(214 120 146 / 0.35);
     font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     font-size: 14px;
     line-height: 1.55;
 }
 
 .prank-term-body p {
+    position: relative;
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
 }
 
+.prank-term-body .is-cmd { font-weight: 700; }
 .prank-term-body .is-cmd::before {
     content: '$ ';
-    color: #f7a3b6;
+    color: #b4476a;
 }
 
-.prank-term-body .is-err { color: #ff6b81; }
+.prank-term-body .is-err { color: #b3173f; font-weight: 700; }
 .prank-term-body .is-err::before { content: '✗ '; }
-.prank-term-body .is-ok { color: #7ee2a8; }
-.prank-term-body .is-out { color: rgb(232 228 234 / 0.75); }
+.prank-term-body .is-ok { color: #1f7a52; font-weight: 700; }
+.prank-term-body .is-out { color: rgb(74 42 24 / 0.82); }
 
 .prank-term-body .is-say {
-    margin-top: 4px;
-    color: #fbeee4;
+    margin-top: 6px;
+    color: #3a1a0c;
     font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 17px;
     font-weight: 800;
@@ -2905,12 +3004,12 @@ body.is-locked #login-submit [data-login-timer] {
 
 .prank-term-body .is-say::before {
     content: '> ';
-    color: #f7a3b6;
+    color: #c0486e;
 }
 
 .prank-term-body .is-big {
     margin: 6px 0;
-    color: #f7a3b6;
+    color: #b4476a;
     font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: clamp(26px, 5vw, 38px);
     font-weight: 800;
@@ -2922,7 +3021,7 @@ body.is-locked #login-submit [data-login-timer] {
     width: 8px;
     height: 16px;
     margin-top: 2px;
-    background: #f7a3b6;
+    background: #6b4226;
     vertical-align: middle;
     animation: prank-blink 1s steps(1) infinite;
 }
@@ -3193,18 +3292,6 @@ body.is-locked #login-submit [data-login-timer] {
     35% { transform: none; filter: none; }
     77% { transform: translateY(2px) scaleY(0.92); opacity: 0.7; }
     79% { transform: none; opacity: 1; }
-}
-
-.prank-trace-net {
-    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
-    font-size: 14px;
-    color: rgb(251 238 228 / 0.55);
-    opacity: 0;
-    transition: opacity 300ms ease;
-}
-
-.prank-trace-net.is-in {
-    opacity: 1;
 }
 
 .prank-trace-whisper {
@@ -3548,10 +3635,117 @@ body.is-healing .prank-junk {
 
 .prank-mini .prank-term-body {
     min-height: 0;
+    padding: 16px 18px 18px;
+}
+
+.prank-mini .prank-term-foot {
+    height: 14px;
+}
+
+/* Over the Kewer video the windows keep the dark lockdown look instead of the sandwich. */
+.prank-term--dark {
+    overflow: hidden;
+    border: 1px solid rgb(247 163 182 / 0.35);
+    border-radius: 14px;
+    background: #16151b;
+    color: #e8e4ea;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(0 0 0 / 0.4);
+    filter: none;
+}
+
+.prank-term--dark.is-dragging {
+    rotate: 0deg;
+    filter: none;
+}
+
+.prank-term--dark .prank-term-foot,
+.prank-term--dark .prank-term-bar::before {
+    display: none;
+}
+
+.prank-term--dark .prank-term-bar {
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+    border-radius: 0;
+    background: #24222b;
+    box-shadow: none;
+}
+
+.prank-term--dark .prank-term-dots i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #ff5f57;
+    transform: none;
+}
+
+.prank-term--dark .prank-term-dots i:nth-child(2) { background: #febc2e; }
+.prank-term--dark .prank-term-dots i:nth-child(3) { background: #28c840; }
+
+.prank-term--dark .prank-term-title {
+    color: rgb(251 238 228 / 0.6);
+    font-weight: 400;
+}
+
+.prank-term--dark .prank-term-x {
+    color: rgb(251 238 228 / 0.5);
+    font-weight: 400;
+}
+
+.prank-term--dark .prank-term-x:hover {
+    color: #f7a3b6;
+}
+
+.prank-term--dark .prank-term-body {
+    margin: 0;
+    padding: 14px 16px 16px;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: #e8e4ea;
+}
+
+.prank-term--dark .prank-term-body .is-cmd { font-weight: 400; }
+.prank-term--dark .prank-term-body .is-cmd::before { color: #f7a3b6; }
+.prank-term--dark .prank-term-body .is-err { color: #ff6b81; font-weight: 400; }
+.prank-term--dark .prank-term-body .is-out { color: rgb(232 228 234 / 0.75); }
+.prank-term--dark .prank-term-body .is-say { color: #fbeee4; }
+.prank-term--dark .prank-term-body .is-say::before { color: #f7a3b6; }
+.prank-term--dark .prank-term-cursor { background: #f7a3b6; }
+
+.prank-mini.prank-term--dark .prank-term-body {
     padding: 12px 14px;
 }
 
-/* Access granted. */
+/* The melting strawberry sheet (same look as the entry intro) used to change scenes. */
+.prank.is-granting {
+    pointer-events: auto;
+}
+
+.prank-melt {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    background: #f7a3b6;
+}
+
+.prank-melt .drip {
+    z-index: 1;
+}
+
+.prank-melt-bottom {
+    top: calc(100% - 1px);
+}
+
+.prank-melt-top {
+    top: auto;
+    bottom: calc(100% - 1px);
+    transform: scaleY(-1);
+    transform-origin: center;
+}
+
+/* Access granted: the Brread cream screen with the sandwich that drops together. */
 .prank-ok {
     position: absolute;
     inset: 0;
@@ -3559,46 +3753,76 @@ body.is-healing .prank-junk {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: 10px;
     padding: 24px;
     pointer-events: auto;
-    background: radial-gradient(ellipse at 50% 42%, #12392a, #050c09 78%);
-    color: #d7fbe8;
+    background: #fff8f4;
+    color: #6b4226;
     text-align: center;
-    overflow: hidden;
 }
 
-.prank-ok-ring {
-    width: 128px;
-    height: 128px;
-    overflow: visible;
-    filter: drop-shadow(0 0 18px rgb(61 220 151 / 0.55));
+.prank-ok-stack {
+    position: relative;
+    width: min(62vw, 380px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform-origin: bottom;
 }
 
-.prank-ok-ring circle,
-.prank-ok-ring path {
-    fill: none;
-    stroke: #3ddc97;
-    stroke-width: 5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+.prank-ok-stack img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
-.prank-ok-ring circle {
-    stroke-dasharray: 327;
+.prank-ok-piece {
+    position: relative;
+    filter: drop-shadow(0 10px 14px rgb(113 59 44 / 0.22));
 }
 
-.prank-ok-ring path {
-    stroke-dasharray: 90;
+.prank-ok-ice {
+    z-index: 2;
+    width: 86%;
+    margin-top: -5%;
+}
+
+.prank-ok-topping {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: contain;
+}
+
+.prank-ok-top {
+    z-index: 3;
+}
+
+.prank-ok-bottom {
+    z-index: 1;
+    margin-top: -5%;
+}
+
+.prank-ok-bit {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    z-index: 4;
+    width: 22px;
+    height: 8px;
+    border-radius: 4px;
+    opacity: 0;
 }
 
 .prank-ok-title {
-    margin: 6px 0 0;
-    font-size: clamp(30px, 7vw, 56px);
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    color: #eafff4;
-    text-shadow: 0 0 22px rgb(61 220 151 / 0.6);
+    margin: 14px 0 0;
+    color: #a62d42;
+    font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(34px, 8vw, 64px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-shadow: 0 4px 0 #f1cdd5;
 }
 
 .prank-ok-title span {
@@ -3606,20 +3830,22 @@ body.is-healing .prank-junk {
 }
 
 .prank-ok-hello {
-    min-height: 1.4em;
+    min-height: 1.5em;
     margin: 0;
-    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-    font-size: 16px;
-    color: #8fe9bd;
+    font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(18px, 3vw, 24px);
+    font-weight: 600;
+    color: #6b4226;
 }
 
 .prank-ok-bar {
-    width: min(320px, 80vw);
-    height: 8px;
-    margin-top: 10px;
+    width: min(340px, 78vw);
+    height: 14px;
+    margin-top: 8px;
     overflow: hidden;
     border-radius: 999px;
-    background: rgb(61 220 151 / 0.16);
+    background: #f1cdd5;
+    box-shadow: inset 0 2px 0 rgb(113 59 44 / 0.12);
 }
 
 .prank-ok-bar i {
@@ -3627,25 +3853,17 @@ body.is-healing .prank-junk {
     width: 0;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #3ddc97, #b8ffd9);
-    box-shadow: 0 0 14px rgb(61 220 151 / 0.7);
+    background:
+        repeating-linear-gradient(115deg, transparent 0 14px, rgb(255 255 255 / 0.35) 14px 18px),
+        linear-gradient(90deg, #f7a3b6, #ee7f9a);
+    box-shadow: 0 0 0 1px rgb(166 45 66 / 0.25) inset;
 }
 
 .prank-ok-status {
     margin: 0;
     font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     font-size: 13px;
-    color: rgb(215 251 232 / 0.65);
-}
-
-.prank-ok-bit {
-    position: absolute;
-    left: 50%;
-    top: 38%;
-    width: 12px;
-    height: 5px;
-    border-radius: 3px;
-    opacity: 0;
+    color: rgb(107 66 38 / 0.8);
 }
 
 /* The ghost copy of the card: shifted, tinted and sliced into bands that jump. */
@@ -3790,6 +4008,136 @@ body.is-broken .prank-ghost {
     transform: translateX(-50%);
 }
 
+/* The Windows 11 notification (dark theme) that drops in over the video. */
+.prank-wintoast {
+    position: absolute;
+    right: 16px;
+    bottom: 68px;
+    z-index: 1000000;
+    box-sizing: border-box;
+    width: min(364px, calc(100vw - 24px));
+    padding: 10px 16px 16px;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 8px;
+    background: #2c2c2c;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.38), 0 0 2px rgb(0 0 0 / 0.5);
+    color: #fff;
+    font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    pointer-events: auto;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.prank-wintoast p {
+    margin: 0;
+}
+
+.prank-wintoast .wt-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: rgb(255 255 255 / 0.92);
+}
+
+.prank-wintoast .wt-head svg {
+    flex: none;
+}
+
+.prank-wintoast .wt-head span {
+    flex: 1;
+}
+
+.prank-wintoast .wt-dots {
+    padding: 0 6px;
+    color: rgb(255 255 255 / 0.6);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+
+.prank-wintoast .wt-x {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: rgb(255 255 255 / 0.7);
+    cursor: default;
+}
+
+.prank-wintoast .wt-x:hover {
+    background: rgb(255 255 255 / 0.08);
+}
+
+.prank-wintoast .wt-app {
+    margin-bottom: 14px !important;
+    font-size: 13.5px;
+    color: #fff;
+}
+
+.prank-wintoast .wt-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.prank-wintoast .wt-text {
+    margin-top: 1px !important;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: rgb(255 255 255 / 0.62);
+}
+
+.prank-wintoast .wt-dismiss {
+    display: block;
+    width: 100%;
+    height: 32px;
+    margin-top: 16px;
+    padding: 0;
+    border: 1px solid rgb(255 255 255 / 0.05);
+    border-bottom-color: rgb(0 0 0 / 0.3);
+    border-radius: 4px;
+    background: rgb(255 255 255 / 0.07);
+    color: #fff;
+    font: inherit;
+    font-size: 13.5px;
+    cursor: default;
+}
+
+.prank-wintoast .wt-dismiss:hover {
+    background: rgb(255 255 255 / 0.1);
+}
+
+.prank-wintoast .wt-dismiss:active {
+    background: rgb(255 255 255 / 0.05);
+    color: rgb(255 255 255 / 0.7);
+}
+
+/* The blue screen: the first ten seconds of a Windows crash video, over everything. */
+.prank-bsod {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    background: #0078d7;
+    cursor: none;
+}
+
+.prank-bsod video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .prank-term-cursor,
     .prank-trace,
@@ -3803,7 +4151,7 @@ body.is-broken .prank-ghost {
     body.is-broken.staff-login.doodle::before,
     body.is-broken main,
     .prank-tv::after,
-    .prank-ok-ring,
+    .prank-ok.doodle::before,
     .prank-doom,
     .prank-doom::after,
     .prank-tv.is-glitching video,
