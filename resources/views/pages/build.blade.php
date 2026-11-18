@@ -174,7 +174,7 @@
                                     class="press-scale hover-lift relative rounded border-2 bg-surface-container-lowest p-space-sm text-left transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(113,59,44,0.04)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary ring-2 ring-primary/30' : 'border-outline-variant/50'"
                                 >
-                                    <img :src="window.INGREDIENT_IMAGES[component.name]" class="w-full h-16 object-contain mb-space-xs" :class="component.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
+                                    <img :src="window.ingredientImage(component)" x-show="window.ingredientImage(component)" class="w-full h-16 object-contain mb-space-xs" :class="component.stock_quantity <= 0 ? 'grayscale' : ''" alt="">
                                     <span class="block font-label-lg text-label-lg text-on-surface leading-tight" x-text="component.name"></span>
                                     <span class="block font-price-tag text-price-tag text-primary mt-1" x-text="formatPrice(component.price)"></span>
                                     <span x-show="isSelected(component)" x-cloak class="material-symbols-outlined absolute top-2 right-2 text-[18px] text-primary">check_circle</span>

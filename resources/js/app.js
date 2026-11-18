@@ -15,6 +15,15 @@ export const INGREDIENT_IMAGES = {
 };
 window.INGREDIENT_IMAGES = INGREDIENT_IMAGES;
 
+// Items the admin adds in the Menu module have no photo of their own, so they borrow the
+// generic bread or ice cream picture. Toppings without art simply show no picture.
+const FALLBACK_IMAGES = {
+    bread: '/img/ingredients/bread-white.webp',
+    ice_cream: '/img/ingredients/icecream-vanilla.webp',
+};
+export const ingredientImage = (item) => (item ? (INGREDIENT_IMAGES[item.name] ?? FALLBACK_IMAGES[item.category] ?? null) : null);
+window.ingredientImage = ingredientImage;
+
 // The Studio's three.js scene. Kept at module level, never on the Alpine component:
 // Alpine would wrap it in a reactive proxy, which three.js objects do not survive.
 let studio3d = null;
@@ -847,7 +856,7 @@ Alpine.data('brreadBuilder', () => ({
             window.__brreadFx?.flyClone({
                 sourceEl: btn,
                 targetEl: target,
-                imageSrc: INGREDIENT_IMAGES[flavor.name],
+                imageSrc: ingredientImage(flavor),
                 onLand: () => window.__brreadFx?.pop(target, 'pop-gentle'),
             });
         }
@@ -906,7 +915,7 @@ Alpine.data('brreadBuilder', () => ({
             window.__brreadFx?.flyClone({
                 sourceEl: btn,
                 targetEl: target,
-                imageSrc: INGREDIENT_IMAGES[component.name],
+                imageSrc: ingredientImage(component),
                 onLand: () => window.__brreadFx?.pop(target, 'pop-gentle'),
             });
         }
@@ -930,11 +939,11 @@ Alpine.data('brreadBuilder', () => ({
     },
 
     get breadImage() {
-        return this.selectedBread ? INGREDIENT_IMAGES[this.selectedBread.name] : null;
+        return ingredientImage(this.selectedBread);
     },
 
     get flavorImage() {
-        return this.selectedFlavor ? INGREDIENT_IMAGES[this.selectedFlavor.name] : null;
+        return ingredientImage(this.selectedFlavor);
     },
 
     toppingImage(name) {

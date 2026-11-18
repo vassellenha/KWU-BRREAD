@@ -7,6 +7,7 @@
         ['module' => User::MODULE_ORDERS, 'route' => 'staff.orders.index', 'active' => 'staff.orders.*', 'icon' => 'receipt_long', 'label' => 'Orders'],
         ['module' => User::MODULE_MRP, 'route' => 'staff.mrp.index', 'active' => 'staff.mrp.index', 'icon' => 'inventory_2', 'label' => 'Stock (MRP)'],
         ['module' => User::MODULE_MRP, 'route' => 'staff.mrp.movements', 'active' => 'staff.mrp.movements', 'icon' => 'history', 'label' => 'Stock Movements'],
+        ['module' => User::MODULE_MENU, 'route' => 'staff.menu.index', 'active' => 'staff.menu.*', 'icon' => 'bakery_dining', 'label' => 'Menu & Prices'],
         ['module' => User::MODULE_HR, 'route' => 'staff.hr.index', 'active' => 'staff.hr.*', 'icon' => 'groups', 'label' => 'HR'],
         ['module' => User::MODULE_ACCOUNTING, 'route' => 'staff.accounting.index', 'active' => 'staff.accounting.*', 'icon' => 'account_balance', 'label' => 'Accounting'],
         ['module' => User::MODULE_SALES, 'route' => 'staff.sales.index', 'active' => 'staff.sales.*', 'icon' => 'monitoring', 'label' => 'Sales'],

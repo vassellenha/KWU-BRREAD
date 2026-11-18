@@ -210,6 +210,14 @@ Income arrives from orders, and staff log expenses by category. Choose a date ra
 Best-selling combinations, rankings for breads, flavors and toppings (including the ones that never sold), trends by day, week or month against the previous period, and the busiest days and hours. Admin only.
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top">
+<img src="./docs/readme/card-menu.svg" width="100%" alt="A menu list with a bread, an ice cream flavor and a topping, each with an editable price" /><br />
+<img src="./docs/readme/icon-menu.svg" width="22" height="22" align="absmiddle" alt="" />&nbsp; <b>Menu &amp; Prices, what customers can pick</b><br />
+Add a new bread, ice cream flavor or topping, edit its name, color and price, hide it from the builder or delete it if nobody ever ordered it. A price change only affects orders placed after it. Admin only.
+</td>
+<td width="50%" valign="top"></td>
+</tr>
 </table>
 
 <img src="./docs/readme/banner-04.svg" width="100%" alt="Section 4: The Checkout" />
@@ -265,12 +273,12 @@ On `/superadmin`, a one-click admin login appears only when `APP_ENV=local` **an
 
 ### What each role can open
 
-| | <img src="./docs/readme/icon-mrp.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; MRP | <img src="./docs/readme/icon-hr.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; HR | <img src="./docs/readme/icon-accounting.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; Accounting | <img src="./docs/readme/icon-sales.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; Sales |
-|---|:---:|:---:|:---:|:---:|
-| <img src="./docs/readme/icon-access.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; **Admin** | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> |
-| **MRP staff** | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | | | |
-| **HR staff** | | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | | |
-| **Accounting staff** | | | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | |
+| | <img src="./docs/readme/icon-mrp.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; MRP | <img src="./docs/readme/icon-hr.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; HR | <img src="./docs/readme/icon-accounting.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; Accounting | <img src="./docs/readme/icon-sales.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; Sales | <img src="./docs/readme/icon-menu.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; Menu |
+|---|:---:|:---:|:---:|:---:|:---:|
+| <img src="./docs/readme/icon-access.svg" width="16" height="16" align="absmiddle" alt="" />&nbsp; **Admin** | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> |
+| **MRP staff** | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | | | |  |
+| **HR staff** | | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | | |  |
+| **Accounting staff** | | | <img src="./docs/readme/icon-check.svg" width="18" height="18" alt="Yes" /> | |  |
 
 The sidebar lists only the modules your role can open, and the URL of any other module returns a 403.
 
@@ -320,6 +328,22 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 - Rankings for flavors, breads and toppings, including the ones that haven't sold yet.
 - Sandwiches sold and revenue per day, week or month, compared with the previous period.
 - The busiest days and hours.
+
+</details>
+
+<details>
+<summary><b>Menu &amp; Prices</b>: breads, flavors and toppings at <code>/staff/menu</code> (admin only)</summary>
+
+<br />
+
+- Three lists, one per kind: Bread, Ice cream and Topping. Each row shows its price, stock and whether it is on the menu.
+- **Add Item** creates a bread, an ice cream flavor or a topping. A flavor also needs a color, which tints its layer in the Studio's 3D preview. You can enter a starting stock, which is booked as a restock in the movement history. Without stock the builder shows the new item as Sold Out until you restock it here or in MRP.
+- Change a price straight from its row. The message tells you the old and the new price. Orders already placed keep the price they were sold at, so the books and the sales report never shift.
+- **Edit** changes the name, price and color. The kind cannot change, and a name can only be used once per kind.
+- **Hide** takes an item off the menu and out of the builder without losing anything, and **Show** brings it back.
+- **Delete** only appears for an item nobody has ever ordered. Anything that appears in an order can only be hidden, so sales history stays whole.
+- New items show a generic bread or ice cream photo in the storefront. The signature creations and the toppings' pictures in the 3D preview are built from the original ingredient names, so hiding or renaming one of those makes the signature that uses it unavailable.
+- The deploy seeder no longer overwrites this data. It only inserts the original seven ingredients when they are missing, so prices, names, hidden items and new items you set here survive every deploy.
 
 </details>
 
@@ -405,7 +429,7 @@ php artisan test
 
 GitHub Actions (`.github/workflows/ci.yml`) builds the assets and runs the suite on every push to `main` and on every pull request, and the badge at the top shows the result.
 
-The feature tests cover both login portals, role access, ordering with stock deduction, and the MRP, HR, accounting and sales modules.
+The feature tests cover both login portals, role access, ordering with stock deduction, and the MRP, HR, accounting, sales and menu modules.
 
 <img src="./docs/readme/banner-10.svg" width="100%" alt="Section 10: The Layout" />
 
@@ -414,7 +438,7 @@ The feature tests cover both login portals, role access, ordering with stock ded
 ```text
 app/
   Http/Controllers/Api/      public API: components and orders
-  Http/Controllers/Staff/    login and the MRP, HR, accounting and sales modules
+  Http/Controllers/Staff/    login and the MRP, HR, accounting, sales and menu modules
   Models/                    Component, Order, OrderItem, StockMovement, Employee, Expense, User
   Services/                  CashflowExporter, SalesReport, ShiftScheduler
 database/                    migrations and seeders

@@ -268,23 +268,25 @@ class SalesModuleTest extends TestCase
         }
     }
 
-    public function test_redeploying_keeps_live_stock_but_still_updates_the_catalog(): void
+    public function test_redeploying_keeps_live_stock_and_prices_set_in_the_menu_module(): void
     {
         $vanilla = Component::where('name', 'Vanilla')->firstOrFail();
-        $vanilla->update(['stock_quantity' => 7, 'price' => 1]);
+        $vanilla->update(['stock_quantity' => 7, 'price' => 9500]);
 
         $this->seed(ComponentSeeder::class);
 
         $vanilla->refresh();
         $this->assertSame(7, $vanilla->stock_quantity);
-        $this->assertSame('8000.00', $vanilla->price);
+        $this->assertSame('9500.00', $vanilla->price);
     }
 
-    public function test_retiring_an_ingredient_keeps_its_sales_history(): void
+    public function test_hiding_an_ingredient_keeps_its_sales_history(): void
     {
         $retired = Component::create(['name' => 'Matcha', 'category' => 'ice_cream', 'price' => 9000, 'stock_quantity' => 10, 'unit' => 'pcs', 'reorder_point' => 1, 'is_active' => true]);
         $this->orderAt('2026-11-19 12:00:00', [$this->sandwich(['Plain White Bread', 'Matcha'], 2)]);
 
+        $admin = User::factory()->withRole(User::ROLE_ADMIN)->create();
+        $this->actingAs($admin)->post("/staff/menu/{$retired->id}/toggle");
         $this->seed(ComponentSeeder::class);
 
         $this->assertFalse($retired->fresh()->is_active);

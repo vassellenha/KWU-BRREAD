@@ -22,7 +22,8 @@
                 'Rainbow Sprinkles': { cut: 'ice-strawberry', top: 'top-sprinkles', bg: '#cfe6ea', ink: '#1f4a52', note: 'for the crunch', desc: 'A handful of colour on every bite.', tilt: '-5deg' },
             },
             lookFor(item) {
-                return this.looks[item.name] ?? { bg: '#f7ece2', ink: '#201b15', note: '', desc: '', tilt: '0deg' };
+                const generic = { bread: 'bread-white', ice_cream: 'ice-vanilla' }[item.category];
+                return this.looks[item.name] ?? { cut: generic, bg: '#f7ece2', ink: '#201b15', note: '', desc: '', tilt: '0deg' };
             },
             async init() {
                 try {
@@ -38,6 +39,12 @@
                 const cheapest = (list) => Math.min(...list.map((item) => Number(item.price)));
                 if (!this.components.bread.length || !this.components.ice_cream.length) return null;
                 return cheapest(this.components.bread) + cheapest(this.components.ice_cream);
+            },
+            get summary() {
+                const count = (list, one, many) => list.length + ' ' + (list.length === 1 ? one : many);
+                const c = this.components;
+                if (!c.bread.length && !c.ice_cream.length && !c.topping.length) return 'Breads, ice creams and toppings.';
+                return count(c.bread, 'bread', 'breads') + ', ' + count(c.ice_cream, 'ice cream', 'ice creams') + ', ' + count(c.topping, 'topping', 'toppings') + '.';
             },
             formatPrice(n) {
                 return 'Rp ' + Math.round(Number(n)).toLocaleString('id-ID');
@@ -61,7 +68,7 @@
                 </div>
                 <div class="lg:col-span-5" data-reveal>
                     <p class="font-body-lg text-[18px] leading-[28px] text-on-surface-variant">
-                        Two breads, three ice creams, two toppings. Pick a bread and an ice cream, add a topping
+                        <span x-text="summary">Breads, ice creams and toppings.</span> Pick a bread and an ice cream, add a topping
                         if you want one, and that's your sandwich.
                     </p>
                     <p x-show="startsAt" x-cloak class="mt-space-md inline-flex items-baseline gap-2 bg-surface-container-lowest border border-outline-variant rounded-full pl-space-md pr-space-lg py-2 -rotate-1">
@@ -105,8 +112,8 @@
                                     <span class="menu-tile-price" x-text="formatPrice(item.price)"></span>
                                     <span x-show="item.stock_quantity <= 0" x-cloak class="menu-tile-stamp font-hand">sold out</span>
                                     <span class="menu-tile-art">
-                                        <img x-show="lookFor(item).cut" :src="lookFor(item).cut ? '/img/cutout/' + lookFor(item).cut + '.webp' : window.INGREDIENT_IMAGES[item.name]" alt="" loading="lazy">
-                                        <img x-show="!lookFor(item).cut" :src="window.INGREDIENT_IMAGES[item.name]" alt="" loading="lazy">
+                                        <img x-show="lookFor(item).cut" :src="lookFor(item).cut ? '/img/cutout/' + lookFor(item).cut + '.webp' : window.ingredientImage(item)" alt="" loading="lazy">
+                                        <img x-show="!lookFor(item).cut && window.ingredientImage(item)" :src="window.ingredientImage(item)" alt="" loading="lazy">
                                         <template x-if="lookFor(item).top">
                                             <img class="menu-tile-top" :src="'/img/cutout/' + lookFor(item).top + '.webp'" alt="">
                                         </template>

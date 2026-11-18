@@ -5,6 +5,7 @@ use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
 use App\Http\Controllers\Staff\CaptchaController;
 use App\Http\Controllers\Staff\HrController;
+use App\Http\Controllers\Staff\MenuController;
 use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
@@ -44,6 +45,15 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::get('/', [MrpController::class, 'index'])->name('index');
         Route::post('/{component}/adjust', [MrpController::class, 'adjustStock'])->name('adjust');
         Route::get('/movements', [MrpController::class, 'movements'])->name('movements');
+    });
+
+    Route::middleware($rolesFor(User::MODULE_MENU))->prefix('menu')->name('menu.')->group(function () {
+        Route::get('/', [MenuController::class, 'index'])->name('index');
+        Route::post('/', [MenuController::class, 'store'])->name('store');
+        Route::put('/{component}', [MenuController::class, 'update'])->name('update');
+        Route::patch('/{component}/price', [MenuController::class, 'updatePrice'])->name('price');
+        Route::post('/{component}/toggle', [MenuController::class, 'toggleActive'])->name('toggle');
+        Route::delete('/{component}', [MenuController::class, 'destroy'])->name('destroy');
     });
 
     Route::middleware($rolesFor(User::MODULE_HR))->prefix('hr')->name('hr.')->group(function () {
