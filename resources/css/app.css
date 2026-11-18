@@ -1681,37 +1681,23 @@ body.staff-login .staff-login-card [class*='bg-surface-container']:not(input) {
 }
 body.staff-login main a:hover { color: #ff7b8c; }
 
-/* The show/hide password eye. It sits on the pale input, so it carries its own dark colour, a chip
-   background and an outline instead of the page's light text colour, which vanishes there. */
+/* The show/hide password eye: just a plain icon in dark grey on the pale input. */
 body.staff-login .login-eye {
-    border: 1.5px solid #2d2b33;
-    background-color: #f7a3b6;
-    color: #2d2b33;
-    box-shadow: 0 2px 0 #2d2b33;
-    transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
-}
-body.staff-login .login-eye:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 0 #2d2b33;
+    border: 0;
+    background: transparent;
+    color: #6b6672;
+    transition: color 140ms var(--ease-out);
 }
 body.staff-login .login-eye[aria-pressed='true'] {
-    background-color: #2d2b33;
-    color: #ffffff;
-    box-shadow: 0 2px 0 #f7a3b6;
+    color: #2d2b33;
 }
 @media (hover: hover) and (pointer: fine) {
     body.staff-login .login-eye:hover {
-        background-color: #ff7b8c;
-    }
-    body.staff-login .login-eye[aria-pressed='true']:hover {
-        background-color: #46434f;
+        color: #2d2b33;
     }
 }
 body.is-broken .login-eye {
-    border-color: #3a0610;
-    background-color: #ff6b81;
-    color: #2a0309;
-    box-shadow: 0 2px 0 #3a0610;
+    color: #7a1020;
 }
 @media (min-width: 1024px) {
     .site-nav-burger {
@@ -4118,6 +4104,44 @@ body.is-broken .prank-ghost {
 .prank-wintoast .wt-dismiss:active {
     background: rgb(255 255 255 / 0.05);
     color: rgb(255 255 255 / 0.7);
+}
+
+/* The blue screen breaking: triangular shards of its last frame, and the big word over it. */
+.prank-shards {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.prank-shard {
+    position: absolute;
+    inset: 0;
+    background-color: #0078d7;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    will-change: transform;
+}
+
+.prank-prengg {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 2147483001;
+    max-width: 96vw;
+    color: #fff;
+    font-family: Impact, 'Arial Narrow Bold', 'Arial Black', sans-serif;
+    font-size: clamp(54px, 17vw, 210px);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    -webkit-text-stroke: 4px #000;
+    paint-order: stroke fill;
+    text-shadow: 6px 6px 0 #e11d48, 12px 12px 0 #000;
+    transform: translate(-50%, -50%) rotate(-4deg);
 }
 
 /* The blue screen: the first ten seconds of a Windows crash video, over everything. */

@@ -194,12 +194,13 @@ function sansAt(when, rate = 1, length = 0.08, volume = 0.5) {
     source.stop(when + length + 0.03);
 }
 
-/** The typing sound of the terminals. */
-function sans() {
+/** The typing sound of the terminals: hacker keyboard clacks, now and then a digital blip. */
+function typeKey() {
     const now = performance.now();
-    if (now - lastBlip < 52) return;
+    if (now - lastBlip < 40) return;
     lastBlip = now;
-    sansAt(S.context?.currentTime ?? 0, 0.93 + Math.random() * 0.2, 0.07 + Math.random() * 0.03);
+    clack(0.12);
+    if (Math.random() < 0.16) tickSound();
 }
 
 /* ---------- shared pieces ---------- */
@@ -353,7 +354,7 @@ function terminal(title, { width = 380, place = 'right', dark = false } = {}) {
                 } else {
                     const line = el('p', `is-${kind}`);
                     body.insertBefore(line, cursor);
-                    await typeInto(line, text, kind === 'cmd' ? 36 : 26, sans, kind === 'cmd' ? 30 : 18);
+                    await typeInto(line, text, kind === 'cmd' ? 36 : 26, typeKey, kind === 'cmd' ? 30 : 18);
                     await wait(kind === 'cmd' ? 220 : kind === 'big' ? 360 : 200);
                 }
                 body.scrollTop = body.scrollHeight;
@@ -737,7 +738,7 @@ function heartbeat(beats) {
 /* ---------- hacker sounds ---------- */
 
 /* One key press of a keyboard: a dry noise tick over a soft thump. */
-function clack() {
+function clack(volume = 0.09) {
     const context = ready();
     if (!context) return;
     const t = context.currentTime;
@@ -751,7 +752,7 @@ function clack() {
     source.buffer = noise;
     high.type = 'highpass';
     high.frequency.value = 1800 + Math.random() * 1500;
-    gain.gain.value = 0.09;
+    gain.gain.value = volume;
     source.connect(high).connect(gain).connect(context.destination);
     source.start(t);
 
@@ -759,7 +760,7 @@ function clack() {
     const thumpGain = context.createGain();
     thump.frequency.setValueAtTime(160, t);
     thump.frequency.exponentialRampToValueAtTime(60, t + 0.04);
-    thumpGain.gain.setValueAtTime(0.06, t);
+    thumpGain.gain.setValueAtTime(volume * 0.66, t);
     thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
     thump.connect(thumpGain).connect(context.destination);
     thump.start(t);
@@ -1014,7 +1015,7 @@ async function party(seconds, ip, from = null) {
     let raf = 0;
 
     const start = async () => {
-        if (!tv.isConnected) return;
+        if (!tv.isConnected || S.bsod) return;
         video.muted = false;
         video.volume = 1;
         try {
@@ -1051,7 +1052,7 @@ async function party(seconds, ip, from = null) {
     };
     ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, onGesture, { signal: guard.signal, capture: true }));
     const loud = () => {
-        if (!tv.isConnected) return;
+        if (!tv.isConnected || S.bsod) return;
         // The sound effects ride on an audio context that the browser can put to sleep; wake it again.
         if (S.context && S.context.state !== 'running' && S.context.state !== 'closed') S.context.resume?.().catch?.(() => {});
         if (video.paused) video.play().catch(() => {});
@@ -1064,7 +1065,9 @@ async function party(seconds, ip, from = null) {
     const loudTimer = window.setInterval(loud, 400);
     const keys = ['pause', 'stop', 'seekbackward', 'seekforward', 'seekto'];
     try {
-        keys.forEach((action) => navigator.mediaSession?.setActionHandler(action, () => video.play().catch(() => {})));
+        keys.forEach((action) => navigator.mediaSession?.setActionHandler(action, () => {
+            if (!S.bsod) video.play().catch(() => {});
+        }));
     } catch {
         // This browser has no such media key.
     }
@@ -1306,11 +1309,195 @@ async function bsod() {
     await wait(BSOD_MS);
 
     stop.abort();
+    await breakOut(screen, video);
+}
+
+/** Breaking glass: a crack, a low thump and a spray of tiny shards ringing off. */
+function glass() {
+    const context = ready();
+    if (!context) return;
+    const t = context.currentTime;
+
+    const hit = (when, length, frequency, volume, type = 'highpass') => {
+        const size = Math.ceil(context.sampleRate * length);
+        const noise = context.createBuffer(1, size, context.sampleRate);
+        const data = noise.getChannelData(0);
+        for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / size) ** 2;
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = noise;
+        filter.type = type;
+        filter.frequency.value = frequency;
+        gain.gain.value = volume;
+        source.connect(filter).connect(gain).connect(context.destination);
+        source.start(t + when);
+    };
+
+    const ping = (when, frequency) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.07, t + when);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + when + 0.3);
+        osc.connect(gain).connect(context.destination);
+        osc.start(t + when);
+        osc.stop(t + when + 0.32);
+    };
+
+    hit(0, 0.2, 1500, 0.8);
+    hit(0.015, 0.4, 4800, 0.45);
+    for (let i = 0; i < 30; i++) {
+        const when = 0.14 + Math.random() * 1.0;
+        hit(when, 0.05 + Math.random() * 0.06, 3000 + Math.random() * 5500, 0.14 + Math.random() * 0.14, 'bandpass');
+        if (i % 3 === 0) ping(when, 2200 + Math.random() * 4800);
+    }
+
+    const boom = context.createOscillator();
+    const boomGain = context.createGain();
+    boom.frequency.setValueAtTime(130, t);
+    boom.frequency.exponentialRampToValueAtTime(38, t + 0.45);
+    boomGain.gain.setValueAtTime(0.6, t);
+    boomGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    boom.connect(boomGain).connect(context.destination);
+    boom.start(t);
+    boom.stop(t + 0.6);
+}
+
+/** The last frame of the blue screen, cracked from one point and cut into triangular shards. */
+function shards(video) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const canvas = el('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0078d7';
+    ctx.fillRect(0, 0, w, h);
+    try {
+        const vw = video.videoWidth || 1280;
+        const vh = video.videoHeight || 720;
+        const k = Math.min(w / vw, h / vh);
+        ctx.drawImage(video, (w - vw * k) / 2, (h - vh * k) / 2, vw * k, vh * k);
+    } catch {
+        // The plain blue stays.
+    }
+
+    const hx = w * (0.35 + Math.random() * 0.3);
+    const hy = h * (0.3 + Math.random() * 0.35);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 16; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let x = hx;
+        let y = hy;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        for (let step = 0; step < 6; step++) {
+            angle += (Math.random() - 0.5) * 0.6;
+            const length = Math.max(w, h) * (0.04 + Math.random() * 0.08);
+            x += Math.cos(angle) * length;
+            y += Math.sin(angle) * length;
+            ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+
+    let image = '';
+    try {
+        image = canvas.toDataURL('image/jpeg', 0.85);
+    } catch {
+        // No picture, the shards are plain blue.
+    }
+
+    const cols = Math.max(4, Math.ceil(w / 150));
+    const rows = Math.max(4, Math.ceil(h / 150));
+    const grid = [];
+    for (let j = 0; j <= rows; j++) {
+        grid.push([]);
+        for (let i = 0; i <= cols; i++) {
+            const x = (i * w) / cols + (i === 0 || i === cols ? 0 : (Math.random() - 0.5) * 0.7 * (w / cols));
+            const y = (j * h) / rows + (j === 0 || j === rows ? 0 : (Math.random() - 0.5) * 0.7 * (h / rows));
+            grid[j].push([x, y]);
+        }
+    }
+
+    const box = el('div', 'prank-shards');
+    const pieces = [];
+    for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+            const [a, b, c, d] = [grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]];
+            const triangles = Math.random() < 0.5 ? [[a, b, c], [a, c, d]] : [[a, b, d], [b, c, d]];
+            triangles.forEach((points) => {
+                const piece = el('div', 'prank-shard');
+                if (image) piece.style.backgroundImage = `url(${image})`;
+                piece.style.clipPath = `polygon(${points.map(([x, y]) => `${x.toFixed(1)}px ${y.toFixed(1)}px`).join(',')})`;
+                const mx = (points[0][0] + points[1][0] + points[2][0]) / 3;
+                const my = (points[0][1] + points[1][1] + points[2][1]) / 3;
+                piece.style.transformOrigin = `${mx.toFixed(1)}px ${my.toFixed(1)}px`;
+                box.append(piece);
+                pieces.push({ piece, mx, my });
+            });
+        }
+    }
+
+    // They drop away from the point of impact outwards, the nearest ones first.
+    const far = Math.hypot(Math.max(hx, w - hx), Math.max(hy, h - hy));
+    const fall = () => Promise.all(pieces.map(({ piece, mx, my }) => {
+        const distance = Math.hypot(mx - hx, my - hy);
+        const sign = Math.random() < 0.5 ? -1 : 1;
+        return piece.animate([
+            { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+            { transform: `translate(${(mx - hx) * 0.25 + (Math.random() - 0.5) * 120}px, ${h * (0.55 + Math.random() * 0.6)}px) rotate(${sign * (40 + Math.random() * 200)}deg)`, opacity: 0.9, offset: 0.85 },
+            { transform: `translate(${(mx - hx) * 0.3}px, ${h * 1.3}px) rotate(${sign * 260}deg)`, opacity: 0 },
+        ], {
+            duration: 760 + Math.random() * 380,
+            delay: (distance / far) * 220 + Math.random() * 80,
+            easing: 'cubic-bezier(.5,0,.9,.4)',
+            fill: 'forwards',
+        }).finished.catch(() => {});
+    }));
+
+    return { box, fall };
+}
+
+/**
+ * The way out of the blue screen: it cracks and breaks like glass under a big "PRENGGG!", and the
+ * Kewer video starts over from zero behind the falling pieces.
+ */
+async function breakOut(screen, video) {
+    const word = el('div', 'prank-prengg', 'PRENGGG!');
+    const cracked = S.reduced ? null : shards(video);
+    if (cracked) document.body.append(cracked.box);
     screen.remove();
+    document.body.append(word);
+    glass();
+
+    word.animate(S.reduced
+        ? [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
+        : [
+            { transform: 'translate(-50%, -50%) scale(2.8) rotate(-9deg)', opacity: 0 },
+            { transform: 'translate(-50%, -50%) scale(1) rotate(-4deg)', opacity: 1, offset: 0.14 },
+            { transform: 'translate(-50%, -50%) scale(1.08) rotate(-3deg)', opacity: 1, offset: 0.7 },
+            { transform: 'translate(-50%, -50%) scale(1.7) rotate(-4deg)', opacity: 0 },
+        ], { duration: 1700, fill: 'forwards' });
+
+    if (cracked) shake(cracked.box, 16, 280);
+    await wait(S.reduced ? 500 : 300);
+
+    // Behind the pieces the video is already running again.
     S.hits = 0;
     S.tries = [];
     S.bsod = false;
     S.kewer?.reset(AFTER_BSOD);
+
+    if (cracked) {
+        await cracked.fall();
+        cracked.box.remove();
+    }
+    await wait(S.reduced ? 800 : 250);
+    word.remove();
     whisperTv('lagian lu iseng sih nambah kan waktunya', 4200);
 }
 
