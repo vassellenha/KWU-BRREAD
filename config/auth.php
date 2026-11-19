@@ -143,5 +143,10 @@ return [
     // (1, 3, then 5 minutes) on the fourth. The test suite switches it off except in its own tests.
     'login_prank' => (bool) env('LOGIN_PRANK', true),
 
+    // The /admin honeypot: a guest who opens /admin (or /administrator, /wp-admin) is held per address in two phases,
+    // a cinematic horror intro and then the Kewer scene, before being released to the shop. The test suite switches it off.
+    'honeypot_trap' => (bool) env('HONEYPOT_TRAP', true),
+    'honeypot_horror_seconds' => (int) env('HORROR_SECONDS', 14),
+    'honeypot_kewer_seconds' => (int) env('KEWER_SECONDS', 30),
 
 ];

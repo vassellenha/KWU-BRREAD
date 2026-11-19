@@ -1,0 +1,448 @@
+/* The /admin honeypot ("Kewer" trap). Plain CSS on purpose: this page loads nothing from the shop.
+   Motion is transform and opacity only. Nothing here flashes brighter than three times a second. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.hp {
+    position: fixed;
+    inset: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: #000;
+    cursor: none;
+    touch-action: none;
+}
+
+.hp.is-shaking { animation: hp-shake 520ms steps(2, end) both; }
+
+.hp-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    filter: saturate(1.15) contrast(1.05);
+}
+
+.hp-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    opacity: 0.9;
+}
+
+.hp-scan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.22) 3px, rgba(0, 0, 0, 0.22) 4px);
+}
+
+.hp-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+/* ---- the line itself ---- */
+
+.hp-center {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 9vh;
+    padding: 0 5vw;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.hp-text {
+    position: relative;
+    margin: 0;
+    max-width: 34ch;
+    padding: 0.35em 0.6em 0.45em;
+    font-size: clamp(0.95rem, 2.2vw, 1.6rem);
+    opacity: 0;
+    transition: opacity 600ms ease;
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: 0.01em;
+    text-align: center;
+    text-transform: none;
+    color: #f4f4f4;
+    background: rgba(0, 0, 0, 0.62);
+    border: 2px solid rgba(255, 60, 90, 0.85);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9), 0 0 38px rgba(255, 30, 80, 0.45);
+    text-shadow: 2px 0 rgba(255, 40, 90, 0.75), -2px 0 rgba(0, 220, 255, 0.7);
+    transform: translateZ(0);
+}
+
+.hp-text.is-shown { opacity: 1; }
+
+.hp-text.is-typing::after {
+    content: '';
+    display: inline-block;
+    width: 0.5em;
+    height: 0.95em;
+    margin-left: 0.1em;
+    vertical-align: -0.12em;
+    background: #ff3c5a;
+    animation: hp-caret 900ms steps(1, end) infinite;
+}
+
+.hp-text.is-glitching { animation: hp-glitch 240ms steps(2, end) both; }
+
+/* ---- countdown: only the time left ---- */
+
+.hp-count {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    margin: 0;
+    padding: 4px 12px;
+    font-size: clamp(1.1rem, 2.4vw, 1.7rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    color: #ff5b78;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 91, 120, 0.7);
+    pointer-events: none;
+}
+
+/* ---- floating terminal windows (a fixed pool, moved with transform only) ---- */
+
+.hp-windows, .hp-stamps, .hp-pops { position: absolute; inset: 0; pointer-events: none; }
+
+.hp-win {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: min(300px, 64vw);
+    background: rgba(8, 10, 14, 0.82);
+    border: 1px solid rgba(80, 255, 160, 0.55);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    font-size: 11px;
+    line-height: 1.45;
+    color: #6dffb0;
+    will-change: transform;
+    animation: hp-drift var(--dur, 14s) ease-in-out infinite alternate;
+    animation-delay: var(--delay, 0s);
+}
+
+.hp-win header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(80, 255, 160, 0.16);
+    color: #b9ffd8;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+}
+
+.hp-win header i { width: 7px; height: 7px; border-radius: 50%; background: #ff4d6d; }
+.hp-win pre { margin: 0; padding: 6px 8px 8px; min-height: 5.8em; white-space: pre-wrap; overflow: hidden; font: inherit; }
+
+/* ---- big stamped taunts ---- */
+
+.hp-stamp {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 0.1em 0.45em;
+    font-size: clamp(1.6rem, 6vw, 4.2rem);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #ff3c5a;
+    border: 0.12em solid #ff3c5a;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translate3d(var(--x, 10vw), var(--y, 20vh), 0) rotate(var(--r, -8deg));
+    white-space: nowrap;
+    will-change: transform, opacity;
+}
+
+.hp-stamp.is-on { animation: hp-stamp 1900ms cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+
+/* ---- escape pop-ups ---- */
+
+.hp-pop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: min(270px, 70vw);
+    background: #1b1b22;
+    border: 1px solid #ff5b78;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transform: translate3d(var(--x, 20vw), var(--y, 30vh), 0) scale(0.9);
+    will-change: transform, opacity;
+}
+
+.hp-pop header { padding: 5px 9px; background: #ff3c5a; color: #1b0006; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; }
+.hp-pop p { margin: 0; padding: 10px 11px 12px; font-size: 13px; line-height: 1.4; color: #f1f1f1; }
+.hp-pop.is-on { animation: hp-pop 2800ms ease-out both; }
+
+/* ---- the blue screen ---- */
+
+.hp-bsod { position: fixed; inset: 0; z-index: 50; background: #0078d7; cursor: none; }
+.hp-bsod video { width: 100%; height: 100%; object-fit: cover; }
+
+@keyframes hp-drift {
+    from { transform: translate3d(var(--x0, 4vw), var(--y0, 10vh), 0); }
+    to { transform: translate3d(var(--x1, 40vw), var(--y1, 50vh), 0); }
+}
+
+@keyframes hp-stamp {
+    0% { opacity: 0; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(2.1); }
+    14% { opacity: 0.95; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1); }
+    80% { opacity: 0.95; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1); }
+    100% { opacity: 0; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(0.96); }
+}
+
+@keyframes hp-pop {
+    0% { opacity: 0; transform: translate3d(var(--x), var(--y), 0) scale(0.9); }
+    8%, 86% { opacity: 1; transform: translate3d(var(--x), var(--y), 0) scale(1); }
+    100% { opacity: 0; transform: translate3d(var(--x), var(--y), 0) scale(1); }
+}
+
+@keyframes hp-shake {
+    0% { transform: translate3d(0, 0, 0); }
+    25% { transform: translate3d(-4px, 2px, 0); }
+    50% { transform: translate3d(3px, -3px, 0); }
+    75% { transform: translate3d(-2px, -1px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hp-glitch {
+    0% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); text-shadow: 6px 0 rgba(255, 40, 90, 0.8), -6px 0 rgba(0, 220, 255, 0.8); }
+    40% { transform: translate3d(-5px, 0, 0); clip-path: inset(10% 0 55% 0); }
+    70% { transform: translate3d(5px, 0, 0); clip-path: inset(55% 0 8% 0); }
+    100% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes hp-caret {
+    50% { opacity: 0; }
+}
+
+/* Gentler on small screens and slow machines: fewer windows, no shaking. */
+.hp.is-lite .hp-win:nth-child(n+3) { display: none; }
+.hp.is-lite.is-shaking { animation: none; }
+.hp.is-lite .hp-video { filter: none; }
+
+/* Reduced motion keeps the trap and the video, but nothing shakes, glitches or strobes, and everything moves slowly. */
+.hp.is-calm.is-shaking, .hp.is-calm .hp-text.is-glitching { animation: none; }
+.hp.is-calm .hp-text.is-shown { opacity: 1; }
+
+.hp-text.is-typing::after { animation-duration: 1600ms; }
+.hp.is-calm .hp-win { animation-duration: 60s; }
+.hp.is-calm .hp-stamp.is-on { animation-duration: 4200ms; }
+.hp.is-calm .hp-pop.is-on { animation-duration: 4200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+    .hp.is-shaking, .hp-text.is-glitching { animation: none; }
+    .hp-win { animation-duration: 60s; }
+}
+
+/* ================= PHASE A: the horror intro ================= */
+
+.hp-kewer { position: absolute; inset: 0; }
+.hp-kewer[hidden] { display: none; }
+
+.hz { position: absolute; inset: 0; background: #000; overflow: hidden; z-index: 20; }
+.hz[hidden] { display: none; }
+
+.hz > * { position: absolute; }
+
+.hz-canvas {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1400ms ease-out;
+    pointer-events: none;
+}
+.hz.b-static .hz-canvas { opacity: 0.55; }
+.hz.b-beat .hz-canvas { opacity: 0.22; }
+
+/* Darkness closing in: a black ring that tightens (transform only). */
+.hz-dark {
+    left: 50%;
+    top: 50%;
+    width: 340vmax;
+    height: 340vmax;
+    margin: -170vmax 0 0 -170vmax;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 0 9%, rgba(0, 0, 0, 0.55) 15%, #000 24%);
+    opacity: 0;
+    transform: scale(1.6);
+    transition: transform 9s cubic-bezier(0.3, 0.1, 0.3, 1), opacity 2s ease;
+}
+.hz.b-beat .hz-dark { opacity: 1; transform: scale(0.52); }
+
+/* Blood rising from the floor. */
+.hz-blood {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
+    transform: translate3d(0, 102%, 0);
+    transition: transform 9s cubic-bezier(0.4, 0, 0.6, 1);
+    pointer-events: none;
+}
+.hz-blood svg { position: absolute; left: 0; top: -1px; width: 100%; height: 6vh; transform: translateY(-99%); fill: #5b050c; }
+.hz-blood div { position: absolute; inset: 0; background: linear-gradient(to bottom, #5b050c, #2a0206 60%, #120002); }
+.hz.b-blood .hz-blood { transform: translate3d(0, 80%, 0); }
+
+/* The thing that steps closer. */
+.hz-figure {
+    left: 50%;
+    bottom: -3vh;
+    height: 78vh;
+    aspect-ratio: 200 / 520;
+    margin-left: calc(-39vh * 200 / 520);
+    opacity: 0;
+    transform-origin: 50% 100%;
+    transform: scale(0.42);
+    transition: transform 1100ms cubic-bezier(0.5, 0, 0.3, 1), opacity 1600ms ease;
+    pointer-events: none;
+}
+.hz-figure svg { width: 100%; height: 100%; overflow: visible; }
+.hz-halo { fill: url(#hz-halo); }
+.hz-body { fill: #020001; stroke: rgba(150, 20, 30, 0.45); stroke-width: 1.5; }
+.hz-fingers { fill: none; stroke: #030102; stroke-width: 3; stroke-linecap: round; }
+.hz-stare { fill: #ff1a2a; }
+.hz.b-figure .hz-figure { opacity: 0.8; }
+.hz.s1 .hz-figure { transform: scale(0.62); }
+.hz.s2 .hz-figure { transform: scale(0.86); }
+.hz.s3 .hz-figure { transform: scale(1.08); }
+.hz.b-text .hz-figure { opacity: 0.32; }
+
+/* Eyes opening in the dark. */
+.hz-eyes { inset: 0; pointer-events: none; }
+.hz-eye {
+    position: absolute;
+    display: flex;
+    gap: 0.9em;
+    font-size: clamp(14px, 2.4vw, 30px);
+    transform: scaleY(0);
+    transition: transform 240ms cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.hz-eye.is-open { transform: scaleY(1); }
+.hz-eye.is-blinking { transform: scaleY(0.06); transition-duration: 90ms; }
+.hz-eye i {
+    position: relative;
+    display: block;
+    width: 1em;
+    height: 0.42em;
+    overflow: hidden;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 50%, #ffd2c4 0 8%, #ff2a35 22%, #9c0611 60%, #2b0003 100%);
+    box-shadow: 0 0 0.6em rgba(255, 20, 40, 0.65);
+}
+.hz-eye b { position: absolute; left: 50%; top: 50%; width: 0.16em; height: 0.4em; margin: -0.2em 0 0 -0.08em; border-radius: 50%; background: #0a0000; }
+
+/* Hand prints slammed onto the glass: dark red, no bright flash. */
+.hz-hands { inset: 0; pointer-events: none; }
+.hz-hand {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: clamp(100px, 16vw, 190px);
+    opacity: 0;
+    fill: #6e060d;
+    will-change: transform, opacity;
+}
+.hz-hand.is-slam { animation: hz-slam 2600ms ease-out both; }
+
+/* The line, last: pale on dark, with a threat's slow rise out of the dark. */
+.hz-center {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(6vh, env(safe-area-inset-top)) max(6vw, 18px) max(6vh, env(safe-area-inset-bottom));
+    pointer-events: none;
+}
+.hz-text {
+    margin: 0;
+    max-width: 22em;
+    padding: 0.7em 0.8em;
+    font-family: Georgia, 'Times New Roman', 'Liberation Serif', serif;
+    font-size: clamp(1.25rem, 5.4vw, 3.1rem);
+    font-weight: 700;
+    line-height: 1.22;
+    letter-spacing: 0.015em;
+    text-align: center;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    text-transform: none;
+    color: #f1dcdc;
+    background: rgba(0, 0, 0, 0.7);
+    text-shadow: 0 0 18px rgba(170, 10, 25, 0.95), 0 2px 0 #000;
+    opacity: 0;
+    transition: opacity 900ms ease;
+}
+.hz.b-text .hz-text { opacity: 1; }
+.hz-text span { opacity: 0; transition: opacity 700ms ease; }
+.hz-text span.is-on { opacity: 1; }
+
+.hz-pulse {
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(80, 0, 8, 0.5) 100%);
+}
+
+.hz.is-quake { animation: hz-quake 320ms steps(2, end) both; }
+
+/* Joining late: every state snaps instead of easing. */
+.hz.is-late, .hz.is-late * { transition-duration: 0s !important; animation-duration: 0s !important; }
+
+@keyframes hz-slam {
+    0% { opacity: 0; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1.5); }
+    10% { opacity: 0.92; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1); }
+    70% { opacity: 0.8; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1); }
+    100% { opacity: 0.35; transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1); }
+}
+@keyframes hz-quake {
+    0% { transform: translate3d(0, 0, 0); }
+    35% { transform: translate3d(-4px, 3px, 0); }
+    70% { transform: translate3d(3px, -2px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+}
+
+.hz.is-calm .hz-hand.is-slam { animation-duration: 3600ms; }
+.hz.is-calm.is-quake { animation: none; }
+.hz.is-calm .hz-eye { transition-duration: 900ms; }
+.hz.is-lite .hz-blood svg { display: none; }
+.hz.is-lite .hz-dark { width: 240vmax; height: 240vmax; margin: -120vmax 0 0 -120vmax; }
+
+@media (prefers-reduced-motion: reduce) {
+    .hz.is-quake { animation: none; }
+}
