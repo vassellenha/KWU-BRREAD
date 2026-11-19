@@ -510,6 +510,9 @@ const horror = (() => {
     const aim = $('cr-aim');
     const aimKey = $('cr-aim-key');
     const aimWarm = $('cr-aim-warm');
+    const aimEyes = $('cr-aim-eyes');
+    const gun = $('cr-aim-gun');
+    const cover = $('cr-aim-cover');
     const flashImg = $('cr-flash-img');
     const flashTwin = $('cr-flash-twin');
     const crackWrap = $('cr-crackwrap');
@@ -539,14 +542,91 @@ const horror = (() => {
     const cls = {};
     const fired = new Set();
 
-    /* ---- one-shot sound effects (WebAudio, synthesized, no music, no loops) ---- */
+    /* ---- sound: one chain for everything.
+       voice -> low-pass (distance) -> stereo pan -> duck -> master -> compressor -> output.
+       A procedural cold-room reverb takes a 15 to 35 percent send from each voice. Real recordings in
+       public/audio/honeypot/ replace a synthesized voice when they exist (the server lists them in data-samples);
+       a missing or broken file simply keeps the layered synthesis. Nothing here may ever touch the visuals. ---- */
+
+    const SAMPLES = (() => {
+        try {
+            return JSON.parse(root.dataset.samples || '{}') || {};
+        } catch (error) {
+            return {};
+        }
+    })();
+    const FILE = { buzz: 'fluorescent-buzz', drip: 'drip', boom: 'heavy-thud', creak: 'door-creak', foot: 'footstep-wet', rustle: 'cape-rustle', sting: 'stinger', shot: 'gunshot', glass: 'glass-crack', zap: 'zap', crtoff: 'crt-off', thud: 'heavy-thud' };
+    const buffers = {};
+    let bus = null;
+
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pitch = () => 1 + rnd(-0.04, 0.04); // random pitch, plus or minus 4 percent, on every play
+    const dB = (v) => 10 ** (v / 20);
+
+    // A cold concrete room: noise that decays over `seconds`, bright at first, then rising a little and falling dark.
+    const makeIR = (c, seconds) => {
+        const rate = c.sampleRate;
+        const len = Math.floor(rate * seconds);
+        const buffer = c.createBuffer(2, len, rate);
+        for (let channel = 0; channel < 2; channel += 1) {
+            const data = buffer.getChannelData(channel);
+            let y = 0;
+            for (let i = 0; i < len; i += 1) {
+                const x = i / rate;
+                const cutoff = x < 0.05 ? 1800 + 3400 * (x / 0.05) : 380 + 4820 * Math.exp(-(x - 0.05) * 1.9);
+                const a = 1 - Math.exp((-2 * Math.PI * cutoff) / rate);
+                y += a * (Math.random() * 2 - 1 - y);
+                data[i] = y * Math.exp((-x * 6.9) / seconds) * (x < 0.012 ? x / 0.012 : 1);
+            }
+        }
+        return buffer;
+    };
+
+    const buildBus = (c) => {
+        const master = c.createGain();
+        master.gain.value = 0.9;
+        const comp = c.createDynamicsCompressor();
+        comp.threshold.value = -18;
+        comp.ratio.value = 4;
+        comp.attack.value = 0.005;
+        comp.release.value = 0.18;
+        master.connect(comp);
+        comp.connect(c.destination);
+        const duck = c.createGain(); // every voice except the shot and the glass runs through this
+        duck.connect(master);
+        const wetDuck = c.createGain();
+        wetDuck.connect(master);
+        const verb = c.createConvolver();
+        verb.buffer = makeIR(c, 1.8);
+        verb.connect(wetDuck);
+        const verbGun = c.createConvolver(); // the shot gets the longer tail and is never ducked
+        verbGun.buffer = makeIR(c, 2.8);
+        verbGun.connect(master);
+        bus = { master, duck, wetDuck, verb, verbGun };
+    };
+
+    const loadSamples = (c) => {
+        Object.entries(SAMPLES).forEach(([name, url]) => {
+            if (typeof url !== 'string' || !url.startsWith('/audio/honeypot/')) return;
+            fetch(url, { credentials: 'same-origin' })
+                .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('missing'))))
+                .then((data) => new Promise((ok, fail) => {
+                    const run = c.decodeAudioData(data, ok, fail);
+                    if (run && run.catch) run.catch(fail);
+                }))
+                .then((buffer) => { buffers[name] = buffer; })
+                .catch(() => { /* no file, keep the synthesis */ });
+        });
+    };
 
     const audio = () => {
         if (ctx || !(window.AudioContext || window.webkitAudioContext)) return ctx;
         try {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
+            buildBus(ctx);
+            loadSamples(ctx);
         } catch (error) {
-            ctx = null;
+            bus = null;
         }
         return ctx;
     };
@@ -562,72 +642,104 @@ const horror = (() => {
         source.buffer = buffer;
         return source;
     };
-    const env = (c, at, peak, attack, release) => {
+    const env = (c, out, at, peak, attack, release) => {
         const gain = c.createGain();
         gain.gain.setValueAtTime(0.0001, at);
         gain.gain.exponentialRampToValueAtTime(peak, at + attack);
         gain.gain.exponentialRampToValueAtTime(0.0001, at + attack + release);
-        gain.connect(c.destination);
+        gain.connect(out);
         return gain;
     };
-    const hit = (build) => {
-        const c = ctx;
-        if (!c || c.state !== 'running') return;
-        try {
-            build(c, c.currentTime + 0.02);
-        } catch (error) {
-            // A sound that fails must never touch the visuals.
-        }
+    // One oscillator layer: a glide from f0 to f1 over `sweep`, wrapped in its own envelope.
+    const osc = (c, out, type, f0, f1, at, sweep, peak, attack, release) => {
+        const o = c.createOscillator();
+        o.type = type;
+        o.frequency.setValueAtTime(f0, at);
+        if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, at + sweep);
+        o.connect(env(c, out, at, peak, attack, release));
+        o.start(at);
+        o.stop(at + Math.max(sweep, attack + release) + 0.05);
     };
-    const lowpass = (c, f) => {
-        const n = c.createBiquadFilter();
-        n.type = 'lowpass';
-        n.frequency.value = f;
-        return n;
+    // One noise layer through a filter.
+    const hiss = (c, out, at, len, type, f, q, peak, attack, release) => {
+        const n = noise(c, len);
+        const flt = c.createBiquadFilter();
+        flt.type = type;
+        flt.frequency.value = f;
+        flt.Q.value = q;
+        n.connect(flt).connect(env(c, out, at, peak, attack, release));
+        n.start(at);
     };
 
+    // The input of one sound: gain (plus or minus 1.5 dB), distance low-pass, stereo pan, then the bus and the reverb send.
+    const voice = (c, o) => {
+        const input = c.createGain();
+        input.gain.value = (o.gain ?? 1) * dB(rnd(-1.5, 1.5));
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 600 * 24 ** (1 - clamp(o.dist ?? 0.3)); // far = muffled (600 Hz), near = open (14 kHz)
+        lp.Q.value = 0.5;
+        input.connect(lp);
+        let tail = lp;
+        if (c.createStereoPanner) {
+            const pan = c.createStereoPanner();
+            pan.pan.value = clamp(o.pan ?? 0, -1, 1);
+            lp.connect(pan);
+            tail = pan;
+        }
+        tail.connect(o.bypass ? bus.master : bus.duck);
+        const send = c.createGain();
+        send.gain.value = o.send ?? 0.25;
+        tail.connect(send);
+        send.connect(o.bypass ? bus.verbGun : bus.verb);
+        return input;
+    };
+
+    // Each sound is at least two layers. `r` is this play's pitch factor.
     const SFX = {
-        buzz: () => hit((c, t) => {
-            const out = env(c, t, 0.06, 0.04, 0.8);
+        buzz: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            const bed = env(c, out, t, 0.06, 0.04, 0.8);
             [100, 200, 300].forEach((f, i) => {
-                const o = c.createOscillator();
-                o.type = 'sawtooth';
-                o.frequency.value = f;
+                const node = c.createOscillator();
+                node.type = 'sawtooth';
+                node.frequency.value = f * r;
                 const g = c.createGain();
                 g.gain.value = 0.5 / (i + 1);
-                o.connect(g).connect(out);
-                o.start(t);
-                o.stop(t + 1);
+                node.connect(g).connect(bed);
+                node.start(t);
+                node.stop(t + 1);
             });
-        }),
-        drip: () => hit((c, t) => {
+            osc(c, out, 'sine', 50 * r, 50 * r, t, 0.1, 0.05, 0.05, 0.75); // mains hum
+            [0.12, 0.37, 0.6].forEach((d) => hiss(c, out, t + d, 0.04, 'highpass', 4200, 0.7, 0.025, 0.002, 0.03)); // ballast crackle
+        },
+        drip: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
             [0, 0.17].forEach((delay, i) => {
-                const o = c.createOscillator();
-                o.type = 'sine';
-                o.frequency.setValueAtTime(900, t + delay);
-                o.frequency.exponentialRampToValueAtTime(1500, t + delay + 0.05);
-                o.connect(env(c, t + delay, 0.09 / (i + 1), 0.003, 0.12));
-                o.start(t + delay);
-                o.stop(t + delay + 0.2);
+                osc(c, out, 'sine', 900 * r, 1500 * r, t + delay, 0.05, 0.09 / (i + 1), 0.003, 0.12);
+                hiss(c, out, t + delay, 0.03, 'bandpass', 3200, 1.2, 0.04 / (i + 1), 0.001, 0.02); // the wet tick
             });
-        }),
-        crunch: () => hit((c, t) => {
-            [0, 0.07, 0.15].forEach((delay) => {
-                const n = noise(c, 0.08);
-                const f = c.createBiquadFilter();
-                f.type = 'bandpass';
-                f.frequency.value = 2600 + Math.random() * 1400;
-                n.connect(f).connect(env(c, t + delay, 0.26, 0.002, 0.06));
-                n.start(t + delay);
-            });
-        }),
-        // A hinge that wants oil: a slow saw glide through a narrow band, with grit on top.
-        creak: () => hit((c, t) => {
-            const o = c.createOscillator();
-            o.type = 'sawtooth';
-            o.frequency.setValueAtTime(140, t);
-            o.frequency.linearRampToValueAtTime(210, t + 1.0);
-            o.frequency.linearRampToValueAtTime(170, t + 2.0);
+        },
+        // The heavy knock behind the door and the thud under the face: sub sweep, body noise, dull click.
+        boom: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            const g = o.arg ?? 1;
+            osc(c, out, 'sine', 70 * r, 24 * r, t, 0.7, 0.85 * g, 0.01, 0.42);
+            hiss(c, out, t, 0.25, 'lowpass', 260, 0.7, 0.4 * g, 0.004, 0.22);
+            hiss(c, out, t, 0.06, 'bandpass', 900, 1, 0.12 * g, 0.002, 0.04);
+        },
+        // A hinge that wants oil: a slow saw glide through a narrow band, wood groan underneath, grit on top.
+        creak: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            const node = c.createOscillator();
+            node.type = 'sawtooth';
+            node.frequency.setValueAtTime(140 * r, t);
+            node.frequency.linearRampToValueAtTime(210 * r, t + 1.0);
+            node.frequency.linearRampToValueAtTime(170 * r, t + 2.0);
             const bp = c.createBiquadFilter();
             bp.type = 'bandpass';
             bp.frequency.setValueAtTime(520, t);
@@ -638,135 +750,152 @@ const horror = (() => {
             g.gain.exponentialRampToValueAtTime(0.1, t + 0.35);
             g.gain.exponentialRampToValueAtTime(0.05, t + 1.3);
             g.gain.exponentialRampToValueAtTime(0.0001, t + 2.1);
-            o.connect(bp).connect(g).connect(c.destination);
-            o.start(t);
-            o.stop(t + 2.2);
-        }),
-        // A heavy boot on concrete, duller and quieter while he is still far away.
-        foot: (g = 0.5) => hit((c, t) => {
-            const o = c.createOscillator();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(82, t);
-            o.frequency.exponentialRampToValueAtTime(34, t + 0.24);
-            o.connect(lowpass(c, 160 + 900 * g)).connect(env(c, t, 0.15 + 0.55 * g, 0.006, 0.34));
-            o.start(t);
-            o.stop(t + 0.5);
-            const n = noise(c, 0.1);
-            n.connect(lowpass(c, 220 + 600 * g)).connect(env(c, t, 0.06 + 0.3 * g, 0.004, 0.09));
-            n.start(t);
-        }),
-        rustle: () => hit((c, t) => {
-            const n = noise(c, 1);
-            const f = c.createBiquadFilter();
-            f.type = 'bandpass';
-            f.frequency.value = 1500;
-            f.Q.value = 0.8;
-            const g = c.createGain();
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(0.06, t + 0.35);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
-            n.connect(f).connect(g).connect(c.destination);
-            n.start(t);
-        }),
-        sting: (g = 1) => hit((c, t) => {
+            node.connect(bp).connect(g).connect(out);
+            node.start(t);
+            node.stop(t + 2.2);
+            osc(c, out, 'triangle', 62 * r, 78 * r, t, 1.6, 0.05, 0.5, 1.4);
+            [0.2, 0.55, 0.9, 1.35].forEach((d) => hiss(c, out, t + d, 0.05, 'bandpass', 1800 + d * 600, 3, 0.03, 0.003, 0.04));
+        },
+        // A heavy boot on concrete: low thud, sole click, wet slap. Duller and quieter while he is far away.
+        foot: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            const g = o.arg ?? 0.5;
+            osc(c, out, 'sine', 82 * r, 34 * r, t, 0.24, 0.15 + 0.55 * g, 0.006, 0.34);
+            hiss(c, out, t, 0.1, 'lowpass', 220 + 600 * g, 0.7, 0.06 + 0.3 * g, 0.004, 0.09);
+            hiss(c, out, t, 0.03, 'bandpass', 2600 + rnd(0, 1400), 1.4, 0.02 + 0.09 * g, 0.001, 0.025); // the sole click
+            hiss(c, out, t + 0.03, 0.18, 'bandpass', 900, 0.8, 0.02 + 0.06 * g, 0.01, 0.14); // water under the heel
+        },
+        rustle: (c, t, o) => {
+            const out = voice(c, o);
+            hiss(c, out, t, 1, 'bandpass', 1500 * pitch(), 0.8, 0.06, 0.35, 0.6);
+            hiss(c, out, t + 0.1, 0.8, 'highpass', 5200, 0.6, 0.014, 0.3, 0.45);
+        },
+        sting: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            const g = o.arg ?? 1;
             [55, 58.3, 82].forEach((freq) => {
-                const o = c.createOscillator();
-                o.type = 'sawtooth';
-                o.frequency.value = freq;
-                const f = lowpass(c, 900);
+                const node = c.createOscillator();
+                node.type = 'sawtooth';
+                node.frequency.value = freq * r;
+                const f = c.createBiquadFilter();
+                f.type = 'lowpass';
                 f.frequency.setValueAtTime(900, t);
                 f.frequency.exponentialRampToValueAtTime(120, t + 1.1);
-                o.connect(f).connect(env(c, t, 0.11 * g, 0.015, 1.1));
-                o.start(t);
-                o.stop(t + 1.3);
+                node.connect(f).connect(env(c, out, t, 0.11 * g, 0.015, 1.1));
+                node.start(t);
+                node.stop(t + 1.3);
             });
-        }),
-        // The one heavy low thud under the face reveal.
-        boom: (g = 1) => hit((c, t) => {
-            const o = c.createOscillator();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(70, t);
-            o.frequency.exponentialRampToValueAtTime(24, t + 0.7);
-            o.connect(env(c, t, 0.85 * g, 0.01, 0.42));
-            o.start(t);
-            o.stop(t + 0.5);
-            const n = noise(c, 0.25);
-            n.connect(lowpass(c, 260)).connect(env(c, t, 0.4, 0.004, 0.22));
-            n.start(t);
-        }),
-        // The shot: a hard crack, a low thump and a short tail. Nothing here is a weapon sound effect from media.
-        shot: () => hit((c, t) => {
-            const n = noise(c, 0.3);
-            const bp = c.createBiquadFilter();
-            bp.type = 'bandpass';
-            bp.frequency.value = 1900;
-            bp.Q.value = 0.5;
-            n.connect(bp).connect(env(c, t, 0.7, 0.001, 0.09));
-            n.start(t);
-            const o = c.createOscillator();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(150, t);
-            o.frequency.exponentialRampToValueAtTime(38, t + 0.22);
-            o.connect(env(c, t, 0.75, 0.002, 0.3));
-            o.start(t);
-            o.stop(t + 0.4);
-            const tail = noise(c, 0.7);
-            tail.connect(lowpass(c, 700)).connect(env(c, t + 0.05, 0.22, 0.01, 0.55));
-            tail.start(t + 0.05);
-        }),
-        glass: () => hit((c, t) => {
+            osc(c, out, 'sine', 41 * r, 36 * r, t, 1.1, 0.16 * g, 0.03, 1.0);
+            hiss(c, out, t, 1.2, 'bandpass', 700, 0.5, 0.03 * g, 0.5, 0.6);
+        },
+        // The slide of the pistol locking: two small metallic clicks.
+        click: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            [0, 0.085].forEach((d, i) => {
+                hiss(c, out, t + d, 0.03, 'bandpass', 3600 - i * 700, 2.2, 0.12, 0.001, 0.03);
+                osc(c, out, 'sine', 2400 * r - i * 500, 2400 * r - i * 500, t + d, 0.05, 0.04, 0.001, 0.05);
+            });
+        },
+        // The shot: a hard transient, a thump, a mid body. The long tail comes from the big room send.
+        shot: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            hiss(c, out, t, 0.3, 'bandpass', 1900 * r, 0.5, 0.7, 0.001, 0.09);
+            osc(c, out, 'sine', 150 * r, 38 * r, t, 0.22, 0.75, 0.002, 0.3);
+            hiss(c, out, t + 0.02, 0.7, 'lowpass', 700, 0.7, 0.22, 0.01, 0.55);
+            hiss(c, out, t, 0.02, 'highpass', 6000, 0.7, 0.3, 0.0005, 0.012);
+        },
+        // Glass follows the shot by about 60 ms: shards (noise ticks) and ringing pings.
+        glass: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
             [0, 0.06, 0.13, 0.21, 0.33, 0.47].forEach((delay, i) => {
-                const n = noise(c, 0.06);
-                const hp = c.createBiquadFilter();
-                hp.type = 'highpass';
-                hp.frequency.value = 3200 + i * 500;
-                n.connect(hp).connect(env(c, t + delay, 0.24 - i * 0.025, 0.001, 0.05));
-                n.start(t + delay);
-                const o = c.createOscillator();
-                o.type = 'sine';
-                o.frequency.value = 3800 + i * 610;
-                o.connect(env(c, t + delay, 0.05, 0.001, 0.12));
-                o.start(t + delay);
-                o.stop(t + delay + 0.15);
+                hiss(c, out, t + delay, 0.06, 'highpass', 3200 + i * 500, 0.7, 0.24 - i * 0.025, 0.001, 0.05);
+                osc(c, out, 'sine', (3800 + i * 610) * r, (3800 + i * 610) * r, t + delay, 0.1, 0.05, 0.001, 0.12);
             });
-        }),
-        zap: () => hit((c, t) => {
-            for (let i = 0; i < 7; i += 1) {
-                const at = t + i * 0.028;
-                const n = noise(c, 0.03);
-                const hp = c.createBiquadFilter();
-                hp.type = 'highpass';
-                hp.frequency.value = 2400;
-                n.connect(hp).connect(env(c, at, 0.17, 0.001, 0.024));
-                n.start(at);
+        },
+        zap: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            for (let i = 0; i < 7; i += 1) hiss(c, out, t + i * 0.028, 0.03, 'highpass', 2400, 0.7, 0.17, 0.001, 0.024);
+            const node = c.createOscillator();
+            node.type = 'square';
+            node.frequency.setValueAtTime(90 * r, t);
+            node.frequency.exponentialRampToValueAtTime(1800 * r, t + 0.22);
+            const f = c.createBiquadFilter();
+            f.type = 'lowpass';
+            f.frequency.value = 2400;
+            node.connect(f).connect(env(c, out, t, 0.06, 0.004, 0.22));
+            node.start(t);
+            node.stop(t + 0.3);
+            osc(c, out, 'sawtooth', 50 * r, 50 * r, t, 0.1, 0.05, 0.004, 0.25); // mains buzz under the arc
+        },
+        // The tube losing power: a falling electronic whine, then one small pop when the dot dies.
+        crtoff: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            osc(c, out, 'sine', 3200 * r, 55 * r, t, 0.65, 0.1, 0.01, 0.65);
+            osc(c, out, 'triangle', 1600 * r, 40 * r, t, 0.6, 0.03, 0.01, 0.6);
+            hiss(c, out, t + 0.52, 0.04, 'bandpass', 1400, 1.1, 0.2, 0.001, 0.03);
+            osc(c, out, 'sine', 160 * r, 60 * r, t + 0.52, 0.06, 0.18, 0.001, 0.07);
+        },
+        thud: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            osc(c, out, 'sine', 62 * r, 26 * r, t, 0.5, 0.85, 0.006, 0.6);
+            hiss(c, out, t, 0.2, 'lowpass', 200, 0.7, 0.3, 0.004, 0.18);
+        },
+    };
+
+    // The shot ducks every other voice and the reverb return for 300 ms, then they come back.
+    const duckOthers = (c, t) => {
+        [bus.duck, bus.wetDuck].forEach((node) => {
+            node.gain.cancelScheduledValues(t);
+            node.gain.setValueAtTime(1, t);
+            node.gain.linearRampToValueAtTime(0.16, t + 0.012);
+            node.gain.linearRampToValueAtTime(1, t + 0.3);
+        });
+    };
+
+    // The one entry point. `delay` schedules the sound on the audio clock, so it lands with the master timeline, not with a frame.
+    const play = (name, o = {}, delay = 0) => {
+        const c = ctx;
+        if (!c || !bus || c.state !== 'running') return;
+        try {
+            const t = c.currentTime + 0.03 + Math.max(0, delay);
+            if (name === 'shot') duckOthers(c, t);
+            const buffer = buffers[FILE[name]];
+            if (buffer) {
+                const source = c.createBufferSource();
+                source.buffer = buffer;
+                source.playbackRate.value = pitch();
+                source.connect(voice(c, o));
+                source.start(t);
+            } else {
+                SFX[name](c, t, o);
             }
-            const o = c.createOscillator();
-            o.type = 'square';
-            o.frequency.setValueAtTime(90, t);
-            o.frequency.exponentialRampToValueAtTime(1800, t + 0.22);
-            o.connect(lowpass(c, 2400)).connect(env(c, t, 0.06, 0.004, 0.22));
-            o.start(t);
-            o.stop(t + 0.3);
-        }),
-        // The tube losing power: one falling electronic whine.
-        whine: () => hit((c, t) => {
-            const o = c.createOscillator();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(3200, t);
-            o.frequency.exponentialRampToValueAtTime(55, t + 0.65);
-            o.connect(env(c, t, 0.1, 0.01, 0.65));
-            o.start(t);
-            o.stop(t + 0.8);
-        }),
-        thud: () => hit((c, t) => {
-            const o = c.createOscillator();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(62, t);
-            o.frequency.exponentialRampToValueAtTime(26, t + 0.5);
-            o.connect(env(c, t, 0.85, 0.006, 0.6));
-            o.start(t);
-            o.stop(t + 0.7);
-        }),
+        } catch (error) {
+            // A sound that fails must never touch the visuals.
+        }
+    };
+    // Where each sound sits in the room: how far away it is (muffled), how much reverb it takes, whether the shot bus carries it.
+    const SPACE = {
+        buzz: { dist: 0.5, send: 0.2, pan: -0.4 },
+        drip: { dist: 0.45, send: 0.35 },
+        boom: { dist: 0.7, send: 0.3 },
+        creak: { dist: 0.55, send: 0.3, pan: -0.05 },
+        foot: { send: 0.3 },
+        rustle: { dist: 0.4, send: 0.2 },
+        sting: { dist: 0.15, send: 0.3 },
+        click: { dist: 0.1, send: 0.22, pan: -0.1 },
+        shot: { dist: 0, send: 0.35, bypass: true },
+        glass: { dist: 0.05, send: 0.3, bypass: true },
+        zap: { dist: 0.2, send: 0.2 },
+        crtoff: { dist: 0.3, send: 0.15 },
+        thud: { dist: 0.3, send: 0.3 },
     };
 
     /* ---- small maths: everything is a pure function of the clock ---- */
@@ -774,7 +903,13 @@ const horror = (() => {
     const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
     const smooth = (x) => { const v = clamp(x); return v * v * (3 - 2 * v); };
     const inOut = (x) => { const v = clamp(x); return v < 0.5 ? 4 * v * v * v : 1 - ((-2 * v + 2) ** 3) / 2; };
+    // The three curves every move is built from: outCubic, inOut (in-out cubic) and a small outBack. The smooth step
+    // above stays only for light and opacity ramps, never for a position.
     const outCubic = (x) => 1 - (1 - clamp(x)) ** 3;
+    const outBack = (x) => { const v = clamp(x) - 1; return 1 + 2.2 * v * v * v + 1.2 * v * v; };
+    // A damped spring that starts at 1 and swings through zero: the recoil.
+    const spring = (x) => (x < 0 ? 0 : Math.exp(-x / 0.09) * Math.cos((2 * Math.PI * x) / 0.22));
+    const frac = (x) => x - Math.floor(x);
     const lerp = (a, b, x) => a + (b - a) * x;
     const flag = (name, on, target = hz) => {
         if (cls[name] === on) return;
@@ -797,42 +932,60 @@ const horror = (() => {
         door1: 10.0,
         appear: 8.3, // the owner stands in the doorway
         alert: 8.6,
-        reveal0: 24.0, // match cut to the aim plate
+        reveal0: 24.0, // the crossfade to the aim plate starts, with a push-in and a rack focus
+        reveal1: 24.4, // the face is fully there
+        rise0: 25.7, // the pistol comes up from below the frame
+        rise1: 26.2, // and is held until the shot
         key0: 24.2, // the key light ramps up on his face
         key1: 25.4,
         shot: 26.6, // silence before it: 26.2 to 26.6
         black: 29.3,
     };
-    // Weighted steps: each one an eased move with silence between them; he stops once, in total silence, around 13 s.
-    const STEPS = [[10.0, 0.12], [10.85, 0.14], [11.7, 0.14], [14.0, 0.2], [14.75, 0.2], [15.4, 0.2]];
-    const STEP_DUR = 0.8;
-    const LAST_STEP = STEPS[STEPS.length - 1][0] + STEP_DUR;
+    // The gait. A stride is a run of steps, and every step is one phase from 0 to 1 between two heel strikes. That single
+    // phase drives the bob (two peaks per two steps), the shoulder roll, the weight shift and the cloak. The stride itself
+    // starts and stops on an in-out cubic, so he never moves at a constant speed. He stops once, in silence, around 13 s.
+    const STRIDES = [
+        { a: 9.55, b: 12.0, w: 0.4, strikes: [10.3, 11.15, 12.0] },
+        { a: 13.6, b: 15.7, w: 0.6, strikes: [14.3, 15.05, 15.7] },
+    ];
+    const HEAVY = [0.3, 0.42, 0.52, 0.62, 0.78, 0.95]; // how hard each heel lands (the footsteps use the same numbers)
+    const STEPS = [];
+    STRIDES.forEach((st) => st.strikes.forEach((hit, i) => STEPS.push({ a: i ? st.strikes[i - 1] : st.a, b: hit })));
+    const STRIKES = STRIDES.flatMap((st) => st.strikes);
+    const SETTLE = 0.25; // seconds of settle at a mark: down 3 px, then up
+    const WS = 6; // weight shift, px at his nearest size
+    const BOB = 7;
+    const SETTLE_PX = 3;
+    const REST = { p: 1, s: 0, sp: 0, bob: 0, roll: 0, shift: 0, settle: 0, heel: 0, over: 0, shakeX: 0, shakeY: 0 };
     const P1 = [16.1, 19.0];
     const P2 = [19.8, 24.0];
     const QUIET = [[12.5, 14.0], [26.1, 26.55], [T.black, 31]]; // windows where the cue is faded to nothing
 
+    // [time, sound, argument]. The sound is scheduled on the audio clock just before the time, so it lands with the timeline.
     const EVENTS = [
-        [0.9, () => SFX.buzz()],
-        [3.6, () => SFX.drip()],
-        [T.knock, () => SFX.boom(1)],
-        [6.95, () => SFX.creak()],
-        [10.3, () => SFX.foot(0.3)],
-        [10.9, () => SFX.rustle()],
-        [11.15, () => SFX.foot(0.42)],
-        [12.0, () => SFX.foot(0.52)],
-        [14.3, () => SFX.foot(0.62)],
-        [15.05, () => SFX.foot(0.78)],
-        [15.7, () => SFX.foot(0.95)],
-        [16.35, () => SFX.rustle()],
-        [16.7, () => SFX.sting(0.55)],
-        [19.35, () => SFX.drip()],
-        [21.15, () => SFX.sting(1)],
-        [24.05, () => SFX.boom(0.6)],
-        [T.shot, () => SFX.shot()],
-        [26.72, () => SFX.glass()],
-        [27.15, () => SFX.zap()],
-        [28.1, () => SFX.whine()],
-        [29.55, () => SFX.thud()],
+        [0.9, 'buzz'],
+        [3.6, 'drip'],
+        [T.knock, 'boom', 1],
+        [6.95, 'creak'],
+        [10.3, 'foot', 0.3],
+        [10.9, 'rustle'],
+        [11.15, 'foot', 0.42],
+        [12.0, 'foot', 0.52],
+        [14.3, 'foot', 0.62],
+        [15.05, 'foot', 0.78],
+        [15.7, 'foot', 0.95],
+        [16.35, 'rustle'],
+        [16.7, 'sting', 0.55],
+        [19.35, 'drip'],
+        [21.15, 'sting', 1],
+        [24.05, 'boom', 0.6],
+        [25.72, 'rustle'],
+        [T.rise1, 'click'],
+        [T.shot, 'shot'],
+        [T.shot + 0.06, 'glass'],
+        [27.15, 'zap'],
+        [28.1, 'crtoff'],
+        [29.55, 'thud'],
     ];
 
     const threatAt = (u) => {
@@ -844,17 +997,69 @@ const horror = (() => {
         return lerp(0.92, 1, smooth((u - 24) / 1.2));
     };
 
-    const walkAt = (u) => {
-        if (reduced) return { p: 1, bob: 0 };
+    const gaitAt = (u) => {
+        if (reduced) return REST;
         let p = 0;
-        let bob = 0;
-        STEPS.forEach(([start, weight]) => {
-            const x = (u - start) / STEP_DUR;
-            p += weight * smooth(x);
-            if (x > 0 && x < 1) bob = Math.max(bob, Math.sin(Math.PI * x));
+        let sp = 0;
+        let settle = 0;
+        let over = 0;
+        STRIDES.forEach((st) => {
+            const v = clamp((u - st.a) / (st.b - st.a));
+            p += st.w * inOut(v);
+            if (u >= st.a && u < st.b) {
+                const slope = v < 0.5 ? 12 * v * v : 12 * (1 - v) * (1 - v); // 0 at both ends, 3 in the middle
+                sp = Math.max(sp, (0.15 + 0.85 * (slope / 3)) * smooth((u - st.a) / 0.25));
+            } else if (u >= st.b) {
+                const x = u - st.b;
+                sp = Math.max(sp, 0.15 * Math.exp(-x / 0.12));
+                if (x < SETTLE) settle = Math.sin((Math.PI * x) / SETTLE);
+                over += Math.exp(-x / 0.3) * Math.sin((2 * Math.PI * x) / 0.55); // the cloak overshoots a little when he stops
+            }
         });
-        return { p: clamp(p), bob };
+        // The step phase: i + 0..1, continuous across steps, held on a whole number between strides.
+        let s = 0;
+        for (let i = 0; i < STEPS.length; i += 1) {
+            const st = STEPS[i];
+            if (u >= st.b) {
+                s = i + 1;
+            } else {
+                if (u >= st.a) s = i + (u - st.a) / (st.b - st.a);
+                break;
+            }
+        }
+        let heel = 0;
+        let shakeX = 0;
+        let shakeY = 0;
+        STRIKES.forEach((hit, j) => {
+            const x = u - hit;
+            if (x < 0) return;
+            if (x < 0.45) heel += HEAVY[j] * Math.exp(-x / 0.09);
+            if (HEAVY[j] >= 0.5 && x < 0.09) {
+                // Four to six frames of micro-shake on the heavy steps, one fixed offset per 60 Hz frame.
+                const n = Math.floor(x * 60) + j * 7;
+                const amp = HEAVY[j] * Math.exp(-x / 0.04);
+                shakeX += (frac(Math.sin(n * 127.1) * 43758.5453) - 0.5) * 2 * amp;
+                shakeY += (frac(Math.sin(n * 311.7 + 1.7) * 43758.5453) - 0.5) * 2 * amp;
+            }
+        });
+        const sine = Math.sin(Math.PI * s);
+        return { p: clamp(p), s, sp, bob: sp * Math.abs(sine), roll: sp * sine, shift: sp * Math.cos(Math.PI * s), settle, heel, over, shakeX, shakeY };
     };
+
+    // Handheld drift: three sines per axis at frequencies that never line up, so the camera never repeats itself.
+    const driftX = (t) => 2.1 * Math.sin(0.37 * t + 0.6) + 1.3 * Math.sin(0.93 * t + 2.1) + 0.55 * Math.sin(2.17 * t + 4.0);
+    const spaceFor = (name, arg, at) => {
+        const o = { ...(SPACE[name] || {}), arg };
+        const p = gaitAt(at).p;
+        if (name === 'foot') {
+            o.pan = lerp(-0.55, 0.5, p); // the footsteps follow him across the room, left to right
+            o.dist = 0.85 * (1 - p); // far and muffled at the door, open when he is close
+        }
+        if (name === 'rustle') o.pan = lerp(-0.4, 0.4, p);
+        if (name === 'drip') o.pan = at < 10 ? -0.5 : 0.45;
+        return o;
+    };
+    const driftY = (t) => 1.6 * Math.sin(0.29 * t + 1.0) + 0.9 * Math.sin(0.71 * t + 0.3) + 0.45 * Math.sin(1.93 * t + 2.6);
 
     /* ---- the art plates: a need-ordered manifest; nothing starts until what the current moment needs is decoded ---- */
 
@@ -930,6 +1135,12 @@ const horror = (() => {
         aim.style.transformOrigin = `${mx.toFixed(1)}px ${my.toFixed(1)}px`;
         aim.style.setProperty('--fx', `${afx.toFixed(0)}px`);
         aim.style.setProperty('--fy', `${afy.toFixed(0)}px`);
+        // The eyes behind the lenses (plate fractions), where the red light ignites.
+        aim.style.setProperty('--e1x', `${(W / 2 + (0.417 - 0.5) * aw).toFixed(1)}px`);
+        aim.style.setProperty('--e2x', `${(W / 2 + (0.658 - 0.5) * aw).toFixed(1)}px`);
+        aim.style.setProperty('--ey', `${(at + 0.367 * ah).toFixed(1)}px`);
+        aim.style.setProperty('--er', `${(0.07 * aw).toFixed(1)}px`);
+        geo.drop = Math.max(60, H - (at + 0.4 * ah) + 0.05 * H); // how far the pistol waits below the frame
 
         const fw = aw * 0.95;
         const fh = (fw * 524) / 850;
@@ -942,10 +1153,17 @@ const horror = (() => {
         flashTwin.style.top = `${(my - 0.922 * fh).toFixed(1)}px`;
         flashTwin.style.transformOrigin = '47.4% 92.2%';
 
-        const cw = Math.max(W, 1.5 * H) * 1.3;
+        // The crack plate is 3:2 with its impact point at (0.507, 0.346). It is sized so all four of its edges lie outside the
+        // viewport (24 px margin) and never less than cover plus 10 percent; the image mask also fades to nothing inside its box.
+        const m = 24;
+        const need = Math.max((mx + m) / 0.507, (W - mx + m) / 0.493, ((my + m) * 1.5) / 0.346, ((H - my + m) * 1.5) / 0.654);
+        const cw = Math.max(need, Math.max(W, 1.5 * H) * 1.1);
         crackImg.style.width = `${cw.toFixed(1)}px`;
         crackImg.style.left = `${(mx - 0.507 * cw).toFixed(1)}px`;
         crackImg.style.top = `${(my - (0.346 * cw) / 1.5).toFixed(1)}px`;
+        crackWrap.style.setProperty('--cx', `${mx.toFixed(1)}px`);
+        crackWrap.style.setProperty('--cy', `${my.toFixed(1)}px`);
+        geo.reach = Math.max(Math.hypot(mx, my), Math.hypot(W - mx, my), Math.hypot(mx, H - my), Math.hypot(W - mx, H - my)) * 1.5;
 
         // The sandwich sits on the left of his path; on a narrow screen it moves in so it stays in frame.
         if (W / H < 1) {
@@ -964,7 +1182,7 @@ const horror = (() => {
     const PAD = 24;
     const GLINTS = [[316, 106], [365, 106]];
     const FACE_C = [342, 112];
-    const fig = { ready: false, w: 0, h: 0, cw: 0, lit: null, dark: null, ctx: null, strips: lite ? 9 : 16, drawAt: 0 };
+    const fig = { ready: false, w: 0, h: 0, cw: 0, lit: null, dark: null, ctx: null, strips: lite ? 9 : 16, drawAt: 0, every: lite ? 50 : 33 };
 
     const silhouette = (target, img) => {
         const c = target.getContext('2d');
@@ -1010,8 +1228,10 @@ const horror = (() => {
         fig.ready = true;
     };
 
-    // Where a point of the cutout lands on screen, given the current walk position.
-    const figGeom = (p, bob) => {
+    // Where the cutout stands, from the gait: path position on an in-out cubic, plus the bob, the weight shift, the settle
+    // at a mark and the small scale rise at each heel strike. Offsets are px at his nearest size and shrink with distance.
+    const figGeom = (gait) => {
+        const p = gait.p;
         const x0 = 0.49 * PW;
         const y0 = 0.708 * PH;
         const h0 = 0.3 * PH;
@@ -1020,40 +1240,42 @@ const horror = (() => {
         const y1 = (PH - H) / 2 + 0.955 * H;
         const h1 = 0.9 * H;
         const hgt = lerp(h0, h1, p);
-        const sc = hgt / (fig.h || 1180);
-        return { x: lerp(x0, x1, p), y: lerp(y0, y1, p) - bob * (reduced ? 0 : 5) * sc, sc, p };
+        const near = hgt / h1;
+        return {
+            x: lerp(x0, x1, p) + gait.shift * WS * near,
+            y: lerp(y0, y1, p) - (gait.bob * BOB - gait.settle * SETTLE_PX) * near,
+            sc: (hgt / (fig.h || 1180)) * (1 + 0.012 * gait.heel),
+            p,
+        };
     };
     const toScreen = (g, cx, cy) => ({
         x: (W - PW) / 2 + g.x + (cx + PAD - fig.cw / 2) * g.sc,
         y: (H - PH) / 2 + g.y - (fig.h - cy) * g.sc,
     });
 
-    // Cloth keeps moving a while after he stops, then settles on a damped sine. The head turns a little during the stop.
-    const clothAt = (u) => {
-        if (u < STEPS[0][0]) return 0;
-        let lastEnd = -99;
-        let active = false;
-        STEPS.forEach(([start]) => {
-            if (u >= start && u < start + STEP_DUR) active = true;
-            if (u >= start + STEP_DUR) lastEnd = Math.max(lastEnd, start + STEP_DUR);
-        });
-        return active ? 1 : Math.exp(-(u - lastEnd) * 1.4);
-    };
     const turnAt = (u) => (reduced ? 0 : smooth((u - 12.9) / 0.5) * (1 - 0.35 * smooth((u - 13.8) / 0.4)) * (1 - smooth((u - 14.2) / 0.5)));
 
-    const drawFigure = (t, u, D, body, walk) => {
+    const drawFigure = (t, u, D, body, gait) => {
         if (!fig.ready) return;
         const c = fig.ctx;
         const n = fig.strips;
         const sh = fig.h / n;
-        const amp = (0.5 + 2.6 * clothAt(u) + 1.4 * walk.bob) * (reduced ? 0.4 : 1);
+        const calm = reduced ? 0.4 : 1;
+        // The cloak follows his weight shift 120 to 180 ms late (the hem is the slowest), so it trails him and then overshoots a stop.
+        const ref = Math.max(0.1, (0.9 * H) / fig.h);
+        const shiftFig = (x) => (WS / ref) * gaitAt(x).shift;
+        const now0 = shiftFig(u);
         const turn = turnAt(u);
         c.clearRect(0, 0, fig.cw, fig.h);
         for (let i = 0; i < n; i += 1) {
             const y = i * sh;
             const f = y / fig.h;
             const hem = smooth((f - 0.38) / 0.55);
-            let dx = amp * (0.25 + 2.2 * hem) * Math.sin(t * 1.7 + i * 0.62) + Math.sin(t * 0.9 + i * 0.3) * 0.4 * (1 - f);
+            const lag = 0.12 + 0.06 * hem;
+            const trail = reduced ? 0 : (shiftFig(u - lag) - now0) * (0.4 + 2.2 * hem);
+            const over = gait.over * 5 * (0.15 + 1.8 * hem);
+            const flutter = (0.5 + 2.2 * gait.sp) * 0.55 * (0.25 + 2.2 * hem) * Math.sin(t * 1.7 + i * 0.62) * calm;
+            let dx = trail + over + flutter + Math.sin(t * 0.9 + i * 0.3) * 0.4 * (1 - f);
             let sw = fig.w;
             let off = 0;
             if (f < 0.2 && turn > 0) {
@@ -1070,12 +1292,15 @@ const horror = (() => {
             }
         }
         c.globalAlpha = 1;
-        // Lens glints: two small points, faintly alive; they catch the light as the door opens.
-        const ga = 0.1 + 0.32 * D;
+        // Lens glints: two small points, faintly alive; they catch the light as the door opens, and go red as the face comes up.
+        const rd = smooth((u - T.reveal0) / 0.25);
+        const ga = 0.1 + 0.32 * D + 0.5 * rd;
+        const rgb = `${Math.round(235 + 20 * rd)},${Math.round(252 - 190 * rd)},${Math.round(255 - 195 * rd)}`;
         GLINTS.forEach(([gx, gy]) => {
-            const g = c.createRadialGradient(PAD + gx, gy, 0, PAD + gx, gy, 5);
-            g.addColorStop(0, `rgba(235,252,255,${ga})`);
-            g.addColorStop(1, 'rgba(235,252,255,0)');
+            const r = 5 + 4 * rd;
+            const g = c.createRadialGradient(PAD + gx, gy, 0, PAD + gx, gy, r);
+            g.addColorStop(0, `rgba(${rgb},${ga.toFixed(3)})`);
+            g.addColorStop(1, `rgba(${rgb},0)`);
             c.fillStyle = g;
             c.fillRect(PAD + gx - 14, gy - 14, 28, 28);
         });
@@ -1177,8 +1402,9 @@ const horror = (() => {
 
     const shotAt = (u) => {
         const x = u - T.shot;
-        // ---- the lens: glass cracks outward from the muzzle point, a few chips fall, sparks late
-        const c = u - 26.7;
+        // ---- the lens: the glass follows the shot by 60 ms and the crack grows out of the impact point through a feathered
+        // radial mask in 180 ms, drawn with screen blending so its dark parts never leave a box behind.
+        const c = u - (T.shot + 0.06);
         if (c < 0) {
             if (cls.crackOn !== false) {
                 cls.crackOn = false;
@@ -1188,10 +1414,17 @@ const horror = (() => {
             cls.crackOn = true;
             const alpha = x < 0.5 ? 0.3 : 0.3 + 0.62 * smooth((x - 0.5) / 0.9);
             crackWrap.style.opacity = alpha.toFixed(3);
-            const cm = Math.round((outCubic(c / 1.5) * 118) / 2) * 2;
-            if (cm !== cls.cm) {
-                cls.cm = cm;
-                crackImg.style.setProperty('--cm', `${cm}%`);
+            const grow = reduced ? 1 : outCubic(c / 0.18);
+            // Once it has fully grown the growth mask covers nothing the viewport can see, so it is dropped (one less offscreen pass).
+            const grown = grow >= 1;
+            if (grown !== cls.grown) {
+                cls.grown = grown;
+                crackWrap.classList.toggle('is-grown', grown);
+            }
+            const cr = Math.round((grow * geo.reach) / 6) * 6;
+            if (cr !== cls.cr) {
+                cls.cr = cr;
+                crackWrap.style.setProperty('--cr', `${cr}px`);
             }
         }
         chips.forEach((ch) => {
@@ -1232,7 +1465,8 @@ const horror = (() => {
             if (u >= 27.2 && u < 27.7) sx = (((Math.floor(u * 28) * 37) % 23) - 11) * 1.6;
             if (u >= 27.7 && u < 27.95) ry = H * 0.25 * Math.sin((Math.PI * (u - 27.7)) / 0.25);
         }
-        const kick = !reduced && x > 0 && x < 0.3 ? 7 * Math.exp(-x / 0.05) : 0;
+        // The camera takes the recoil a hair after the plate: up 6 px, then back on the same spring.
+        const kick = !reduced && x > 0.02 && x < 0.7 ? -6 * spring(x - 0.02) : 0;
         const shift = `translate3d(${(sx + kick * 0.4).toFixed(1)}px, ${(ry + kick).toFixed(1)}px, 0)`;
 
         // ---- the CRT power-off: scaleY to a line, scaleX to a dot, a soft glow, then nothing
@@ -1263,7 +1497,7 @@ const horror = (() => {
             if (!cue.paused) cue.pause();
             return;
         }
-        let want = 0.5;
+        let want = 0.28; // low and under everything: it plays once with the timeline and is never looped
         QUIET.forEach(([a, b]) => { if (u >= a && u < b) want = 0; });
         if (now < duckUntil || talking) want *= 0.38;
         cueVol += (want - cueVol) * Math.min(1, dt * 7);
@@ -1283,6 +1517,9 @@ const horror = (() => {
     /* ---- the master frame: one rAF, one delta clock ---- */
 
     let blurNow = -1;
+    let aimBlurNow = -1;
+    let perf = 0.0167;
+    let degraded = false;
     let waiting = true;
     let startedAt = 0;
     let grainNow = -1;
@@ -1293,6 +1530,14 @@ const horror = (() => {
         const target = t / k;
         const dt = Math.min(0.1, (now - last) / 1000 || 0.016);
         last = now;
+        perf += (dt - perf) * 0.05;
+        // A slow phone gets a cheaper figure (fewer strips, a slower redraw, no focus blur) instead of dropping frames.
+        if (!degraded && now - startedAt > 4000 && perf > 0.024) {
+            degraded = true;
+            fig.strips = Math.min(fig.strips, 8);
+            fig.every = 50;
+            hz.classList.add('is-lite');
+        }
 
         if (t >= state.horrorMs / 1000) {
             startKewer();
@@ -1319,33 +1564,36 @@ const horror = (() => {
         const ut = u * k;
         if (!fig.ready) buildFigure();
 
-        // One-shot sounds: fire once as the clock passes them; anything we only joined late stays silent.
+        // One-shot sounds: scheduled on the audio clock a hair before the timeline reaches them, once each. Anything the
+        // clock passed long ago (a reload at second N) stays silent, so a resume never replays old sounds.
         if (!waiting) {
-            EVENTS.forEach(([at, fn], i) => {
-                if (fired.has(i) || u < at) return;
+            EVENTS.forEach(([at, name, arg], i) => {
+                if (fired.has(i)) return;
+                const lead = (at - u) * k;
+                if (lead > 0.12) return;
                 fired.add(i);
-                if ((u - at) * k < 0.8) {
-                    fn();
-                    duckUntil = now + 800;
-                }
+                if (lead < -0.8) return;
+                play(name, spaceFor(name, arg, at), lead);
+                duckUntil = now + (name === 'shot' ? 1400 : 800);
             });
         }
 
         // ---- light and world state
         const bootOp = smooth((u - 1.7) / 1.4);
-        const cut = smooth((u - T.reveal0) / 0.2);
-        const roomOn = u < T.reveal0 + 0.3;
+        const cut = reduced ? smooth((u - T.reveal0) / 0.4) : inOut((u - T.reveal0) / (T.reveal1 - T.reveal0)); // the 400 ms crossfade
+        const roomOn = u < T.reveal1 + 0.1;
         const D = smooth((u - 7.2) / 2.8);
         const door = smooth((u - T.door0) / (T.door1 - T.door0));
-        const walk = walkAt(u);
+        const walk = gaitAt(u);
         const p = walk.p;
-        const cam1 = inOut((u - 7.5) / 8.7);
-        const cam2 = inOut((u - 19.0) / (T.reveal0 - 19.0));
-        const S = lerp(1 + 0.12 * cam1, 2.7, cam2);
+        // One slow dolly, built from two overlapping eases so it never stops: a gentle push over the room, then the long push
+        // toward his face that is still moving when the crossfade starts, plus a little extra through the fade.
+        const cam1 = inOut((u - 7.5) / 12.5);
+        const cam2 = clamp(inOut((u - 18) / 8) / 0.9375);
+        const S = Math.exp(Math.log(1.12) * cam1 + Math.log(2.7 / 1.12) * cam2 + Math.log(1.1) * smooth((u - 23.6) / 0.85));
 
         if (roomOn) {
             room.style.opacity = (bootOp * (1 - cut)).toFixed(3);
-            room.style.transform = cut > 0 ? `translate3d(${(-cut * 0.06 * W).toFixed(1)}px, 0, 0)` : '';
             openImg.style.opacity = door.toFixed(3);
             spill.style.opacity = (D * (1 - 0.3 * p)).toFixed(3);
             bloom.style.opacity = (0.5 * D * (1 - 0.3 * cam1)).toFixed(3);
@@ -1355,11 +1603,13 @@ const horror = (() => {
 
             // ---- the owner
             const fOpacity = reduced ? smooth((u - 9) / 2.5) : smooth((u - T.appear) / 0.7);
-            const g = figGeom(p, walk.bob);
+            const g = figGeom(walk);
             const cw = fig.cw || 724;
             const ch = fig.h || 1180;
             figEl.style.opacity = fOpacity.toFixed(3);
-            figCanvas.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)})`;
+            // Shoulder roll: a turn of up to 1.2 degrees about his hips, alternating with each step.
+            const hips = -0.48 * ch;
+            figCanvas.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)}) translate(0px, ${hips.toFixed(1)}px) rotate(${(1.2 * walk.roll).toFixed(3)}deg) translate(0px, ${(-hips).toFixed(1)}px)`;
             // The cast shadow and the reflection come from the same position value as the body.
             const len = lerp(2.4, 1.0, p);
             const skew = ((g.x - 0.49 * PW) / PH) * -26;
@@ -1371,15 +1621,15 @@ const horror = (() => {
             sandWrap.firstElementChild.style.opacity = '1';
             if (sandLit) sandLit.style.opacity = (0.6 * D).toFixed(3);
 
-            if (now - fig.drawAt > (lite ? 50 : 33)) {
+            if (now - fig.drawAt > fig.every) {
                 fig.drawAt = now;
                 drawFigure(ut, u, D, 0.05 + 0.1 * cam2, walk);
             }
 
             // ---- camera: one move, handheld drift on top, parallax by layer
             const drift = reduced ? 0 : 1;
-            const dx = (Math.sin(ut * 0.7) * 3 + Math.sin(ut * 1.9) * 1.1) * drift;
-            const dy = (Math.sin(ut * 0.55 + 1) * 2.2 + Math.sin(ut * 2.3) * 0.8) * drift;
+            const dx = (driftX(ut) + walk.shakeX * 2) * drift;
+            const dy = (driftY(ut) + walk.shakeY * 2) * drift;
             const face = toScreen(g, FACE_C[0], FACE_C[1]);
             const ox = lerp(W / 2, face.x, cam2);
             const oy = lerp(H / 2, face.y, cam2);
@@ -1394,7 +1644,7 @@ const horror = (() => {
             setLayer(layers.near, 1.8, 1.8);
 
             // Depth of field: the background softens while the camera pushes in; quantized so it stays cheap.
-            if (!lite && !reduced) {
+            if (!lite && !degraded && !reduced) {
                 const blur = Math.round(3 * smooth((u - 16.5) / 7) * 2) / 2;
                 if (blur !== blurNow) {
                     blurNow = blur;
@@ -1404,23 +1654,50 @@ const horror = (() => {
             }
         }
 
-        // ---- the aim plate: match cut, key light on the face, the shot
+        // ---- the aim plate: a 400 ms crossfade with a push-in and a rack focus, the key light and the red eyes, the pistol
+        // coming up from below the frame (500 ms, small overshoot, then a 400 ms hold), the shot and its recoil
         if (u >= T.reveal0 - 0.05) {
             const F = flashAt(u);
             const x = u - T.shot;
-            const recoil = !reduced && x > 0 && x < 0.6 ? Math.exp(-x / 0.07) : 0;
+            const rx = u - T.reveal0;
+            // push-in 1 to 1.12 as the face comes up, then a slow creep toward the shot
+            const sa = reduced ? 1 : 1 + 0.12 * outCubic(rx / 0.45) + 0.03 * inOut((u - 25.0) / 1.6);
+            // recoil: the plate jumps up 10 px and settles back on a damped spring, with a hair of scale and tilt
+            const dyP = !reduced && x > 0 && x < 0.7 ? -10 * spring(x) : 0;
+            const hit = !reduced && x > 0 && x < 0.6 ? Math.exp(-x / 0.07) : 0;
             aim.style.opacity = cut.toFixed(3);
-            aim.style.transform = `translate3d(${((1 - cut) * 0.05 * W).toFixed(1)}px, ${(recoil * 5).toFixed(1)}px, 0) scale(${(1 + 0.05 * recoil).toFixed(4)}) rotate(${(-1.2 * recoil).toFixed(2)}deg)`;
+            aim.style.transform = `translate3d(0, ${dyP.toFixed(1)}px, 0) scale(${(sa * (1 + 0.02 * hit)).toFixed(4)}) rotate(${(-1 * hit).toFixed(2)}deg)`;
+            // rack focus: the plate starts soft and pulls sharp as the crossfade lands
+            const blur = reduced || lite || degraded ? 0 : Math.round(7 * (1 - outCubic(rx / 0.9)) * 2) / 2;
+            if (blur !== aimBlurNow) {
+                aimBlurNow = blur;
+                aim.style.filter = blur ? `blur(${blur}px)` : '';
+            }
+            // the pistol rises from below the frame, held from the end of the rise until the shot
+            const rise = reduced ? 1 : outBack((u - T.rise0) / (T.rise1 - T.rise0));
+            gun.style.transform = `translate3d(0, ${((1 - rise) * geo.drop).toFixed(1)}px, 0)`;
+            const patch = !reduced && u < T.rise1 + 0.2; // once the pistol is home, the plate itself shows it: the patch and the copy are hidden
+            cover.style.opacity = reduced ? '0' : (1 - smooth((u - T.rise1 - 0.05) / 0.15)).toFixed(3);
+            if (patch !== cls.patch) {
+                cls.patch = patch;
+                cover.style.visibility = patch ? '' : 'hidden';
+                gun.style.visibility = patch ? '' : 'hidden';
+            }
+            // the red light in the eyes ignites 150 ms before the face is fully there
+            const eyes = smooth((u - (T.reveal1 - 0.15)) / 0.2) * (reduced ? 1 : 0.88 + 0.12 * Math.sin(u * 7.3));
+            aimEyes.style.opacity = eyes.toFixed(3);
             const ks = smooth((u - T.key0) / (T.key1 - T.key0));
             const s = lerp(0.22, 1.9, ks) + 0.7 * smooth((u - T.key1) / 1.2);
-            aimKey.style.transform = `translate3d(${(geo.afx - W / 2).toFixed(1)}px, ${(geo.afy - H / 2).toFixed(1)}px, 0) scale(${s.toFixed(3)})`;
+            const fx = geo.mx + (geo.afx - geo.mx) * sa;
+            const fy = geo.my + (geo.afy - geo.my) * sa + dyP;
+            aimKey.style.transform = `translate3d(${(fx - W / 2).toFixed(1)}px, ${(fy - H / 2).toFixed(1)}px, 0) scale(${s.toFixed(3)})`;
             aimWarm.style.opacity = (F * 0.55).toFixed(3);
             flashImg.style.opacity = (F * 0.85).toFixed(3);
-            // The gun points at the lens, so the burst is a full ring: the plate's fan, and its mirror image, on the same bore.
+            // One local flash on the muzzle (not the screen). The gun points at the lens, so it is a ring: the plate's fan and its mirror.
             const fs = (0.7 + 0.5 * F).toFixed(3);
-            flashImg.style.transform = F > 0 ? `scale(${fs})` : '';
+            flashImg.style.transform = F > 0 ? `translate3d(0, ${dyP.toFixed(1)}px, 0) scale(${fs})` : '';
             flashTwin.style.opacity = (F * 0.85).toFixed(3);
-            flashTwin.style.transform = F > 0 ? `scale(${fs}, -${fs})` : '';
+            flashTwin.style.transform = F > 0 ? `translate3d(0, ${dyP.toFixed(1)}px, 0) scale(${fs}, -${fs})` : '';
         }
 
         // ---- grain rises with the push-in

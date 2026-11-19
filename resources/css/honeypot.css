@@ -356,11 +356,54 @@ html, body {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
+.cr-aim-gun, .cr-aim-cover {
+    -webkit-mask-image: radial-gradient(ellipse 20% 26% at 34% 60%, #000 70%, transparent 100%), radial-gradient(ellipse 30% 22% at 30% 88%, #000 78%, transparent 100%);
+    mask-image: radial-gradient(ellipse 20% 26% at 34% 60%, #000 70%, transparent 100%), radial-gradient(ellipse 30% 22% at 30% 88%, #000 78%, transparent 100%);
+}
+.cr-aim-gun { will-change: transform; }
+.cr-aim-cover {
+    position: absolute;
+    left: 50%;
+    top: var(--at, 0px);
+    width: var(--aw, 100%);
+    height: var(--ah, 100%);
+    margin-left: calc(var(--aw, 100%) / -2);
+    overflow: hidden;
+}
+.cr-aim-flip { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; transform: scaleX(-1); transform-origin: 51.7% 50%; }
+.cr-aim-eyes {
+    inset: 0;
+    opacity: 0;
+    background:
+        radial-gradient(circle var(--er, 40px) at var(--e1x, 40%) var(--ey, 36%), rgba(255, 74, 84, 0.8), rgba(255, 30, 60, 0.32) 45%, rgba(255, 30, 60, 0) 100%),
+        radial-gradient(circle var(--er, 40px) at var(--e2x, 66%) var(--ey, 36%), rgba(255, 74, 84, 0.8), rgba(255, 30, 60, 0.32) 45%, rgba(255, 30, 60, 0) 100%);
+}
 .cr-aim-key { left: 50%; top: 50%; width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; opacity: 1; background: radial-gradient(circle, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 0.88) 8.5%, #000 12%); will-change: transform; }
 .cr-aim-warm { inset: 0; opacity: 0; background: radial-gradient(ellipse 36% 46% at var(--fx, 50%) var(--fy, 40%), rgba(255, 150, 100, 0.34), rgba(255, 110, 80, 0.1) 55%, rgba(255, 110, 80, 0) 80%); }
 .cr-flash-img { left: 0; top: 0; width: 10px; height: auto; opacity: 0; pointer-events: none; transform-origin: 47% 92%; z-index: 4; -webkit-mask-image: linear-gradient(180deg, #000 95%, transparent 100%); mask-image: linear-gradient(180deg, #000 95%, transparent 100%); will-change: transform, opacity; }
-.cr-crackwrap { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; z-index: 5; }
-.cr-crack-img { position: absolute; left: 0; top: 0; width: 10px; height: auto; display: block; transform-origin: 50.7% 34.6%; -webkit-mask-image: radial-gradient(circle at 50.7% 34.6%, #000 0, #000 var(--cm, 0%), transparent calc(var(--cm, 0%) + 12%)); mask-image: radial-gradient(circle at 50.7% 34.6%, #000 0, #000 var(--cm, 0%), transparent calc(var(--cm, 0%) + 12%)); }
+.cr-crackwrap {
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 5;
+    mix-blend-mode: screen;
+    /* the crack grows out of the impact point through a feathered radial mask (--cr is driven by honeypot.js, 180 ms) */
+    -webkit-mask-image: radial-gradient(circle at var(--cx, 50%) var(--cy, 50%), #000 0, #000 calc(var(--cr, 0px) * 0.7), transparent var(--cr, 0px));
+    mask-image: radial-gradient(circle at var(--cx, 50%) var(--cy, 50%), #000 0, #000 calc(var(--cr, 0px) * 0.7), transparent var(--cr, 0px));
+}
+.cr-crackwrap.is-grown { -webkit-mask-image: none; mask-image: none; }
+/* the plate itself fades to nothing well inside its own box, so no straight edge can ever show */
+.cr-crack-img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 10px;
+    height: auto;
+    display: block;
+    -webkit-mask-image: radial-gradient(ellipse 62% 70% at 50.7% 34.6%, #000 36%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+    mask-image: radial-gradient(ellipse 62% 70% at 50.7% 34.6%, #000 36%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+}
 .cr-chip { position: absolute; left: 0; top: 0; width: 10px; height: 10px; opacity: 0; background: linear-gradient(135deg, rgba(235, 244, 250, 0.9), rgba(150, 180, 200, 0.5)); clip-path: polygon(50% 0, 100% 80%, 8% 100%); will-change: transform, opacity; z-index: 5; }
 .cr-spark { position: absolute; left: 0; top: 0; width: 2px; height: 14px; opacity: 0; background: linear-gradient(rgba(255, 220, 160, 0), rgba(255, 214, 150, 0.95)); transform-origin: 50% 100%; will-change: transform, opacity; z-index: 5; }
 
@@ -492,3 +535,6 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
     .cr-roll, .cr-rec i, .cr-dust i { animation: none; }
 }
+
+/* a slow phone gets a plain blend for the cracked lens */
+.hz.is-lite .cr-crackwrap { mix-blend-mode: normal; }
