@@ -266,10 +266,11 @@ html, body {
     .hp-win { animation-duration: 60s; }
 }
 
-/* ================= PHASE A: THE DOORWAY =================
-   One continuous shot of a basement cold room on a night security camera. About 90 percent of the frame is
-   crushed black; the only strong light is the door at the back, strawberry pushed dark and a little red, plus one
-   weak cold bulb. honeypot.js drives everything from a single clock, so a refresh simply seeks to the right frame. */
+/* ================= PHASE A: COLD ROOM 03 =================
+   One continuous 30 second shot on a night security camera, built from the real art plates in /img/honeypot.
+   Every plate is a 3:2 sheet laid out "cover" (see --pw/--ph, set by honeypot.js on resize), so anything placed in plate
+   percentages stays glued to the room. About 90 percent of the frame is crushed black; the only strong light is the
+   door at the back and, at the very end, the owner's face. honeypot.js drives all of it from one clock. */
 
 .hp-kewer { position: absolute; inset: 0; }
 .hp-kewer[hidden] { display: none; }
@@ -281,6 +282,8 @@ html, body {
     --dried: #a8364f;
     --cream: #f7ecd4;
     --teal: #9fc2c9;
+    --pw: max(100vw, 150vh);
+    --ph: calc(var(--pw) / 1.5);
     position: absolute;
     inset: 0;
     z-index: 20;
@@ -291,106 +294,75 @@ html, body {
 .hz[hidden] { display: none; }
 .hz > * { position: absolute; }
 
-.cr-room { --fh: min(88vh, 150vw); inset: 0; opacity: 0; pointer-events: none; overflow: hidden; background: #020202; }
+.cr-room { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; background: #020203; }
 .cr-room > * { position: absolute; }
-.cr-layer > * { position: absolute; }
 .cr-layer { inset: 0; transform-origin: 50% 50%; will-change: transform; }
-.cr-scene, .cr-spill, .cr-stripes, .cr-melt, .cr-frost, .cr-near svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cr-spill { opacity: 0; }
-.cr-stripes { opacity: 0; }
-.cr-scene { opacity: 0; }
-
-.cr-stencil { font-family: var(--disp); fill: rgba(247, 236, 212, 0.18); letter-spacing: 0.04em; }
-.cr-sign-text { font-family: var(--disp); font-size: 22px; fill: var(--pink); }
-.cr-sign { opacity: 0.55; animation: cr-sign 6.4s steps(1, end) infinite; }
-.cr-glow { animation: cr-bulb 8s ease-in-out infinite; }
-.cr-rip { transform-box: fill-box; transform-origin: 50% 50%; opacity: 0; }
-.cr-rip.go { animation: cr-rip 1600ms ease-out; }
-.cr-drop { opacity: 0; }
-.cr-drop.go { animation: cr-drop 520ms cubic-bezier(0.5, 0, 1, 1); }
-.cr-chain { transform-box: fill-box; transform-origin: 50% 0; animation: cr-chain 6s ease-in-out infinite alternate; }
-.cr-rays { opacity: 0.9; }
-.cr-refl-door { transform-box: fill-box; transform-origin: 50% 0; animation: cr-ripple 4.2s ease-in-out infinite alternate; }
-
-/* ---- the hero prop, lit only by the red spill and a thin rim ---- */
-
-.cr-sand-wrap {
-    --w: min(38vw, 27vh, 250px);
-    left: var(--sx, 50%);
-    bottom: 9%;
-    width: var(--w);
-    transform: translateX(-50%);
-    transition: filter 400ms linear;
-}
-.cr-sand {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 720 / 700;
-    font-size: calc(var(--w) / 10);
-    transform-origin: 50% 100%;
-    transform: rotate(0deg);
-    transition: transform 2600ms cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(2px 0 1px rgba(255, 100, 130, 0.35)) drop-shadow(0 12px 14px rgba(0, 0, 0, 0.9)) saturate(0.6) brightness(0.28);
-    margin-bottom: -2%;
-    z-index: 2;
-}
-.cr-sand img { position: absolute; left: 0; width: 100%; height: auto; user-select: none; pointer-events: none; }
-.cr-sand-bottom { top: 61.6%; }
-.cr-sand-ice { top: 33%; }
-.cr-sand-top { top: 0; }
-.cr-sand-drips { position: absolute; left: 0; top: 0; width: 100%; height: 34%; transform-origin: 50% 0; transform: scaleY(0); }
-.cr-sand-lit { position: absolute; inset: 0; opacity: 0; background: linear-gradient(100deg, rgba(0, 0, 0, 0) 30%, rgba(255, 96, 128, 0.9) 100%); }
-.hz.b-wrong .cr-sand { transform: rotate(-5deg); }
-.hz.b-wrong .cr-sand-drips { transform: scaleY(1); transition: transform 5000ms ease-in; }
-.hz.b-bite .cr-sand {
-    -webkit-mask-image: radial-gradient(circle 1.5em at 97% 6%, transparent 98%, #000 100%), radial-gradient(circle 1.1em at 83% 0%, transparent 98%, #000 100%), radial-gradient(circle 1.2em at 100% 27%, transparent 98%, #000 100%);
-    mask-image: radial-gradient(circle 1.5em at 97% 6%, transparent 98%, #000 100%), radial-gradient(circle 1.1em at 83% 0%, transparent 98%, #000 100%), radial-gradient(circle 1.2em at 100% 27%, transparent 98%, #000 100%);
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
-}
-.cr-ped { position: relative; z-index: 1; height: calc(var(--w) * 0.34); }
-.cr-ped::before { content: ''; position: absolute; left: -9%; right: -9%; top: 0; height: 13%; border-radius: 4px; background: linear-gradient(90deg, #060909, #2a3638 50%, #060909); box-shadow: 0 8px 14px rgba(0, 0, 0, 0.8); }
-.cr-ped i { position: absolute; top: 13%; bottom: 0; width: 5%; background: linear-gradient(90deg, #030505, #141b1c); }
-.cr-ped i:first-child { left: 2%; }
-.cr-ped i:last-child { right: 2%; }
-
-/* ---- light in the air ---- */
-
-.cr-bloom { left: 50%; top: 46%; width: 90vmax; height: 90vmax; margin: -45vmax 0 0 -45vmax; background: radial-gradient(circle, rgba(255, 92, 128, 0.55) 0, rgba(255, 92, 128, 0.2) 16%, rgba(255, 92, 128, 0) 50%); opacity: 0; pointer-events: none; }
-.cr-fogs { inset: 0; opacity: 0; pointer-events: none; }
-.cr-fog { position: absolute; left: -20%; bottom: -6%; width: 90%; height: 40%; background: radial-gradient(ellipse at center, rgba(255, 120, 150, 0.2), rgba(255, 120, 150, 0) 66%); will-change: transform; animation: cr-fog 18s ease-in-out infinite alternate; }
-.cr-fog-b { left: 25%; bottom: 8%; height: 34%; background: radial-gradient(ellipse at center, rgba(176, 208, 214, 0.12), rgba(176, 208, 214, 0) 66%); animation-duration: 24s; animation-direction: alternate-reverse; }
-.cr-fog-c { left: 10%; bottom: -10%; width: 110%; height: 28%; animation-duration: 30s; }
-.cr-dust { inset: 0; opacity: 0; pointer-events: none; }
-.cr-dust i { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); border-radius: 50%; background: rgba(255, 205, 218, 0.85); box-shadow: 0 0 6px rgba(255, 120, 150, 0.8); animation: cr-mote var(--d) ease-in-out var(--w) infinite alternate; }
-
-/* ---- the owner, his cast shadow and his reflection ---- */
-
-.cr-fig, .cr-cast {
+.cr-layer > * { position: absolute; }
+.cr-plate, .cr-fig, .cr-cast {
     left: 50%;
-    bottom: 0;
-    height: var(--fh);
-    aspect-ratio: 542 / 1174;
-    margin-left: calc(var(--fh) * -0.2308);
-    transform-origin: 50% 100%;
-    opacity: 0;
-    will-change: transform, opacity;
+    top: 50%;
+    width: var(--pw);
+    height: var(--ph);
+    margin: calc(var(--ph) / -2) 0 0 calc(var(--pw) / -2);
     pointer-events: none;
 }
-.cr-fig-canvas, .cr-cast { display: block; }
-.cr-fig-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cr-shadow { filter: blur(4px); }
-.cr-reflect { filter: blur(2.5px); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 55%); mask-image: linear-gradient(to bottom, transparent 0%, #000 55%); }
+.cr-plate > * { position: absolute; }
+.cr-img { inset: 0; width: 100%; height: 100%; display: block; opacity: 0; }
+.cr-far .cr-img:first-child { opacity: 1; }
+.cr-open { opacity: 0; }
+.cr-spill { opacity: 0; transform-origin: 59.5% 19%; transform: translate3d(-9.5%, 16%, 0) scale(0.9); }
 
-/* ---- strawberry melting down from the top ---- */
+/* a thin red line around the door frame: dark on dark, only a few events, none faster than three a second */
+.cr-doorline { left: 41.6%; top: 35.4%; width: 17.6%; height: 36.4%; opacity: 0; border: 1.5px solid rgba(255, 52, 84, 0.9); box-shadow: 0 0 14px rgba(255, 40, 80, 0.55), inset 0 0 18px rgba(255, 40, 80, 0.35); }
+.cr-rip { display: none; }
 
-.cr-melt { pointer-events: none; opacity: 0.7; }
-.cr-drip { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0.001); }
-.hz.b-wrong .cr-drip { animation: cr-drip 6500ms cubic-bezier(0.45, 0, 0.5, 1) var(--d) forwards; }
+/* ---- the hero prop: a sandwich on a pedestal, cold rim first, red once the door opens ---- */
 
-.cr-night { inset: 0; pointer-events: none; background: radial-gradient(ellipse 54% 62% at 50% 50%, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7) 62%, rgba(0, 0, 0, 0.92) 100%); }
-.cr-tube { inset: 0; background: #000; opacity: 0; pointer-events: none; }
-.cr-frost { opacity: 0.5; pointer-events: none; }
+.cr-sand-wrap { left: 21%; top: 61%; width: 17%; aspect-ratio: 760 / 756; }
+.cr-sand { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 1; filter: brightness(0.34) saturate(0.55) contrast(1.15) drop-shadow(0 0 2px rgba(120, 214, 224, 0.55)); }
+.cr-sand-lit { filter: brightness(0.82) saturate(1) drop-shadow(0 0 3px rgba(255, 70, 100, 0.5)); opacity: 0; }
+
+/* ---- fog and dust ---- */
+
+.cr-fogs { opacity: 0; height: calc(var(--ph) * 0.58); margin-top: calc(var(--ph) * -0.12); }
+.cr-fog { left: 0; top: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 80%; will-change: transform; }
+.cr-fog-a { animation: cr-fog 38s linear infinite alternate; }
+.cr-fog-b { display: none; }
+.cr-dust { inset: 0; opacity: 0; }
+.cr-dust i { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); border-radius: 50%; background: rgba(255, 190, 200, 0.55); animation: cr-mote var(--d) ease-in-out var(--w) infinite alternate; will-change: transform; }
+.cr-bloom { inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse 34% 42% at 50% 52%, rgba(255, 60, 96, 0.3), rgba(255, 40, 80, 0.1) 55%, rgba(255, 40, 80, 0) 78%); }
+.cr-night { inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 55%, rgba(0, 0, 0, 0) 34%, rgba(0, 0, 0, 0.78) 100%); }
+
+/* ---- the owner (canvas strips), his cast shadow and his wet reflection ---- */
+
+.cr-fig, .cr-cast { opacity: 0; }
+.cr-fig-canvas, .cr-cast { position: absolute; transform-origin: 50% 100%; will-change: transform, opacity; }
+.cr-fig-canvas { left: 0; top: 0; display: block; }
+.cr-cast { left: 0; top: 0; width: auto; height: auto; margin: 0; }
+.cr-shadow { filter: blur(7px); }
+.cr-reflect { filter: blur(3px); }
+
+/* ---- the face reveal and the shot: the aim plate, laid out by honeypot.js ---- */
+
+.cr-aim { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #1c0006, #070002 70%); will-change: transform, opacity; }
+.cr-aim-img {
+    position: absolute;
+    left: 50%;
+    top: var(--at, 0px);
+    width: var(--aw, 100%);
+    height: var(--ah, 100%);
+    margin-left: calc(var(--aw, 100%) / -2);
+    display: block;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+.cr-aim-key { left: 50%; top: 50%; width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; opacity: 1; background: radial-gradient(circle, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 0.88) 8.5%, #000 12%); will-change: transform; }
+.cr-aim-warm { inset: 0; opacity: 0; background: radial-gradient(ellipse 36% 46% at var(--fx, 50%) var(--fy, 40%), rgba(255, 150, 100, 0.34), rgba(255, 110, 80, 0.1) 55%, rgba(255, 110, 80, 0) 80%); }
+.cr-flash-img { left: 0; top: 0; width: 10px; height: auto; opacity: 0; pointer-events: none; transform-origin: 47% 92%; z-index: 4; -webkit-mask-image: linear-gradient(180deg, #000 95%, transparent 100%); mask-image: linear-gradient(180deg, #000 95%, transparent 100%); will-change: transform, opacity; }
+.cr-crackwrap { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.cr-crack-img { position: absolute; left: 0; top: 0; width: 10px; height: auto; display: block; transform-origin: 50.7% 34.6%; -webkit-mask-image: radial-gradient(circle at 50.7% 34.6%, #000 0, #000 var(--cm, 0%), transparent calc(var(--cm, 0%) + 12%)); mask-image: radial-gradient(circle at 50.7% 34.6%, #000 0, #000 var(--cm, 0%), transparent calc(var(--cm, 0%) + 12%)); }
+.cr-chip { position: absolute; left: 0; top: 0; width: 10px; height: 10px; opacity: 0; background: linear-gradient(135deg, rgba(235, 244, 250, 0.9), rgba(150, 180, 200, 0.5)); clip-path: polygon(50% 0, 100% 80%, 8% 100%); will-change: transform, opacity; z-index: 5; }
+.cr-spark { position: absolute; left: 0; top: 0; width: 2px; height: 14px; opacity: 0; background: linear-gradient(rgba(255, 220, 160, 0), rgba(255, 214, 150, 0.95)); transform-origin: 50% 100%; will-change: transform, opacity; z-index: 5; }
 
 /* ---- the camera overlay ---- */
 
@@ -405,7 +377,7 @@ html, body {
 .hz.is-tear .cr-tear-a { opacity: 1; transform: translateX(-26px); }
 .hz.is-tear .cr-tear-b { opacity: 1; transform: translateX(34px); }
 .hz.is-tear .cr-room { filter: drop-shadow(3px 0 0 rgba(255, 40, 90, 0.4)) drop-shadow(-3px 0 0 rgba(0, 230, 255, 0.34)); }
-.cr-vig { display: none; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.82) 100%); }
+.cr-vig { display: block; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.82) 100%); }
 
 /* ---- HUD, dimmed so the scene leads ---- */
 
@@ -488,34 +460,35 @@ html, body {
 .cr-dlg-text .hl { color: var(--pink); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.75), 0 0 22px rgba(247, 163, 182, 0.7); }
 .cr-dlg.instant .cr-ch { transition: none; }
 
+.cr-screen { inset: 0; }
+.cr-screen > * { position: absolute; }
 .cr-dark { inset: 0; background: #000; opacity: 0; z-index: 7; pointer-events: none; }
 .hz.b-black > * { visibility: hidden; }
 .hz.b-black { background: #000; }
 
+/* ---- the ending: the tube losing power ---- */
+
+.cr-nosig { left: 0; right: 0; top: 46%; text-align: center; font-family: var(--mono); font-size: clamp(11px, 3vw, 16px); letter-spacing: 0.3em; color: #cfe7ea; opacity: 0; pointer-events: none; }
+.cr-nosig.sig { opacity: 0.55; }
+.cr-crtline { left: 0; right: 0; top: 50%; height: 3px; opacity: 0; pointer-events: none; z-index: 6; transform: translateY(-50%); background: linear-gradient(90deg, rgba(220, 240, 255, 0), rgba(220, 240, 255, 0.9) 18%, rgba(220, 240, 255, 0.9) 82%, rgba(220, 240, 255, 0)); box-shadow: 0 0 14px rgba(170, 214, 255, 0.45); border-radius: 50%; }
+.cr-dc { left: 0; right: 0; top: 48%; text-align: center; font-family: var(--mono); font-size: clamp(11px, 3vw, 15px); letter-spacing: 0.4em; color: #cfe7ea; opacity: 0; pointer-events: none; z-index: 7; }
+.hz.hud-off .cr-hudl { opacity: 0; }
+.hz:not(.is-calm).hud-off .cr-hudl { transition: none; }
+.hz.b-dead > *:not(.cr-keep) { visibility: hidden; }
+
 @keyframes cr-roll { from { transform: translate3d(0, -110%, 0); } to { transform: translate3d(0, 700%, 0); } }
-@keyframes cr-fog { from { transform: translate3d(-12%, 0, 0); } to { transform: translate3d(22%, 0, 0); } }
+@keyframes cr-fog { from { transform: translate3d(-4%, 0, 0); } to { transform: translate3d(5%, 0, 0); } }
 @keyframes cr-mote { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(26px, -34px, 0); } }
 @keyframes cr-blink { 50% { opacity: 0.2; } }
-@keyframes cr-bulb { 50% { opacity: 0.6; } }
-@keyframes cr-chain { from { transform: rotate(-1.4deg); } to { transform: rotate(1.4deg); } }
-@keyframes cr-ripple { from { transform: scale(1, 1); } to { transform: scale(1.06, 1.12); } }
-@keyframes cr-sign { 0%, 18% { opacity: 0.55; } 19% { opacity: 0.18; } 22% { opacity: 0.55; } 61% { opacity: 0.55; } 62% { opacity: 0.12; } 66%, 100% { opacity: 0.55; } }
-@keyframes cr-drip { from { transform: scaleY(0.001); } to { transform: scaleY(var(--h, 1)); } }
-@keyframes cr-rip { 0% { opacity: 0.7; transform: scale(0.3); } 100% { opacity: 0; transform: scale(3.2); } }
-@keyframes cr-drop { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 1; transform: translateY(232px); } }
 @keyframes cr-wave { to { transform: scaleY(1); } }
 
-@media (min-width: 900px) {
-    .cr-sand-wrap { --sx: 35%; }
-}
-
-.hz.is-lite .cr-fog-b, .hz.is-lite .cr-fog-c, .hz.is-lite .cr-roll, .hz.is-lite .cr-frost { display: none; }
+.hz.is-lite .cr-fog-b, .hz.is-lite .cr-roll { display: none; }
 .hz.is-lite .cr-dust i:nth-child(n+7) { display: none; }
 .hz.is-lite.is-tear .cr-room { filter: none; }
 
 /* Reduced motion keeps the shot, the door, the text and the reveal, but nothing flickers, tears or shakes. */
-.hz.is-calm .cr-roll, .hz.is-calm .cr-rec i, .hz.is-calm .cr-sign, .hz.is-calm .cr-glow, .hz.is-calm .cr-chain, .hz.is-calm .cr-map-dot, .hz.is-calm .cr-dust i, .hz.is-calm .cr-refl-door { animation: none; }
-.hz.is-calm .cr-fog { animation-duration: 90s; }
+.hz.is-calm .cr-roll, .hz.is-calm .cr-rec i, .hz.is-calm .cr-map-dot, .hz.is-calm .cr-dust i { animation: none; }
+.hz.is-calm .cr-fog { animation-duration: 120s; }
 @media (prefers-reduced-motion: reduce) {
-    .cr-roll, .cr-rec i, .cr-sign, .cr-glow, .cr-chain, .cr-dust i, .cr-refl-door { animation: none; }
+    .cr-roll, .cr-rec i, .cr-dust i { animation: none; }
 }

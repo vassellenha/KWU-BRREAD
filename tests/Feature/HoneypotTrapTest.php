@@ -40,7 +40,7 @@ class HoneypotTrapTest extends TestCase
             ->assertOk()
             ->assertSee('data-phase="horror"', false)
             ->assertSee('data-elapsed="0"', false)
-            ->assertSee('data-horror="20"', false)
+            ->assertSee('data-horror="30"', false)
             ->assertSee('data-kewer="30"', false)
             ->assertSee('prank-kewer.mp4', false)
             ->assertDontSee('<a ', false)
@@ -50,7 +50,7 @@ class HoneypotTrapTest extends TestCase
         $this->assertSame(1, SecurityEvent::where('reason', 'honeypot')->count());
     }
 
-    public function test_under_twenty_seconds_in_is_the_horror_phase(): void
+    public function test_under_thirty_seconds_in_is_the_horror_phase(): void
     {
         $this->get('/admin')->assertOk();
         $this->elapsed(9);
@@ -58,11 +58,11 @@ class HoneypotTrapTest extends TestCase
         $this->get('/admin')->assertOk()->assertSee('data-phase="horror"', false)->assertSee('data-elapsed="9"', false);
     }
 
-    public function test_from_twenty_seconds_in_it_is_the_kewer_phase(): void
+    public function test_from_thirty_seconds_in_it_is_the_kewer_phase(): void
     {
         $this->get('/admin')->assertOk();
 
-        foreach ([20, 27, 49] as $seconds) {
+        foreach ([30, 45, 59] as $seconds) {
             $this->elapsed($seconds);
             $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false)->assertSee('data-elapsed="'.$seconds.'"', false);
         }
@@ -70,21 +70,21 @@ class HoneypotTrapTest extends TestCase
         $this->assertSame(1, SecurityEvent::where('reason', 'honeypot')->count());
     }
 
-    public function test_a_refresh_at_second_twenty_five_resumes_in_kewer_and_never_replays_the_horror(): void
+    public function test_a_refresh_at_second_forty_five_resumes_in_kewer_and_never_replays_the_horror(): void
     {
         $this->get('/admin')->assertOk();
-        $this->elapsed(27);
+        $this->elapsed(45);
 
         $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false);
         $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false);
         $this->get('/admin/other')->assertOk()->assertSee('data-phase="kewer"', false);
-        $this->assertEqualsWithDelta(time() - 27, $this->heldSince(), 2);
+        $this->assertEqualsWithDelta(time() - 45, $this->heldSince(), 2);
     }
 
-    public function test_the_hold_ends_at_fifty_seconds_and_releases_to_home(): void
+    public function test_the_hold_ends_at_sixty_seconds_and_releases_to_home(): void
     {
         $this->get('/admin')->assertOk();
-        $this->elapsed(50);
+        $this->elapsed(60);
 
         $this->get('/menu')->assertOk();
         $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');

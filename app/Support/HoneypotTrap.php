@@ -30,7 +30,7 @@ class HoneypotTrap
     /** Phase A, the horror intro, in seconds. */
     public static function horrorSeconds(): int
     {
-        return max(1, (int) config('auth.honeypot_horror_seconds', 14));
+        return max(1, (int) config('auth.honeypot_horror_seconds', 30));
     }
 
     /** Phase B, the Kewer scene, in seconds. */
