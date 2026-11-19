@@ -14,7 +14,7 @@ class HoneypotController extends Controller
     public function __invoke(Request $request): Response
     {
         if (! HoneypotTrap::enabled()) {
-            abort(404);
+            abort(404, headers: ['Cache-Control' => 'no-store']);
         }
 
         // Signed in: never trapped, and there is no admin panel here either. The page only clears any old hold and goes Home.
@@ -25,7 +25,10 @@ class HoneypotController extends Controller
         $elapsed = HoneypotTrap::elapsed($request);
 
         // No hold yet: this visit starts one, unless it is only the browser resuming a hold that is over.
-        if ($elapsed === null && ! $request->boolean('resume') && HoneypotTrap::begin($request)) {
+        // "?replay=1" (never in production) starts a fresh one even inside the grace period.
+        $replay = $elapsed === null && HoneypotTrap::replayAllowed($request);
+
+        if ($elapsed === null && ($replay || ! $request->boolean('resume')) && HoneypotTrap::begin($request, $replay)) {
             $elapsed = HoneypotTrap::elapsed($request);
         }
 
@@ -40,6 +43,7 @@ class HoneypotController extends Controller
             'horror' => HoneypotTrap::horrorSeconds(),
             'kewer' => HoneypotTrap::kewerSeconds(),
             'remaining' => HoneypotTrap::total() - $elapsed,
+            'samples' => HoneypotTrap::samples(),
         ]))->header('Cache-Control', 'no-store, max-age=0');
     }
 }
