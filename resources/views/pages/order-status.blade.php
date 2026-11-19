@@ -179,11 +179,14 @@
                     <div class="tk__stub">
                         <span class="os-ribbon" aria-hidden="true">Fresh, bukan stok lama</span>
                         <div
-                            class="os-stage"
+                            class="os-stage is-intro"
                             x-ref="stage"
+                            tabindex="0"
                             @pointermove="tilt($event)"
                             @pointerleave="untilt()"
                             @click="poke($event)"
+                            @keydown.enter.prevent="poke($event)"
+                            @keydown.space.prevent="poke($event)"
                             role="img"
                             aria-label="Animasi sandwich es krim pesananmu"
                         >
@@ -207,6 +210,10 @@
                                     @endif
                                 </div>
                             @endforeach
+
+                            @if ($state !== 'cancelled')
+                                <span class="os-bubble" x-ref="bubble" aria-hidden="true"></span>
+                            @endif
 
                             @if ($state === 'cancelled')
                                 <span class="os-puddle" aria-hidden="true"></span>

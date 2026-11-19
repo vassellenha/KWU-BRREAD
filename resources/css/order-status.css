@@ -390,6 +390,8 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
 }
+.os-stage:focus { outline: none; }
+.os-stage:focus-visible { outline: 3px dashed var(--rasp-d); outline-offset: 6px; border-radius: 50%; }
 .os-disc {
     position: absolute;
     inset: 6%;
@@ -436,9 +438,9 @@
     flex-direction: column;
     align-items: center;
     transform-origin: 50% 100%;
-    animation: os-squash 520ms var(--spring) 2.2s both;
 }
-.os-stack.is-squash { animation: os-squash 520ms var(--spring) both; }
+/* The build-up squash only belongs to the first load; order-fx.js drops .is-intro once the poke takes over. */
+.is-intro .os-stack { animation: os-squash 520ms var(--spring) 2.2s both; }
 @keyframes os-squash {
     0% { transform: scale(1, 1); }
     35% { transform: scale(1.07, 0.84); }
@@ -462,6 +464,75 @@
 @keyframes fs-fold { 0% { opacity: 0; transform: scale(0.2, 1); } 40% { opacity: 1; } }
 @keyframes fs-upper { 0% { opacity: 0; transform: rotate(-95deg); } 12% { opacity: 1; } }
 @keyframes fs-top { from { opacity: 0; } }
+
+/* Final pose: the upper half rests closed on the slab. A poke (order-fx.js adds .is-poking for ~900ms) flips it open
+   like a book lid, bounces the slab and pops the toppings, then closes it again. Transforms only. */
+.fs-flap { transform-box: view-box; transform-origin: 62px 196px; }
+.fs-bounce, .fs-sprk, .fs-sauce { transform-box: fill-box; transform-origin: 50% 50%; }
+.fs-sauce { transform-origin: 50% 0; }
+.is-poking .fs-flap { animation: fs-poke-flap 900ms linear both; }
+.is-poking .fs-bounce { animation: fs-poke-slab 900ms linear both; }
+.is-poking.is-plain .fs-bounce { animation-name: fs-poke-slab-plain; }
+.is-poking .fs-sprk { animation: fs-poke-sprk 900ms linear both; }
+.is-poking .fs-sauce { animation: fs-poke-sauce 900ms linear both; }
+.is-poking .os-shadow { animation: os-poke-shadow 900ms linear both; }
+.os-hero:not(.os-hero--cancelled) .is-poking .os-stack { animation: os-poke-stack 900ms linear both; }
+.is-flash .fs { filter: brightness(1.12) saturate(1.15); }
+
+@keyframes os-poke-stack {
+    0% { transform: scale(1, 1); animation-timing-function: ease-out; }
+    14% { transform: scale(1.08, 0.82); animation-timing-function: var(--spring); }
+    34% { transform: scale(0.96, 1.07); animation-timing-function: ease-in-out; }
+    52% { transform: scale(1, 1); }
+    68% { transform: scale(1, 1); animation-timing-function: ease-out; }
+    79% { transform: scale(1.07, 0.87); animation-timing-function: var(--spring); }
+    92% { transform: scale(0.99, 1.02); animation-timing-function: ease-out; }
+    100% { transform: scale(1, 1); }
+}
+@keyframes fs-poke-flap {
+    0%, 12% { transform: rotate(0); animation-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1); }
+    38% { transform: rotate(-31deg); animation-timing-function: ease-in-out; }
+    62% { transform: rotate(-29deg); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.6); }
+    78% { transform: rotate(0); animation-timing-function: ease-out; }
+    86% { transform: rotate(1.6deg); animation-timing-function: ease-out; }
+    100% { transform: rotate(0); }
+}
+@keyframes fs-poke-slab {
+    0%, 14% { transform: translateY(0); animation-timing-function: cubic-bezier(0.3, 1.6, 0.5, 1); }
+    38% { transform: translateY(-9px); animation-timing-function: ease-in-out; }
+    58% { transform: translateY(-9px); animation-timing-function: ease-in; }
+    78% { transform: translateY(0); animation-timing-function: ease-out; }
+    86% { transform: translateY(1.5px); animation-timing-function: ease-out; }
+    100% { transform: translateY(0); }
+}
+@keyframes fs-poke-slab-plain {
+    0%, 14% { transform: translateY(0) rotate(0); animation-timing-function: cubic-bezier(0.3, 1.6, 0.5, 1); }
+    38% { transform: translateY(-9px) rotate(-1.8deg); animation-timing-function: ease-in-out; }
+    48% { transform: translateY(-9px) rotate(1.6deg); animation-timing-function: ease-in-out; }
+    58% { transform: translateY(-9px) rotate(-1deg); animation-timing-function: ease-in; }
+    78% { transform: translateY(0) rotate(0); animation-timing-function: ease-out; }
+    86% { transform: translateY(1.5px) rotate(0); animation-timing-function: ease-out; }
+    100% { transform: translateY(0) rotate(0); }
+}
+@keyframes fs-poke-sprk {
+    0%, 30% { transform: translateY(0) rotate(0); animation-timing-function: ease-out; }
+    40% { transform: translateY(-4px) rotate(-3deg); animation-timing-function: ease-in; }
+    50% { transform: translateY(0) rotate(0); animation-timing-function: ease-out; }
+    58% { transform: translateY(-2.5px) rotate(2deg); animation-timing-function: ease-in; }
+    66%, 100% { transform: translateY(0) rotate(0); }
+}
+@keyframes fs-poke-sauce {
+    0%, 30% { transform: none; animation-timing-function: ease-out; }
+    42% { transform: scale(1.03, 1.16) skewX(3deg); animation-timing-function: ease-in-out; }
+    54% { transform: scale(0.98, 0.93) skewX(-3deg); animation-timing-function: ease-in-out; }
+    66% { transform: scale(1.01, 1.07) skewX(1.5deg); animation-timing-function: ease-in-out; }
+    78%, 100% { transform: none; }
+}
+@keyframes os-poke-shadow {
+    0%, 12% { transform: scaleX(1); }
+    38%, 58% { transform: scaleX(0.82); opacity: 0.7; }
+    80%, 100% { transform: scaleX(1); opacity: 1; }
+}
 
 .os-shadow {
     position: absolute;
@@ -490,13 +561,62 @@
     background: var(--ink);
     transform-origin: 50% 0;
     opacity: 0;
-    animation: os-burst 520ms ease-out 2.1s both;
 }
+.is-intro .os-burst { animation: os-burst 520ms ease-out 2.1s both; }
+.is-poking .os-burst { animation: os-burst-poke 520ms ease-out 0.3s both; }
 @keyframes os-burst {
     0% { opacity: 0; transform: rotate(var(--a)) translateY(118px) scaleY(0.2); }
     8% { opacity: 1; }
     60% { opacity: 1; }
     100% { opacity: 0; transform: rotate(var(--a)) translateY(160px) scaleY(1); }
+}
+@keyframes os-burst-poke {
+    0% { opacity: 0; transform: rotate(var(--a)) translateY(118px) scaleY(0.2); }
+    8% { opacity: 1; }
+    60% { opacity: 1; }
+    100% { opacity: 0; transform: rotate(var(--a)) translateY(160px) scaleY(1); }
+}
+
+/* Speech bubble that pops out when the sandwich gets poked three times in a row. */
+.os-bubble {
+    position: absolute;
+    left: 50%;
+    top: 3%;
+    z-index: 7;
+    width: max-content;
+    max-width: 86%;
+    padding: 9px 14px 10px;
+    border: var(--line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 4px 4px 0 var(--ink);
+    font: 700 13px/1.25 var(--body);
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    translate: -50% 0;
+}
+.os-bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -9px;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    border-right: var(--line);
+    border-bottom: var(--line);
+    background: #fff;
+    transform: rotate(45deg) skew(8deg, 8deg);
+}
+.os-bubble.is-on { opacity: 1; visibility: visible; animation: os-bubble 1.6s linear both; transform-origin: 50% 110%; }
+@keyframes os-bubble {
+    0% { opacity: 0; transform: scale(0.3) rotate(-5deg); animation-timing-function: var(--spring); }
+    14% { opacity: 1; transform: scale(1.06) rotate(1.5deg); animation-timing-function: ease-out; }
+    24% { transform: scale(1) rotate(0); }
+    84% { opacity: 1; transform: scale(1) rotate(0); animation-timing-function: ease-in; }
+    100% { opacity: 0; transform: scale(0.92) translateY(-4px); }
 }
 
 .os-wait {
@@ -1009,6 +1129,7 @@
     }
     .os-printer.is-armed .os-rcpt { transform: none; }
     .os-burst, .os-pop__ring, .os-stamp::after { display: none; }
+    .os-bubble.is-on { opacity: 1; }
 }
 
 /* ==========================================================================

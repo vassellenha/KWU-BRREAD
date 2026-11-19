@@ -128,7 +128,7 @@ export function celebrate() {
 /* ---------------- Alpine components ---------------- */
 
 export function registerOrderFx(Alpine) {
-    // Tracker hero: tilt the sandwich with the pointer, replay on tap, live waiting timer.
+    // Tracker hero: tilt the sandwich with the pointer, poke it (flap flips open, toppings pop, bubble on spam), live waiting timer.
     Alpine.data('orderTracker', (config) => ({
         state: config.state,
         active: 0,
@@ -137,6 +137,13 @@ export function registerOrderFx(Alpine) {
         clock: [],
         _timer: null,
         _tick: null,
+        taps: 0,
+        poking: false,
+        _pokeTimer: null,
+        _tapTimer: null,
+        _bubbleTimer: null,
+        _flashTimer: null,
+        _lastLine: -1,
 
         init() {
             this.updateWaited();
@@ -175,6 +182,10 @@ export function registerOrderFx(Alpine) {
         destroy() {
             clearInterval(this._timer);
             clearInterval(this._tick);
+            clearTimeout(this._pokeTimer);
+            clearTimeout(this._tapTimer);
+            clearTimeout(this._bubbleTimer);
+            clearTimeout(this._flashTimer);
         },
 
         updateWaited() {
@@ -185,7 +196,8 @@ export function registerOrderFx(Alpine) {
         },
 
         tilt(event) {
-            if (reducedMotion() || event.pointerType === 'touch') return;
+            // The flap sequence owns the sandwich while it runs, so the pointer tilt waits.
+            if (this.poking || reducedMotion() || event.pointerType === 'touch') return;
             const box = this.$refs.stage.getBoundingClientRect();
             const px = (event.clientX - box.left) / box.width - 0.5;
             const py = (event.clientY - box.top) / box.height - 0.5;
@@ -202,17 +214,74 @@ export function registerOrderFx(Alpine) {
             this.active = index;
         },
 
+        // The sandwich that is on screen right now (one per creation, only the active one is shown).
+        activeSandwich() {
+            return this.$refs.stage.querySelectorAll('.os-sandwich')[this.active] ?? null;
+        },
+
+        // Pops the little speech bubble. One element, so there is never more than one bubble; each call restarts it.
+        say() {
+            const bubble = this.$refs.bubble;
+            if (!bubble) return;
+            const lines = {
+                confirmed: ['Eh jangan dicolek terus, nanti meleleh!', 'Dingin dingin segar!', 'Pesananmu udah aman, tinggal tunggu!'],
+                pending: ['Sabar ya, lagi disiapin!', 'Eh jangan dicolek terus, nanti meleleh!', 'Tunggu konfirmasinya dulu ya!'],
+            }[this.state] ?? ['Sabar ya, lagi disiapin!', 'Dingin dingin segar!'];
+            let pick = Math.floor(Math.random() * lines.length);
+            if (pick === this._lastLine) pick = (pick + 1) % lines.length;
+            this._lastLine = pick;
+            bubble.textContent = lines[pick];
+            clearTimeout(this._bubbleTimer);
+            bubble.classList.remove('is-on');
+            void bubble.offsetWidth; // restart the pop
+            bubble.classList.add('is-on');
+            this._bubbleTimer = setTimeout(() => bubble.classList.remove('is-on'), 1600);
+        },
+
+        endPoke() {
+            clearTimeout(this._pokeTimer);
+            this.poking = false;
+            this.$refs.stage.querySelectorAll('.os-sandwich.is-poking').forEach((el) => el.classList.remove('is-poking', 'is-plain'));
+        },
+
+        // Tap, click or Enter/Space: ~900ms of squash, flap flipping open, slab bounce, topping pop, flap closing.
+        // A tap in the middle restarts the sequence cleanly (classes removed, reflow, added again, one timer).
         poke(event) {
-            const stack = this.$refs.stage.querySelector('.os-sandwich:not([style*="display: none"]) .os-stack');
-            if (stack) {
-                stack.classList.remove('is-squash');
-                void stack.offsetWidth; // restart the squash
-                stack.classList.add('is-squash');
+            const stage = this.$refs.stage;
+            const sandwich = this.activeSandwich();
+            if (!sandwich) return;
+
+            // The first tap also ends the build-up so the two never fight over the transforms.
+            stage.classList.remove('is-intro');
+
+            // Tap streak: three quick taps in a row get a comment, a pause of 2s starts the count over.
+            this.taps += 1;
+            clearTimeout(this._tapTimer);
+            this._tapTimer = setTimeout(() => { this.taps = 0; }, 2000);
+            if (this.taps >= 3 && this.state !== 'cancelled') this.say();
+
+            if (reducedMotion()) {
+                // No flip, no confetti: just a brief highlight.
+                clearTimeout(this._flashTimer);
+                sandwich.classList.add('is-flash');
+                this._flashTimer = setTimeout(() => sandwich.classList.remove('is-flash'), 220);
+                return;
             }
+
+            this.endPoke();
+            void sandwich.offsetWidth; // restart the animations from the first frame
+            const hasToppings = sandwich.querySelector('.fs-sprk, .fs-sauce');
+            sandwich.classList.toggle('is-plain', !hasToppings);
+            sandwich.classList.add('is-poking');
+            this.poking = true;
+            this._pokeTimer = setTimeout(() => this.endPoke(), 920);
+
             if (this.state !== 'cancelled') {
+                const box = stage.getBoundingClientRect();
+                const hasPointer = Number.isFinite(event.clientX) && (event.clientX || event.clientY);
                 confetti({
-                    x: event.clientX / window.innerWidth,
-                    y: event.clientY / window.innerHeight,
+                    x: (hasPointer ? event.clientX : box.left + box.width / 2) / window.innerWidth,
+                    y: (hasPointer ? event.clientY : box.top + box.height / 2) / window.innerHeight,
                     angle: 90,
                     spread: 100,
                     count: 26,

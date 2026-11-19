@@ -1,8 +1,8 @@
 {{--
     One Singapore-style ice cream sandwich in a single 3/4 view: ONE slice of bread folded in half like a book
     around a slab of ice cream that lies flat. The fold (spine) is on the left, the lower half sits under the
-    slab, the upper half folds over the top and is lifted a little so the slab shows. The front and the right
-    end stay open, so the slab pokes out of the bread there.
+    slab, the upper half folds over the top and rests on it. The front and the right end stay open, so the slab
+    pokes out of the bread there. Tapping the sandwich flips the upper half open like a book lid (order-fx.js).
 
     Everything comes from the order: the bread picked (white or wheat), the flavour picked, and only the
     toppings picked are drawn on the slab.
@@ -30,8 +30,8 @@
 
     // Lower half of the slice: lies flat under the slab. Depth runs up and to the right.
     $lower = fn (float $u, float $v): array => [62 + $u + 0.55 * $v, 268 - 0.43 * $v];
-    // Upper half: same slice, hinged on the left and lifted by about seven degrees.
-    $upper = fn (float $u, float $v): array => [62 + 0.9925 * $u + 0.55 * $v, 196 - 0.1219 * $u - 0.43 * $v];
+    // Upper half: same slice, hinged on the left and closed flat on the slab.
+    $upper = fn (float $u, float $v): array => [62 + $u + 0.55 * $v, 196 - 0.43 * $v];
     // The slab: top face (u along the length, v along the depth).
     $slab = fn (float $u, float $v): array => [66 + $u + 0.46 * $v, 210 - 0.36 * $v];
 
@@ -48,11 +48,9 @@
     $slabTop = $poly([$slab(0, 0), $slab(196, 0), $slab(196, 100), $slab(0, 100)]);
     $slabFront = $poly([[66, 210], [262, 210], [262, 262], [66, 262]]);
     $slabEnd = $poly([[262, 210], $slab(196, 100), [$slab(196, 100)[0], $slab(196, 100)[1] + 52], [262, 262]]);
-    $flapEdge = $upper(180, 0);
-    $flapShadow = $poly([[62, 210], [$flapEdge[0], $flapEdge[1] + 14], [$flapEdge[0], $flapEdge[1] + 30], [62, 228]]);
 
     $mxLower = 'matrix(1 0 0.55 -0.43 62 268)';
-    $mxUpper = 'matrix(0.9925 -0.1219 0.55 -0.43 62 196)';
+    $mxUpper = 'matrix(1 0 0.55 -0.43 62 196)';
     $mxSlabTop = 'matrix(1 0 0.46 -0.36 66 210)';
     $mxSlabFront = 'translate(66 210)';
     $mxSlabEnd = 'matrix(0.46 -0.36 0 1 262 210)';
@@ -95,11 +93,12 @@
 
         {{-- The slab of ice cream, lying flat: top, front and open right end --}}
         <g class="fs-part fs-part--slab">
+            <g class="fs-bounce">
             <g clip-path="url(#{{ $uid }}-se)">
                 <image href="{{ $ice }}" x="0" y="0" width="100" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabEnd }}"/>
                 <rect x="256" y="160" width="60" height="110" fill="#3b1f16" fill-opacity="0.24"/>
                 @if ($hasSprinkles)
-                    <image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="100" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabEnd }}"/>
+                    <g class="fs-sprk"><image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="100" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabEnd }}"/></g>
                 @endif
             </g>
             <polygon class="fs-ln" points="{{ $slabEnd }}"/>
@@ -108,10 +107,10 @@
                 <image href="{{ $ice }}" x="0" y="0" width="196" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabFront }}"/>
                 <rect x="60" y="205" width="206" height="60" fill="#3b1f16" fill-opacity="0.07"/>
                 @if ($hasSprinkles)
-                    <image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="196" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabFront }}"/>
+                    <g class="fs-sprk"><image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="196" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabFront }}"/></g>
                 @endif
                 @if ($hasSauce)
-                    <path class="fs-top fs-drip" d="M192 208v17a5.5 5.5 0 0 0 11 0v-17zM222 208v26a5.5 5.5 0 0 0 11 0v-26zM246 208v12a5 5 0 0 0 10 0v-12z"/>
+                    <g class="fs-sauce"><path class="fs-top fs-drip" d="M192 208v17a5.5 5.5 0 0 0 11 0v-17zM222 208v26a5.5 5.5 0 0 0 11 0v-26zM246 208v12a5 5 0 0 0 10 0v-12z"/></g>
                 @endif
             </g>
             <polygon class="fs-ln" points="{{ $slabFront }}"/>
@@ -120,14 +119,14 @@
                 <image href="{{ $ice }}" x="0" y="0" width="196" height="100" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabTop }}"/>
                 <rect x="60" y="165" width="260" height="50" fill="#fff" fill-opacity="0.16"/>
                 @if ($hasSauce)
-                    <image class="fs-top" href="{{ $art('top-sauce') }}" x="8" y="12" width="182" height="76" preserveAspectRatio="none" transform="{{ $mxSlabTop }}"/>
+                    <g class="fs-sauce"><image class="fs-top" href="{{ $art('top-sauce') }}" x="8" y="12" width="182" height="76" preserveAspectRatio="none" transform="{{ $mxSlabTop }}"/></g>
                 @endif
                 @if ($hasSprinkles)
-                    <image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="196" height="100" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabTop }}"/>
+                    <g class="fs-sprk"><image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="196" height="100" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabTop }}"/></g>
                 @endif
-                <polygon points="{{ $flapShadow }}" fill="#3b1f16" fill-opacity="0.28"/>
             </g>
             <polygon class="fs-ln" points="{{ $slabTop }}"/>
+            </g>
         </g>
 
         {{-- The fold: the rounded spine on the left where the slice bends, crust running round it --}}
@@ -140,6 +139,7 @@
 
         {{-- Upper half of the slice: folds over the top, lifted a little so the slab shows --}}
         <g class="fs-part fs-part--upper">
+            <g class="fs-flap">
             <polygon points="{{ $upperEnd }}" fill="var(--crust-d)"/>
             <polygon points="{{ $upperFront }}" fill="url(#{{ $uid }}-cr)"/>
             <polygon points="{{ $upperFront }}" fill="url(#{{ $uid }}-sk)"/>
@@ -154,6 +154,7 @@
             <polygon class="fs-ln" points="{{ $upperEnd }}"/>
             <polygon class="fs-ln" points="{{ $upperFront }}"/>
             <polygon class="fs-ln" points="{{ $upperTop }}"/>
+            </g>
         </g>
     </g>
 </svg>
