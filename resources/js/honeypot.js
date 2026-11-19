@@ -5,7 +5,6 @@
 // Nothing flashes bright: the canvas carries dim grain and thin tinted bars, never a full-screen flash.
 
 const KEY = 'brread-honeypot';
-const LINE = 'mana mungkin seorang Vassell Enha membiarkan amatiran seperti anda bisa akses ke panel admin wkwkwk';
 const SPAM_TRIES = 6;
 const SPAM_WINDOW = 15000;
 
@@ -33,7 +32,7 @@ const POPS = {
     leave: ['Mau kabur? Sayang sekali.', 'Pintunya dikunci. Sama Kewer.'],
 };
 
-const state = { start: 0, until: 0, horrorMs: 14000, ip: root?.dataset.ip || '', phase: 'horror', tries: [], bsod: false, popAt: 0, raf: 0, ended: false };
+const state = { start: 0, until: 0, horrorMs: 20000, ip: root?.dataset.ip || '', phase: 'horror', tries: [], bsod: false, popAt: 0, raf: 0, ended: false };
 
 const el = (tag, className, content) => {
     const node = document.createElement(tag);
@@ -462,12 +461,6 @@ function arm() {
     window.addEventListener('pointerdown', unmute);
     window.addEventListener('keydown', unmute);
 
-    window.addEventListener('beforeunload', (event) => {
-        if (state.ended) return;
-        event.preventDefault();
-        event.returnValue = '';
-    });
-
     document.addEventListener('fullscreenchange', () => {
         // Out of fullscreen (the browser's own exit): the next press or key goes straight back in.
         if (!document.fullscreenElement && !state.ended) taunt('leave');
@@ -483,295 +476,633 @@ function arm() {
     });
 }
 
-/* ------------------------------------------------------------ phase A: the horror intro */
+/* ------------------------------------------------------------ phase A: BRREAD! COLD ROOM 03 */
 
+// A night camera feed of a basement cold room: something is wrong, and the owner walks out of the dark.
+// Sound is one-shot effects only: real silence between them, no music, no loops. Every visual is a class on #hz
+// (b-*) or a pure function of the server's elapsed time, so joining late just snaps to the right frame.
 const horror = (() => {
-    const hz = document.getElementById('hz');
-    const eyesHost = document.getElementById('hz-eyes');
-    const handsHost = document.getElementById('hz-hands');
-    const pulse = document.getElementById('hz-pulse');
-    const lineEl = document.getElementById('hz-text');
-    const chars = [];
-    const eyes = [];
-    const hands = [];
+    const $ = (id) => document.getElementById(id);
+    const hz = $('hz');
+    const room = $('cr-room');
+    const clock = $('cr-time');
+    const grain = $('hz-canvas');
+    const layers = { far: $('cr-far'), mid: $('cr-mid'), near: $('cr-near') };
+    const leaf = $('cr-leaf');
+    const doorLight = $('cr-doorlight');
+    const scene = $('cr-scene');
+    const spill = $('cr-spill');
+    const stripes = $('cr-stripes');
+    const bloom = $('cr-bloom');
+    const fogs = $('cr-fogs');
+    const dust = $('cr-dust');
+    const sandWrap = $('cr-sand-wrap');
+    const sandLit = $('cr-sand-lit');
+    const figEl = $('cr-fig');
+    const figCanvas = $('cr-fig-canvas');
+    const shadowEl = $('cr-shadow');
+    const reflectEl = $('cr-reflect');
+    const threat = $('cr-threat');
+    const noiseBars = Array.from(document.querySelectorAll('#cr-noise b'));
+    const mapDot = $('cr-map-dot');
+    const dlg = $('cr-dlg');
+    const dlgText = $('cr-dlg-text');
+    const rip = hz.querySelector('.cr-rip');
+    const drop = hz.querySelector('.cr-drop');
+
     let ctx = null;
-    let music = null;
-    let timer = 0;
-    let beatTimer = 0;
-    let blinkTimer = 0;
-    let fade = 0;
-    let stopCanvas = () => {};
+    let stopGrain = () => {};
+    let raf = 0;
+    let started = false;
     let k = 1;
-    let handIndex = 0;
-    let beatsFired = 0;
-    let musicOn = false;
+    let last = 0;
+    let lastU = 0;
+    let noiseV = 0;
+    let stampSec = -1;
+    let W = 0;
+    let H = 0;
+    const cls = {};
+    const fired = new Set();
 
-    const live = () => ctx && ctx.state === 'running';
+    /* ---- one-shot sound effects (WebAudio, synthesized, no music, no loops) ---- */
 
-    function makeContext() {
+    const audio = () => {
+        if (ctx || !(window.AudioContext || window.webkitAudioContext)) return ctx;
         try {
-            const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (Ctx) ctx = new Ctx();
-        } catch {
+            ctx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (error) {
             ctx = null;
         }
-    }
-
-    /** Sound waits for the first press, key or touch, as browsers insist; the picture does not wait. */
-    function wake() {
-        if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
-        if (musicOn && music && music.paused && state.phase === 'horror') music.play().catch(() => {});
-    }
-
-    function tone(type, from, to, at, gain, attack, length) {
-        if (!live()) return;
-        const osc = ctx.createOscillator();
-        const amp = ctx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(from, at);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), at + length);
-        amp.gain.setValueAtTime(0.0001, at);
-        amp.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), at + attack);
-        amp.gain.exponentialRampToValueAtTime(0.0001, at + length);
-        osc.connect(amp).connect(ctx.destination);
-        osc.start(at);
-        osc.stop(at + length + 0.05);
-    }
-
-    function hiss(at, length, gain, freq) {
-        if (!live()) return;
-        const size = Math.floor(ctx.sampleRate * length);
-        const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+        return ctx;
+    };
+    const wake = () => {
+        const c = audio();
+        if (c && c.state === 'suspended') c.resume().catch(() => {});
+    };
+    const noise = (c, seconds) => {
+        const buffer = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * seconds)), c.sampleRate);
         const data = buffer.getChannelData(0);
-        for (let i = 0; i < size; i += 1) data[i] = Math.random() * 2 - 1;
-        const source = ctx.createBufferSource();
-        const filter = ctx.createBiquadFilter();
-        const amp = ctx.createGain();
+        for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+        const source = c.createBufferSource();
         source.buffer = buffer;
-        filter.type = 'bandpass';
-        filter.frequency.value = freq;
-        amp.gain.setValueAtTime(0.0001, at);
-        amp.gain.exponentialRampToValueAtTime(gain, at + 0.08);
-        amp.gain.exponentialRampToValueAtTime(0.0001, at + length);
-        source.connect(filter).connect(amp).connect(ctx.destination);
-        source.start(at);
-    }
-
-    const thump = (strength = 1) => {
-        if (!live()) return;
-        const at = ctx.currentTime + 0.01;
-        tone('sine', 72, 42, at, 0.55 * strength, 0.012, 0.22);
-        tone('triangle', 140, 80, at, 0.12 * strength, 0.01, 0.12);
-        tone('sine', 60, 38, at + 0.19, 0.4 * strength, 0.012, 0.2);
+        return source;
     };
-
-    const thud = () => {
-        if (!live()) return;
-        const at = ctx.currentTime + 0.005;
-        tone('sine', 110, 38, at, 0.8, 0.005, 0.35);
-        hiss(at, 0.2, 0.25, 500);
+    const env = (c, at, peak, attack, release) => {
+        const gain = c.createGain();
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + attack + release);
+        gain.connect(c.destination);
+        return gain;
     };
-
-    const sting = () => {
-        if (!live()) return;
-        const at = ctx.currentTime + 0.01;
-        hiss(at, 0.9, 0.2, 2400);
-        [1760, 1867, 1990].forEach((f) => tone('sawtooth', f, f * 0.94, at, 0.03, 0.03, 1.1));
-        tone('sawtooth', 55, 41, at, 0.2, 0.2, 1.4);
-    };
-
-    function build() {
-        // The line, one span per letter, so it can emerge from the dark without the words jumping about.
-        LINE.split(' ').forEach((word, index, all) => {
-            const holder = el('span', null);
-            holder.style.opacity = '1';
-            holder.style.display = 'inline-block';
-            [...word].forEach((letter) => {
-                const span = el('span', null, letter);
-                chars.push(span);
-                holder.append(span);
-            });
-            lineEl.append(holder);
-            if (index < all.length - 1) lineEl.append(document.createTextNode(' '));
-        });
-        lineEl.setAttribute('aria-label', LINE);
-
-        const total = lite ? 4 : 7;
-        for (let i = 0; i < total; i += 1) {
-            const eye = el('div', 'hz-eye');
-            eye.append(el('i'), el('i'));
-            eye.querySelectorAll('i').forEach((i2) => i2.append(el('b')));
-            const left = Math.random() < 0.5;
-            eye.style.left = `${left ? rand(4, 26) : rand(62, 86)}%`;
-            eye.style.top = `${rand(8, 82)}%`;
-            eye.style.fontSize = `${rand(0.7, 1.5).toFixed(2)}em`;
-            eye.style.transitionDelay = `${(i * 0.22).toFixed(2)}s`;
-            eyesHost.append(eye);
-            eyes.push(eye);
-        }
-
-        for (let i = 0; i < 3; i += 1) {
-            const NS = 'http://www.w3.org/2000/svg';
-            const svg = document.createElementNS(NS, 'svg');
-            svg.setAttribute('viewBox', '0 0 100 130');
-            svg.setAttribute('class', 'hz-hand');
-            const part = (tag, attrs) => {
-                const node = document.createElementNS(NS, tag);
-                Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
-                svg.append(node);
-            };
-            part('ellipse', { cx: 50, cy: 88, rx: 27, ry: 31 });
-            [[20, 52, -20, 21], [37, 38, -6, 25], [55, 36, 4, 26], [72, 44, 14, 23]].forEach(([cx, cy, rot, ry]) => part('ellipse', { cx, cy, rx: 7, ry, transform: `rotate(${rot} ${cx} ${cy})` }));
-            part('ellipse', { cx: 16, cy: 92, rx: 7, ry: 20, transform: 'rotate(-55 16 92)' });
-            handsHost.append(svg);
-            hands.push(svg);
-        }
-    }
-
-    function slam() {
-        const hand = hands[handIndex % hands.length];
-        handIndex += 1;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        hand.style.setProperty('--x', `${rand(w * 0.05, w * 0.7)}px`);
-        hand.style.setProperty('--y', `${rand(h * 0.08, h * 0.5)}px`);
-        hand.style.setProperty('--r', `${rand(-25, 25).toFixed(0)}deg`);
-        hand.classList.remove('is-slam');
-        void hand.getBoundingClientRect();
-        hand.classList.add('is-slam');
-    }
-
-    function quake() {
-        if (reduced || lite) return;
-        hz.classList.remove('is-quake');
-        void hz.offsetWidth;
-        hz.classList.add('is-quake');
-    }
-
-    function startMusic() {
-        musicOn = true;
+    const hit = (build) => {
+        const c = ctx;
+        if (!c || c.state !== 'running') return;
         try {
-            music = new Audio(root.dataset.music);
-            music.volume = 0;
-            music.loop = true;
-            music.play().catch(() => {});
-            // A slow rise, so the heartbeat comes first and the score swells under it.
-            fade = window.setInterval(() => {
-                if (!music) return;
-                music.volume = Math.min(0.8, music.volume + 0.04);
-                if (music.volume >= 0.8) window.clearInterval(fade);
-            }, 220);
-        } catch {
-            music = null;
+            build(c, c.currentTime + 0.02);
+        } catch (error) {
+            // A sound that fails must never touch the visuals.
         }
-    }
+    };
+    const lowpass = (c, f) => {
+        const n = c.createBiquadFilter();
+        n.type = 'lowpass';
+        n.frequency.value = f;
+        return n;
+    };
 
-    /** Heartbeat: slow at first, faster and louder towards the reveal. */
-    function beatLoop() {
-        if (state.phase !== 'horror' || state.ended) return;
-        const progress = Math.min(1, Math.max(0, (Date.now() - state.start - 1500 * k) / (12000 * k)));
-        const gap = 1000 - progress * 560;
-        if (!document.hidden) {
-            thump(0.7 + progress * 0.5);
-            if (!reduced && pulse.animate) {
-                pulse.animate([{ opacity: 0 }, { opacity: 0.35 + progress * 0.35, offset: 0.2 }, { opacity: 0 }], { duration: 520, easing: 'ease-out' });
-            }
-        }
-        beatTimer = window.setTimeout(beatLoop, gap);
-    }
+    const SFX = {
+        buzz: () => hit((c, t) => {
+            const out = env(c, t, 0.06, 0.04, 0.8);
+            [100, 200, 300].forEach((f, i) => {
+                const o = c.createOscillator();
+                o.type = 'sawtooth';
+                o.frequency.value = f;
+                const g = c.createGain();
+                g.gain.value = 0.5 / (i + 1);
+                o.connect(g).connect(out);
+                o.start(t);
+                o.stop(t + 1);
+            });
+        }),
+        drip: () => hit((c, t) => {
+            [0, 0.17].forEach((delay, i) => {
+                const o = c.createOscillator();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(900, t + delay);
+                o.frequency.exponentialRampToValueAtTime(1500, t + delay + 0.05);
+                o.connect(env(c, t + delay, 0.09 / (i + 1), 0.003, 0.12));
+                o.start(t + delay);
+                o.stop(t + delay + 0.2);
+            });
+        }),
+        crunch: () => hit((c, t) => {
+            [0, 0.07, 0.15].forEach((delay) => {
+                const n = noise(c, 0.08);
+                const f = c.createBiquadFilter();
+                f.type = 'bandpass';
+                f.frequency.value = 2600 + Math.random() * 1400;
+                n.connect(f).connect(env(c, t + delay, 0.26, 0.002, 0.06));
+                n.start(t + delay);
+            });
+        }),
+        // A hinge that wants oil: a slow saw glide through a narrow band, with grit on top.
+        creak: () => hit((c, t) => {
+            const o = c.createOscillator();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(140, t);
+            o.frequency.linearRampToValueAtTime(210, t + 1.0);
+            o.frequency.linearRampToValueAtTime(170, t + 2.0);
+            const bp = c.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.setValueAtTime(520, t);
+            bp.frequency.linearRampToValueAtTime(900, t + 1.2);
+            bp.Q.value = 6;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.1, t + 0.35);
+            g.gain.exponentialRampToValueAtTime(0.05, t + 1.3);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 2.1);
+            o.connect(bp).connect(g).connect(c.destination);
+            o.start(t);
+            o.stop(t + 2.2);
+        }),
+        // A heavy boot on concrete, duller and quieter while he is still far away.
+        foot: (g = 0.5) => hit((c, t) => {
+            const o = c.createOscillator();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(82, t);
+            o.frequency.exponentialRampToValueAtTime(34, t + 0.24);
+            o.connect(lowpass(c, 160 + 900 * g)).connect(env(c, t, 0.15 + 0.55 * g, 0.006, 0.34));
+            o.start(t);
+            o.stop(t + 0.5);
+            const n = noise(c, 0.1);
+            n.connect(lowpass(c, 220 + 600 * g)).connect(env(c, t, 0.06 + 0.3 * g, 0.004, 0.09));
+            n.start(t);
+        }),
+        rustle: () => hit((c, t) => {
+            const n = noise(c, 1);
+            const f = c.createBiquadFilter();
+            f.type = 'bandpass';
+            f.frequency.value = 1500;
+            f.Q.value = 0.8;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.06, t + 0.35);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+            n.connect(f).connect(g).connect(c.destination);
+            n.start(t);
+        }),
+        sting: () => hit((c, t) => {
+            [55, 58.3, 82].forEach((freq) => {
+                const o = c.createOscillator();
+                o.type = 'sawtooth';
+                o.frequency.value = freq;
+                const f = lowpass(c, 900);
+                f.frequency.setValueAtTime(900, t);
+                f.frequency.exponentialRampToValueAtTime(120, t + 1.1);
+                o.connect(f).connect(env(c, t, 0.11, 0.015, 1.1));
+                o.start(t);
+                o.stop(t + 1.3);
+            });
+        }),
+        // The one heavy low thud under the face reveal.
+        boom: () => hit((c, t) => {
+            const o = c.createOscillator();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(70, t);
+            o.frequency.exponentialRampToValueAtTime(24, t + 0.7);
+            o.connect(env(c, t, 0.85, 0.01, 1.0));
+            o.start(t);
+            o.stop(t + 1.1);
+            const n = noise(c, 0.25);
+            n.connect(lowpass(c, 260)).connect(env(c, t, 0.4, 0.004, 0.22));
+            n.start(t);
+        }),
+        slam: () => hit((c, t) => {
+            const o = c.createOscillator();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(120, t);
+            o.frequency.exponentialRampToValueAtTime(28, t + 0.4);
+            o.connect(env(c, t, 0.7, 0.003, 0.6));
+            o.start(t);
+            o.stop(t + 0.7);
+            const n = noise(c, 0.3);
+            n.connect(lowpass(c, 900)).connect(env(c, t, 0.45, 0.002, 0.25));
+            n.start(t);
+        }),
+    };
 
-    function blinkLoop() {
-        if (state.phase !== 'horror' || state.ended || reduced) return;
-        const eye = eyes[Math.floor(Math.random() * eyes.length)];
-        if (eye?.classList.contains('is-open')) {
-            eye.classList.add('is-blinking');
-            later(() => eye.classList.remove('is-blinking'), 130);
-        }
-        blinkTimer = window.setTimeout(blinkLoop, rand(900, 1800));
-    }
+    /* ---- small maths: everything is a pure function of the clock ---- */
 
-    // The beat sheet. [ms at 14 s, name]. Anything already past on arrival is applied silently.
-    const BEATS = [
-        [0, (on) => {
-            hz.classList.add('b-static');
-            if (on) { hiss(ctx?.currentTime ?? 0, 1.6, 0.12, 3000); tone('sine', 55, 52, ctx?.currentTime ?? 0, 0.1, 0.5, 3.2); }
-        }],
-        [1500, (on) => {
-            hz.classList.add('b-beat');
-            if (on) { startMusic(); beatLoop(); } else if (state.phase === 'horror') { startMusic(); beatLoop(); }
-        }],
-        [3000, () => hz.classList.add('b-blood')],
-        [4000, (on) => {
-            eyes.forEach((eye) => eye.classList.add('is-open'));
-            blinkLoop();
-            if (on) tone('sine', 220, 180, ctx?.currentTime ?? 0, 0.05, 0.4, 1.4);
-        }],
-        [5000, (on) => { hz.classList.add('b-figure', 's1'); if (on) sting(); }],
-        [6300, (on) => { hz.classList.add('s2'); if (on) { sting(); } slam(); if (on) { thud(); quake(); } }],
-        [7600, (on) => { hz.classList.add('s3'); if (on) { sting(); } slam(); if (on) { thud(); quake(); } }],
-        [8400, () => hz.classList.add('b-text')],
-        // 13.6 s: the hard cut to black. Phase B starts at 14 s on the dot.
-        [13600, () => {
-            clearTimeout(beatTimer);
-            clearTimeout(blinkTimer);
-            window.clearInterval(fade);
-            music?.pause();
-            hz.classList.add('is-cut');
-            hz.style.visibility = 'hidden';
-        }],
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const smooth = (x) => { const v = clamp(x); return v * v * (3 - 2 * v); };
+    const inOut = (x) => { const v = clamp(x); return v < 0.5 ? 4 * v * v * v : 1 - ((-2 * v + 2) ** 3) / 2; };
+    const lerp = (a, b, x) => a + (b - a) * x;
+    const flag = (name, on, target = hz) => {
+        if (cls[name] === on) return;
+        cls[name] = on;
+        target.classList.toggle(name, on);
+    };
+
+    /* ---- beat sheet, in seconds of a 20 second shot (scaled by k when HORROR_SECONDS differs) ---- */
+
+    const DOOR0 = 5.0;
+    const DOOR1 = 7.2;
+    const STEPS = reduced ? [[7.6, 0.5], [8.7, 0.5]] : [[7.6, 0.2], [8.5, 0.27], [9.4, 0.3], [10.2, 0.23]];
+    const STEP_DUR = reduced ? 1.3 : 0.8;
+    const PUSH0 = 7.5;
+    const PUSH1 = 18.0;
+    const P1 = [10.9, 13.7];
+    const P2 = [14.2, 18.6];
+    const REVEAL0 = 17.0;
+    const REVEAL1 = 18.0;
+
+    const EVENTS = [
+        [0.9, () => SFX.buzz()],
+        [3.6, () => { SFX.drip(); retrigger(rip); retrigger(drop); }],
+        [5.0, () => SFX.creak()],
+        [5.7, () => SFX.crunch()],
+        [7.95, () => SFX.foot(0.3)],
+        [8.85, () => SFX.foot(0.48)],
+        [8.6, () => SFX.rustle()],
+        [9.75, () => SFX.foot(0.7)],
+        [10.1, () => SFX.rustle()],
+        [10.55, () => SFX.foot(0.95)],
+        [13.6, () => { SFX.drip(); retrigger(rip); retrigger(drop); }],
+        [15.0, () => SFX.sting()],
+        [18.0, () => SFX.boom()],
+        [19.3, () => SFX.slam()],
     ];
 
-    function frame() {
-        if (state.phase !== 'horror' || state.ended) return;
-        const elapsed = Date.now() - state.start;
-
-        while (beatsFired < BEATS.length && elapsed >= BEATS[beatsFired][0] * k) {
-            const [at, run] = BEATS[beatsFired];
-            beatsFired += 1;
-            run(elapsed - at * k < 700);
-        }
-
-        // Letter by letter from 8.4 s to 11 s; the hold on the whole line then runs to the cut.
-        const typed = Math.min(chars.length, Math.max(0, Math.floor(((elapsed - 8400 * k) / (2600 * k)) * chars.length)));
-        for (let i = 0; i < typed; i += 1) if (!chars[i].classList.contains('is-on')) chars[i].classList.add('is-on');
+    function retrigger(node) {
+        if (!node || reduced) return;
+        node.classList.remove('go');
+        void node.getBoundingClientRect();
+        node.classList.add('go');
     }
 
+    const threatAt = (u) => {
+        if (u < 6.2) return 0;
+        if (u < 11) return lerp(0, 0.5, smooth((u - 6.2) / 4.8));
+        if (u < 15) return lerp(0.5, 0.75, smooth((u - 11) / 4));
+        return lerp(0.75, 1, smooth((u - 15) / 2.6));
+    };
+
+    // Walk progress: the sum of weighted steps, each its own eased move, with silence between them.
+    const walkAt = (u) => {
+        let p = 0;
+        let bob = 0;
+        STEPS.forEach(([start, weight]) => {
+            const x = (u - start) / STEP_DUR;
+            p += weight * smooth(x);
+            if (x > 0 && x < 1) bob = Math.max(bob, Math.sin(Math.PI * x));
+        });
+        return { p: clamp(p), bob };
+    };
+    const lastStep = () => STEPS[STEPS.length - 1][0] + STEP_DUR;
+
+    /* ---- the owner: one photo, sliced into strips that sway out of phase ---- */
+
+    const PAD = 24;
+    const GLINTS = [[232, 103], [280, 104]];
+    const FACE = [254, 118];
+    const fig = { img: null, ready: false, ctx: null, w: 0, h: 0, face: null, faceCtx: null, rim: null, strips: lite ? 9 : 16, drawAt: 0, silhouette: null };
+
+    const silhouette = (target) => {
+        const c = target.getContext('2d');
+        target.width = fig.w + PAD * 2;
+        target.height = fig.h;
+        c.drawImage(fig.img, PAD, 0);
+        c.globalCompositeOperation = 'source-in';
+        c.fillStyle = '#000';
+        c.fillRect(0, 0, target.width, target.height);
+    };
+
+    const loadFigure = () => {
+        const img = new Image();
+        img.onload = () => {
+            fig.img = img;
+            fig.w = img.naturalWidth;
+            fig.h = img.naturalHeight;
+            figCanvas.width = fig.w + PAD * 2;
+            figCanvas.height = fig.h;
+            fig.ctx = figCanvas.getContext('2d');
+            silhouette(shadowEl);
+            silhouette(reflectEl);
+            fig.face = document.createElement('canvas');
+            fig.face.width = 190;
+            fig.face.height = 190;
+            fig.faceCtx = fig.face.getContext('2d');
+            const c = fig.ctx;
+            fig.rim = c.createLinearGradient(PAD, 0, PAD + fig.w, 0);
+            fig.rim.addColorStop(0, 'rgba(255,110,145,0.8)');
+            fig.rim.addColorStop(0.12, 'rgba(255,110,145,0)');
+            fig.rim.addColorStop(0.88, 'rgba(255,110,145,0)');
+            fig.rim.addColorStop(1, 'rgba(255,110,145,0.8)');
+            fig.ready = true;
+        };
+        img.src = hz.dataset.figure;
+    };
+
+    // Cloth keeps moving a while after he stops, then settles on a damped sine.
+    const drawFigure = (t, u, D, R, walk) => {
+        if (!fig.ready) return;
+        const c = fig.ctx;
+        const n = fig.strips;
+        const sh = fig.h / n;
+        const settle = u > lastStep() ? Math.exp(-(u - lastStep()) * 1.4) : 1;
+        const moving = u < lastStep() ? clamp((u - 7.3) / 0.4) : settle;
+        const amp = (0.5 + 2.6 * moving + 1.4 * walk.bob) * (reduced ? 0.4 : 1);
+        c.clearRect(0, 0, figCanvas.width, figCanvas.height);
+        for (let i = 0; i < n; i += 1) {
+            const y = i * sh;
+            const f = y / fig.h;
+            const hem = smooth((f - 0.38) / 0.55);
+            const dx = amp * (0.25 + 2.2 * hem) * Math.sin(t * 1.7 + i * 0.62) + Math.sin(t * 0.9 + i * 0.3) * 0.4 * (1 - f);
+            c.drawImage(fig.img, 0, y, fig.w, sh + 1, PAD + dx, y, fig.w, sh + 1);
+        }
+        c.globalCompositeOperation = 'source-atop';
+        // Dark by default: the body is a silhouette that only the door light can touch.
+        const L = 0.05 + 0.1 * R;
+        c.fillStyle = `rgba(2,2,3,${1 - L})`;
+        c.fillRect(0, 0, figCanvas.width, figCanvas.height);
+        if (D > 0.01) {
+            c.globalAlpha = D;
+            c.fillStyle = fig.rim;
+            c.fillRect(0, 0, figCanvas.width, figCanvas.height);
+            c.globalAlpha = 1;
+        }
+        c.globalCompositeOperation = 'source-over';
+        if (R > 0.003) {
+            // The reveal: a lit patch from below and the side, nothing else on him gets brighter.
+            const f = fig.faceCtx;
+            f.globalCompositeOperation = 'source-over';
+            f.clearRect(0, 0, 190, 190);
+            f.drawImage(fig.img, 150, 20, 190, 190, 0, 0, 190, 190);
+            f.globalCompositeOperation = 'destination-in';
+            const g = f.createRadialGradient(80, 112, 4, 84, 100, 86);
+            g.addColorStop(0, 'rgba(0,0,0,1)');
+            g.addColorStop(0.55, 'rgba(0,0,0,0.9)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            f.fillStyle = g;
+            f.fillRect(0, 0, 190, 190);
+            f.globalCompositeOperation = 'source-atop';
+            f.fillStyle = 'rgba(255,128,152,0.16)';
+            f.fillRect(0, 0, 190, 190);
+            c.save();
+            c.globalAlpha = R * 0.92;
+            c.drawImage(fig.face, PAD + 150, 20);
+            c.globalCompositeOperation = 'lighter';
+            c.globalAlpha = R * 0.3;
+            c.drawImage(fig.face, PAD + 150, 20);
+            c.restore();
+        }
+        // Lens glints: two small points, always faintly alive, strong when the face is revealed.
+        const ga = (0.18 + 0.2 * D) * (1 - R) + 0.95 * R;
+        GLINTS.forEach(([gx, gy]) => {
+            const g = c.createRadialGradient(PAD + gx, gy, 0, PAD + gx, gy, 6 + 5 * R);
+            g.addColorStop(0, `rgba(235,252,255,${ga})`);
+            g.addColorStop(1, 'rgba(235,252,255,0)');
+            c.fillStyle = g;
+            c.fillRect(PAD + gx - 14, gy - 14, 28, 28);
+        });
+    };
+
+    /* ---- the dialogue card: per-letter reveal, driven by the clock ---- */
+
+    const PARTS = [
+        { at: P1[0], to: P1[1], rate: 0.022, lines: [[['Mana Mungkin Seorang '], ['"Vassell Enha"', true]]] },
+        { at: P2[0], to: P2[1], rate: 0.016, lines: [[['Memberikan Akses Panel Admin']], [['ke Amatiran Seperti Anda.']]] },
+    ];
+    let shownPart = -1;
+    let chars = [];
+    const buildPart = (index, instant) => {
+        dlgText.textContent = '';
+        chars = [];
+        dlg.classList.toggle('instant', instant);
+        if (index < 0) return;
+        PARTS[index].lines.forEach((line, li) => {
+            if (li > 0) dlgText.append(document.createElement('br'));
+            line.forEach(([str, hl]) => {
+                const holder = hl ? el('span', 'hl cr-w') : dlgText;
+                str.split(/(\s+)/).forEach((word) => {
+                    if (!word) return;
+                    if (/^\s+$/.test(word)) {
+                        holder.append(document.createTextNode(' '));
+                        return;
+                    }
+                    const w = hl ? holder : el('span', 'cr-w');
+                    Array.from(word).forEach((ch) => {
+                        const s = el('span', 'cr-ch', ch);
+                        w.append(s);
+                        chars.push(s);
+                    });
+                    if (!hl) holder.append(w);
+                });
+                if (hl) dlgText.append(holder);
+            });
+        });
+    };
+    const dialogue = (u, late) => {
+        let part = -1;
+        PARTS.forEach((p, i) => { if (u >= p.at && u < p.to) part = i; });
+        if (part !== shownPart) {
+            shownPart = part;
+            buildPart(part, late);
+        }
+        flag('on', part >= 0, dlg);
+        if (part < 0) {
+            flag('is-talking', false, dlg);
+            return;
+        }
+        const p = PARTS[part];
+        const typed = Math.floor((u - p.at) / p.rate);
+        chars.forEach((s, i) => s.classList.toggle('on', i < typed));
+        flag('is-talking', typed < chars.length, dlg);
+    };
+
+    /* ---- the master frame ---- */
+
+    let blurNow = -1;
+    const frame = () => {
+        raf = window.requestAnimationFrame(frame);
+        const now = performance.now();
+        const t = (Date.now() - state.start) / 1000;
+        const u = t / k;
+        const dt = Math.min(0.1, (now - last) / 1000 || 0.016);
+        last = now;
+
+        if (t >= state.horrorMs / 1000) {
+            startKewer();
+            return;
+        }
+
+        if (W !== hz.clientWidth || H !== hz.clientHeight) {
+            W = hz.clientWidth;
+            H = hz.clientHeight;
+        }
+
+        // SFX events: fire once as the clock passes them; anything we only joined late stays silent.
+        EVENTS.forEach(([at, fn], i) => {
+            if (fired.has(i) || u < at) return;
+            fired.add(i);
+            if ((u - at) * k < 0.8) fn();
+        });
+        lastU = u;
+
+        // ---- light and world state
+        const boot = smooth((u - 1.2) / 1.0);
+        const A = inOut((u - DOOR0) / (DOOR1 - DOOR0));
+        const D = smooth((u - 5.2) / 1.8);
+        const walk = walkAt(u);
+        const p = walk.p;
+        const R = smooth((u - REVEAL0) / (REVEAL1 - REVEAL0));
+        const cam = inOut((u - PUSH0) / (PUSH1 - PUSH0));
+        const S = 1 + 0.2 * cam;
+
+        room.style.opacity = boot.toFixed(3);
+        scene.style.opacity = '1';
+        leaf.style.transform = `scale(${(1 - 0.9 * A).toFixed(3)}, 1)`;
+        doorLight.style.opacity = smooth((u - 5.1) / 1.4).toFixed(3);
+        spill.style.opacity = D.toFixed(3);
+        stripes.style.opacity = (D * 0.9).toFixed(3);
+        bloom.style.opacity = (0.55 * D * (1 - 0.25 * cam)).toFixed(3);
+        fogs.style.opacity = (0.05 + 0.24 * D).toFixed(3);
+        dust.style.opacity = D.toFixed(3);
+        sandLit.style.opacity = (0.55 * D).toFixed(3);
+
+        // ---- the owner
+        const fOpacity = smooth((u - 5.9) / 0.5);
+        const scale = lerp(0.37, 1, p);
+        const feetY = lerp(0.62, 0.955, p);
+        const side = W >= 900 ? lerp(0, 0.09, p) * W : 0;
+        const bobPx = walk.bob * (reduced ? 1 : 5) * scale;
+        const ty = (feetY - 1) * H - bobPx;
+        figEl.style.opacity = fOpacity.toFixed(3);
+        figEl.style.transform = `translate3d(${side.toFixed(1)}px, ${ty.toFixed(1)}px, 0) scale(${scale.toFixed(4)})`;
+
+        // The cast shadow and the reflection come from the same position value as the body.
+        const len = lerp(2.4, 1.0, p);
+        const lateral = (lerp(0.5, 0, p) - 0.5) * 0 + (side / Math.max(1, W)) * -2;
+        shadowEl.style.opacity = (0.85 * D * fOpacity).toFixed(3);
+        shadowEl.style.transform = `translate3d(${side.toFixed(1)}px, ${((feetY - 1) * H).toFixed(1)}px, 0) scale(${scale.toFixed(4)}, ${(-scale * len).toFixed(4)}) skewX(${(lateral * 32).toFixed(2)}deg)`;
+        reflectEl.style.opacity = (0.28 * D * fOpacity).toFixed(3);
+        reflectEl.style.transform = `translate3d(${side.toFixed(1)}px, ${((feetY - 1) * H + bobPx * 0.4).toFixed(1)}px, 0) scale(${(scale * 0.96).toFixed(4)}, ${(-scale * 0.85).toFixed(4)})`;
+
+        if (now - fig.drawAt > 33) {
+            fig.drawAt = now;
+            drawFigure(t, u, D, R, walk);
+        }
+
+        // ---- camera: one shot, handheld drift on top, parallax by layer
+        const drift = reduced ? 0 : 1;
+        const dx = (Math.sin(t * 0.7) * 3 + Math.sin(t * 1.9) * 1.1) * drift;
+        const dy = (Math.sin(t * 0.55 + 1) * 2.2 + Math.sin(t * 2.3) * 0.8) * drift;
+        const faceX = W * 0.5 + side;
+        const faceY = H * 0.2;
+        const ox = lerp(W * 0.5, faceX, cam);
+        const oy = lerp(H * 0.5, faceY, cam);
+        const setLayer = (node, factor, shift) => {
+            node.style.transformOrigin = `${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
+            node.style.transform = `translate3d(${(dx * shift).toFixed(2)}px, ${(dy * shift).toFixed(2)}px, 0) scale(${(S ** factor).toFixed(4)})`;
+        };
+        setLayer(layers.far, 0.6, 0.6);
+        setLayer(layers.mid, 1, 1);
+        setLayer(layers.near, 1.8, 1.8);
+
+        // Depth of field: soft background while the push-in runs, sharp subject. Quantized so it is cheap.
+        if (!lite && !reduced) {
+            const blur = Math.round(3 * smooth((u - 11) / 6.5) * 2) / 2;
+            if (blur !== blurNow) {
+                blurNow = blur;
+                layers.far.style.filter = blur ? `blur(${blur}px)` : '';
+                sandWrap.style.filter = blur ? `blur(${blur * 0.8}px)` : '';
+            }
+        }
+
+        // ---- HUD
+        flag('b-on', u >= 0.6);
+        flag('b-alert', u >= 6.2);
+        flag('a1', u >= 6.2);
+        flag('a2', u >= 9);
+        flag('a3', u >= 17.6);
+        flag('b-wrong', u >= 5.6);
+        flag('b-bite', u >= 5.6);
+        threat.style.transform = `scaleX(${threatAt(u).toFixed(3)})`;
+        const want = u < 6.2 ? 0 : clamp(0.15 + 0.6 * walk.bob + 0.5 * smooth((u - 17) / 1) + (u > lastStep() ? 0 : 0.2), 0, 1);
+        noiseV = want > noiseV ? want : Math.max(0, noiseV - dt * 1.4);
+        const lit = Math.round(noiseV * noiseBars.length);
+        
+        noiseBars.forEach((b, i) => b.classList.toggle('on', i < lit));
+        mapDot.style.left = `${(50 + (p - 0.5) * 6).toFixed(1)}%`;
+        mapDot.style.top = `${(18 + 56 * p).toFixed(1)}%`;
+
+        const sec = Math.floor(t);
+        if (sec !== stampSec) {
+            stampSec = sec;
+            const d = new Date(Date.now());
+            const pad = (v) => String(v).padStart(2, '0');
+            clock.textContent = `CAM 03  ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+
+        dialogue(u, (now - startedAt) < 400 && u > 11);
+
+        // ---- signal tears: short, and only twice (replaced by nothing when reduced motion is on)
+        const tearing = !reduced && ((u >= 5.6 && u < 5.75) || (u >= 18.95 && u < 19.3));
+        flag('is-tear', tearing);
+        flag('b-black', u >= 19.5);
+    };
+
+    let startedAt = 0;
+
     return {
-        start(offset) {
-            k = state.horrorMs / 14000;
+        start() {
+            if (started) return;
+            started = true;
             hz.hidden = false;
             hz.classList.toggle('is-lite', lite);
             hz.classList.toggle('is-calm', reduced);
-            build();
-            makeContext();
-            stopCanvas = startCanvas(document.getElementById('hz-canvas'), { bars: false });
+            k = state.horrorMs / 20000;
+            startedAt = performance.now();
+            last = startedAt;
 
-            const late = offset > 400;
-            if (late) hz.classList.add('is-late');
-            frame();
-            if (late) later(() => hz.classList.remove('is-late'), 80);
+            // The brand fonts must really be applied before the card is read; otherwise the fallback stack carries it.
+            hz.dataset.fonts = 'pending';
+            if (document.fonts && document.fonts.load) {
+                Promise.all([document.fonts.load('800 24px "Bagel Fat One"'), document.fonts.load('700 12px "Space Mono"')])
+                    .then(() => document.fonts.ready)
+                    .then(() => {
+                        const loaded = (name) => Array.from(document.fonts).some((face) => face.family.replace(/"/g, '') === name && face.status === 'loaded');
+                        hz.dataset.fonts = loaded('Bagel Fat One') && loaded('Space Mono') ? 'brand' : 'fallback';
+                    })
+                    .catch(() => { hz.dataset.fonts = 'fallback'; });
+            } else {
+                hz.dataset.fonts = 'fallback';
+            }
 
-            timer = window.setInterval(frame, 80);
-            ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, wake, { capture: true }));
+            stopGrain = startCanvas(grain, { bars: false });
+            loadFigure();
+
+            // Sound needs a gesture in most browsers: try now, and again on the first press, key or touch.
+            audio();
             wake();
+            ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, wake, { once: true, capture: true }));
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+                else wake();
+            });
+
+            raf = window.requestAnimationFrame(frame);
         },
         stop() {
-            window.clearInterval(timer);
-            window.clearInterval(fade);
-            clearTimeout(beatTimer);
-            clearTimeout(blinkTimer);
-            music?.pause();
-            stopCanvas();
+            window.cancelAnimationFrame(raf);
         },
         end() {
-            this.stop();
+            window.cancelAnimationFrame(raf);
+            stopGrain();
             hz.hidden = true;
-            hz.remove();
-            try {
-                ctx?.close?.().catch(() => {});
-            } catch {
-                // Already closed.
-            }
+            if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
         },
     };
 })();
@@ -802,7 +1133,7 @@ function boot() {
     if (!root) return;
 
     const elapsed = Number(root.dataset.elapsed || 0);
-    const horrorSeconds = Number(root.dataset.horror || 14);
+    const horrorSeconds = Number(root.dataset.horror || 20);
     const kewerSeconds = Number(root.dataset.kewer || 30);
 
     // The server's elapsed seconds are the clock: a reload lands at the same point and the intro never replays.

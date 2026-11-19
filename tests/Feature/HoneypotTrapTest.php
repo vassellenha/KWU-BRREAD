@@ -40,17 +40,17 @@ class HoneypotTrapTest extends TestCase
             ->assertOk()
             ->assertSee('data-phase="horror"', false)
             ->assertSee('data-elapsed="0"', false)
-            ->assertSee('data-horror="14"', false)
+            ->assertSee('data-horror="20"', false)
             ->assertSee('data-kewer="30"', false)
             ->assertSee('prank-kewer.mp4', false)
-            ->assertDontSee('href=', false)
+            ->assertDontSee('<a ', false)
             ->assertDontSee('/superadmin');
 
         $this->assertEqualsWithDelta(time(), $this->heldSince(), 2);
         $this->assertSame(1, SecurityEvent::where('reason', 'honeypot')->count());
     }
 
-    public function test_under_fourteen_seconds_in_is_the_horror_phase(): void
+    public function test_under_twenty_seconds_in_is_the_horror_phase(): void
     {
         $this->get('/admin')->assertOk();
         $this->elapsed(9);
@@ -58,11 +58,11 @@ class HoneypotTrapTest extends TestCase
         $this->get('/admin')->assertOk()->assertSee('data-phase="horror"', false)->assertSee('data-elapsed="9"', false);
     }
 
-    public function test_from_fourteen_seconds_in_it_is_the_kewer_phase(): void
+    public function test_from_twenty_seconds_in_it_is_the_kewer_phase(): void
     {
         $this->get('/admin')->assertOk();
 
-        foreach ([14, 20, 43] as $seconds) {
+        foreach ([20, 27, 49] as $seconds) {
             $this->elapsed($seconds);
             $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false)->assertSee('data-elapsed="'.$seconds.'"', false);
         }
@@ -70,25 +70,36 @@ class HoneypotTrapTest extends TestCase
         $this->assertSame(1, SecurityEvent::where('reason', 'honeypot')->count());
     }
 
-    public function test_a_refresh_at_second_twenty_resumes_in_kewer_and_never_replays_the_horror(): void
+    public function test_a_refresh_at_second_twenty_five_resumes_in_kewer_and_never_replays_the_horror(): void
     {
         $this->get('/admin')->assertOk();
-        $this->elapsed(20);
+        $this->elapsed(27);
 
         $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false);
         $this->get('/admin')->assertOk()->assertSee('data-phase="kewer"', false);
         $this->get('/admin/other')->assertOk()->assertSee('data-phase="kewer"', false);
-        $this->assertEqualsWithDelta(time() - 20, $this->heldSince(), 2);
+        $this->assertEqualsWithDelta(time() - 27, $this->heldSince(), 2);
     }
 
-    public function test_the_hold_ends_at_forty_four_seconds_and_releases_to_home(): void
+    public function test_the_hold_ends_at_fifty_seconds_and_releases_to_home(): void
     {
         $this->get('/admin')->assertOk();
-        $this->elapsed(44);
+        $this->elapsed(50);
 
         $this->get('/menu')->assertOk();
-        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('wkwkwk');
+        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
         $this->get('/menu')->assertOk();
+    }
+
+    public function test_the_trap_response_has_no_leave_site_prompt_or_music(): void
+    {
+        $html = $this->get('/admin')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('beforeunload', $html);
+        $this->assertStringNotContainsString('returnValue', $html);
+        $this->assertStringNotContainsString('data-music', $html);
+        $this->assertStringContainsString('BRREAD! COLD ROOM 03', $html);
+        $this->assertStringContainsString('Mana Mungkin Seorang &quot;Vassell Enha&quot;', $html);
     }
 
     public function test_the_lengths_come_from_config(): void
@@ -105,7 +116,7 @@ class HoneypotTrapTest extends TestCase
     {
         foreach (['/admin/login', '/admin/anything/deeper', '/administrator', '/wp-admin', '/wp-admin/setup.php'] as $path) {
             Cache::flush();
-            $this->get($path)->assertOk()->assertSee('wkwkwk');
+            $this->get($path)->assertOk()->assertSee('Amatiran');
         }
     }
 
@@ -140,14 +151,14 @@ class HoneypotTrapTest extends TestCase
         $this->get('/menu')->assertOk();
 
         // Back to /admin right after: the browser is only sent on to Home, no new hold.
-        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('wkwkwk');
+        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
         $this->assertSame(0, HoneypotTrap::remaining(request()));
         $this->get('/menu')->assertOk();
     }
 
     public function test_a_browser_resuming_an_ended_hold_does_not_start_a_new_one(): void
     {
-        $this->get('/admin?resume=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('wkwkwk');
+        $this->get('/admin?resume=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
         $this->get('/menu')->assertOk();
         $this->assertSame(0, SecurityEvent::where('reason', 'honeypot')->count());
     }
@@ -156,7 +167,7 @@ class HoneypotTrapTest extends TestCase
     {
         $this->actingAs(User::where('username', 'staffmrp')->firstOrFail());
 
-        $this->get('/admin')->assertOk()->assertDontSee('wkwkwk');
+        $this->get('/admin')->assertOk()->assertDontSee('Amatiran');
         $this->get('/staff/orders')->assertOk();
         $this->assertSame(0, $this->heldSince());
     }
