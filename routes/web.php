@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HoneypotController;
 use App\Http\Controllers\PublicOrderController;
 use App\Http\Controllers\Staff\AccountingController;
 use App\Http\Controllers\Staff\AuthController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Http\Controllers\Staff\SecurityController;
 use App\Models\User;
+use App\Support\HoneypotTrap;
 use Illuminate\Support\Facades\Route;
 
 $rolesFor = fn (string $module): string => 'role:'.implode(',', User::MODULE_ROLES[$module]);
@@ -30,7 +32,13 @@ Route::get('/captcha', CaptchaController::class)->middleware('throttle:60,1')->n
 Route::get(config('auth.lockdown_preview_path'), [AuthController::class, 'lockdownPreview'])->name('lockdown.preview');
 
 Route::redirect('/staff/login', '/staff', 301);
-Route::redirect('/admin', '/superadmin', 301);
+
+// The honeypot: the superadmin sign-in lives only at /superadmin, so these addresses are bait for a guest
+// (see App\Support\HoneypotTrap). Anything else under them is bait too.
+foreach (HoneypotTrap::PATHS as $trapPath) {
+    Route::get('/'.$trapPath, HoneypotController::class);
+    Route::get('/'.$trapPath.'/{any}', HoneypotController::class)->where('any', '.*');
+}
 
 Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () use ($rolesFor) {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -108,3 +116,6 @@ Route::get('/privacy', function () {
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->name('order.review');
+
+// Unknown addresses go through the web middleware too, so a held guest is trapped on them as well.
+Route::fallback(fn () => abort(404));

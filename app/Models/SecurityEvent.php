@@ -9,6 +9,7 @@ class SecurityEvent extends Model
     public const REASONS = [
         'payload' => 'Attack payload',
         'throttle' => 'Too many attempts',
+        'honeypot' => 'Admin honeypot',
     ];
 
     protected $fillable = [

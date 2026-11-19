@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Lockdown;
 use App\Support\LoginCaptcha;
 use App\Support\LoginPrank;
 use Illuminate\Http\JsonResponse;
@@ -88,7 +89,7 @@ class AuthController extends Controller
             'captchaEnabled' => LoginCaptcha::enabled(),
             'locked' => false,
             'preview' => true,
-            'trace' => \App\Support\Lockdown::trace($request),
+            'trace' => Lockdown::trace($request),
         ]);
     }
 
@@ -161,7 +162,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'username' => $adminPortal
                     ? 'This is a staff account. Sign in at /staff instead.'
-                    : 'This is an admin account. Sign in at /superadmin instead.',
+                    : 'These credentials do not match our records.',
             ]);
         }
 

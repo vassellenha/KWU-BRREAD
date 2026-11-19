@@ -31,6 +31,20 @@
                 }
             } catch (e) {}
         }
+        // The /admin honeypot hold follows the browser too: until its 30 seconds run out, every page of the
+        // shop goes back to the trap (the server enforces the same thing; this only makes it instant).
+        function honeypot(restored) {
+            try {
+                var hold = JSON.parse(localStorage.getItem('brread-honeypot') || sessionStorage.getItem('brread-honeypot') || 'null');
+                if (!hold || !(hold.until > Date.now())) return;
+                if (/^\/(admin|administrator|wp-admin)(\/|$)/.test(location.pathname)) {
+                    if (restored) location.reload();
+                    return;
+                }
+                document.documentElement.style.background = '#000';
+                location.replace(hold.path);
+            } catch (e) {}
+        }
         // Arriving from the "access granted" screen: its strawberry sheet is still over the screen
         // here, so the same pink is laid down at once and then melts on down, revealing the menu.
         function arrive() {
@@ -62,8 +76,9 @@
         arrive();
         check(false);
         prank(false);
+        honeypot(false);
         addEventListener('pageshow', function (event) {
-            if (event.persisted) { check(true); prank(true); }
+            if (event.persisted) { check(true); prank(true); honeypot(true); }
         });
     })();
 </script>

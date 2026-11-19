@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -139,15 +140,15 @@ class AuthPortalTest extends TestCase
         $this->get('/staff/accounting')->assertRedirect('/staff');
     }
 
-    public function test_an_admin_whose_session_ended_is_sent_back_to_the_superadmin_form(): void
+    public function test_a_signed_out_admin_is_sent_to_the_staff_form_and_never_shown_the_superadmin_address(): void
     {
         $response = $this->postJson('/superadmin', ['username' => 'superadmin', 'password' => 'brread-admin-2026']);
         $response->assertOk()->assertCookie('portal');
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
-        $this->withCookie('portal', 'admin')->get('/staff/orders')->assertRedirect('/superadmin');
+        $this->withCookie('portal', 'admin')->get('/staff/orders')->assertRedirect('/staff');
         $this->withCookie('portal', 'staff')->get('/staff/orders')->assertRedirect('/staff');
     }
 
@@ -280,9 +281,9 @@ class AuthPortalTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_the_superadmin_login_lives_at_its_own_address_and_the_old_one_redirects(): void
+    public function test_the_superadmin_login_lives_only_at_its_own_address(): void
     {
-        $this->get('/admin')->assertStatus(301)->assertRedirect('/superadmin');
+        $this->get('/admin')->assertNotFound();
 
         $this->get('/superadmin')
             ->assertOk()

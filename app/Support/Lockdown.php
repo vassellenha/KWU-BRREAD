@@ -163,7 +163,7 @@ class Lockdown
         }
     }
 
-    private static function log(Request $request, string $reason): void
+    public static function log(Request $request, string $reason): void
     {
         $username = is_string($request->input('username')) ? Str::limit($request->input('username'), 37) : null;
 
