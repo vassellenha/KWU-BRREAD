@@ -1255,6 +1255,10 @@ const horror = (() => {
         { key: 'flash', src: `${ART}muzzle-flash.webp`, from: 26.0, until: 27.4 },
         { key: 'crack', src: `${ART}glass-crack.webp`, from: 26.0, until: 28.6 },
     ];
+    // The server caches images for 30 days and JSON not at all, so a rebuilt atlas could meet its new JSON in a browser
+    // that still holds the old picture. Every plate carries the build version, so a new build is always a new URL.
+    const ART_V = '2611192';
+    ASSETS.forEach((a) => { a.src += `?v=${ART_V}`; });
     const asset = (key) => ASSETS.find((a) => a.key === key);
     const needed = (a, u) => a.from <= u + 0.25 && a.until > u;
     // True when every plate the moment u needs is decoded (a plate that failed to load counts: the scene just stays dark there).
@@ -1495,6 +1499,19 @@ const horror = (() => {
             return;
         }
         const m = { cellW: 296, cellH: 408, anchorX: 148, anchorY: 390, cols: 6, frames: 30, ...((asset('wlkjson') || {}).data || {}) };
+        // The cells must tile the picture exactly. If they do not (an old picture with a new JSON, or the reverse), the grid
+        // is taken from the picture itself and the anchor moves with it, so a frame never shows a piece of its neighbour.
+        const rows = Math.ceil(m.frames / m.cols);
+        const sw = src.width || src.naturalWidth;
+        const shh = src.height || src.naturalHeight;
+        if (sw !== m.cellW * m.cols || shh !== m.cellH * rows) {
+            const cw = Math.floor(sw / m.cols);
+            const chh = Math.floor(shh / rows);
+            m.anchorX = Math.round((m.anchorX / m.cellW) * cw);
+            m.anchorY = Math.min(chh, Math.round((m.anchorY / m.cellH) * chh));
+            m.cellW = cw;
+            m.cellH = chh;
+        }
         const scale = fig.h / m.anchorY;
         fig.cw = Math.round(m.cellW * scale);
         [figCanvas, shadowEl, reflectEl].forEach((cv) => {

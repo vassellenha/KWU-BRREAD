@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public" / "img" / "honeypot"
 AXIS = 545.0
 CHEST0, CHEST_AXIS = 600, 612  # the chest fold: the source strip starts at x = 600; the fold line sits just right of the mask
-OUTLINE = [(330, 664), (398, 668), (430, 722), (466, 782), (478, 860), (482, 984), (522, 998), (572, 1040), (590, 1110), (580, 1182),
+OUTLINE = [(330, 664), (398, 668), (436, 722), (478, 782), (493, 860), (497, 984), (530, 998), (572, 1040), (590, 1110), (580, 1182),
            (554, 1242), (542, 1322), (526, 1402), (512, 1472), (508, 1536), (0, 1536), (0, 1162), (22, 1130), (62, 1090), (112, 1022),
            (168, 984), (190, 950), (196, 890), (212, 820), (244, 760), (282, 704)]
 
@@ -48,9 +48,11 @@ def main():
     # The real left side of the face is lit warmer than the mirrored right cheek. Compare both along the ring just outside
     # the outline (the face and the neck only, not the glove) and spread the ratio inwards, so the fill takes the light of its
     # surroundings and no darker patch is left on the cheek.
-    k = 7
-    ring = (cv2.dilate(m, np.ones((2 * 26 + 1, 2 * 26 + 1), np.uint8)) > 0) & (cv2.dilate(m, np.ones((7, 7), np.uint8)) == 0)
-    ring &= (np.arange(h)[:, None] < 975) & (np.arange(h)[:, None] > 600)
+    # Only the skin just above the hole is trusted: the wall and the neck beside it differ between the two halves of the plate
+    # and would drag the cheek towards the wrong colour.
+    ys, xs = np.mgrid[0:h, 0:w]
+    ring = (cv2.dilate(m, np.ones((2 * 14 + 1, 2 * 14 + 1), np.uint8)) > 0) & (cv2.dilate(m, np.ones((7, 7), np.uint8)) == 0)
+    ring &= ((ys > 600) & (ys < 735) & (xs > 270) & (xs < 480)) | ((ys >= 735) & (ys < 985) & (xs > 440))
     blur_o = cv2.GaussianBlur(rgb.astype(np.float32), (0, 0), 6)
     blur_f = cv2.GaussianBlur(fill, (0, 0), 6)
     ratio = (blur_o + 6.0) / (blur_f + 6.0)
@@ -61,7 +63,7 @@ def main():
     gain = np.ones_like(gain_src)
     acc = np.zeros_like(gain_src)
     wacc = np.zeros((h, w), np.float32)
-    for sg in (10, 22, 46, 90):
+    for sg in (6, 14, 30, 60, 120):
         num = cv2.GaussianBlur(gain_src, (0, 0), sg)
         den = cv2.GaussianBlur(known, (0, 0), sg)
         est = num / np.maximum(den[..., None], 1e-4)
@@ -71,7 +73,7 @@ def main():
     gain = acc + (1 - wacc)[..., None]
     face_w = 1 - wy  # the correction fades out down the chest, where the fill already continues the armour
     fill = fill * (1 + (gain - 1) * face_w)
-    soft = cv2.GaussianBlur(grow.astype(np.float32) / 255.0, (0, 0), 4.0)[..., None]
+    soft = cv2.GaussianBlur(grow.astype(np.float32) / 255.0, (0, 0), 7.0)[..., None]
     clean = (fill * soft + rgb.astype(np.float32) * (1 - soft)).clip(0, 255).astype(np.uint8)
     Image.fromarray(clean).save(OUT / "aim-clean.webp", quality=88, method=6)
 
