@@ -17,7 +17,7 @@
     @vite(['resources/css/honeypot.css', 'resources/js/honeypot.js'])
 </head>
 <body>
-    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3" data-bsod="/video/prank-bsod.mp4">
+    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-samples="{{ json_encode($samples ?? [], JSON_UNESCAPED_SLASHES) }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3" data-bsod="/video/prank-bsod.mp4">
 
         {{-- PHASE A: "BRREAD! COLD ROOM 03", a night security camera feed that goes wrong. Built and driven by honeypot.js. --}}
         <section id="hz" class="hz" aria-hidden="true" data-figure="/img/honeypot/character-fullbody.webp">
@@ -63,7 +63,11 @@
             {{-- The face reveal and the shot: one plate, cut to by a match cut. The pistol only ever points at the lens. --}}
             <div class="cr-aim" id="cr-aim">
                 <img class="cr-aim-img" id="cr-aim-img" data-asset="aim" alt="" decoding="async">
+                {{-- The pistol comes up from below the frame: a patch of the mirrored plate (the other cheek and shoulder) hides the baked-in one, a masked copy of the same plate rises over it. --}}
+                <div class="cr-aim-cover" id="cr-aim-cover"><img class="cr-aim-flip" data-asset="aim" alt="" decoding="async"></div>
+                <img class="cr-aim-img cr-aim-gun" id="cr-aim-gun" data-asset="aim" alt="" decoding="async">
                 <i class="cr-aim-key" id="cr-aim-key"></i>
+                <i class="cr-aim-eyes" id="cr-aim-eyes"></i>
                 <i class="cr-aim-warm" id="cr-aim-warm"></i>
             </div>
             <img class="cr-flash-img" id="cr-flash-img" data-asset="flash" alt="" decoding="async">
