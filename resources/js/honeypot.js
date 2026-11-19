@@ -11,7 +11,6 @@ const SPAM_WINDOW = 15000;
 const root = document.getElementById('hp');
 const video = document.getElementById('hp-video');
 const canvas = document.getElementById('hp-canvas');
-const text = document.getElementById('hp-text');
 const count = document.getElementById('hp-count');
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -152,102 +151,11 @@ function finish() {
     later(() => window.location.replace('/'), 500);
 }
 
-/* ------------------------------------------------------------ the line, typed in */
-
-/* The owner's line is a terminal window ("vassell@brread:~$ say", the same window as the floating ones) typed in at 28 ms a
-   letter with a block cursor, in two parts with a 500 ms pause. It pops in (scale .92 to 1, small overshoot), fades out, and
-   comes back twice: near the start and around the middle, retyped each time. */
-
-const SAY = [
-    [['Mana Mungkin Seorang "'], ['Vassell Enha', true], ['"']],
-    [['Memberikan Akses Panel Admin ke Amatiran Seperti Anda.']],
-];
-const SAY_RATE = 28;
-const SAY_PAUSE = 500;
-const SAY_HOLD = 6400;
-const sayBox = document.getElementById('hp-say');
-let sayRun = 0;
-
-function sayBuild() {
-    text.textContent = '';
-    const cur = el('i', 'cur');
-    const lines = SAY.map((segments) => {
-        const line = el('span', 'say-line hp-say-line');
-        const chars = [];
-        segments.forEach(([str, hl]) => {
-            const holder = hl ? el('span', 'hl') : line;
-            str.split(/(\s+)/).forEach((word) => {
-                if (!word) return;
-                if (/^\s+$/.test(word)) {
-                    holder.append(document.createTextNode(' '));
-                    return;
-                }
-                const w = el('span', 'w');
-                Array.from(word).forEach((ch) => {
-                    const c = el('span', 'c', ch);
-                    w.append(c);
-                    chars.push(c);
-                });
-                holder.append(w);
-            });
-            if (hl) line.append(holder);
-        });
-        text.append(line);
-        return chars;
-    });
-    sayBox.setAttribute('aria-label', SAY.map((segments) => segments.map(([str]) => str).join('')).join(' '));
-    return { cur, lines };
-}
-
-function sayType(run, built) {
-    const queue = [];
-    built.lines.forEach((chars) => chars.forEach((c, ci) => queue.push({ c, first: ci === 0 })));
-    let n = 0;
-    queue[0].c.before(built.cur);
-    const step = () => {
-        if (run !== sayRun || state.ended) return;
-        queue[n].c.classList.add('on');
-        n += 1;
-        const next = queue[n];
-        if (!next) {
-            built.cur.remove();
-            return;
-        }
-        // the block cursor sits in front of the letter about to be typed
-        next.c.before(built.cur);
-        later(step, next.first ? SAY_PAUSE : SAY_RATE);
-    };
-    later(step, SAY_RATE);
-}
-
-function caption() {
-    const show = (ms) => {
-        if (state.ended) return;
-        sayRun += 1;
-        const run = sayRun;
-        const built = sayBuild();
-        sayBox.classList.remove('is-glitching');
-        sayBox.classList.add('is-shown', 'is-pop');
-        later(() => sayBox.classList.remove('is-pop'), 320);
-        sayType(run, built);
-        later(() => {
-            if (run === sayRun) sayBox.classList.remove('is-shown');
-        }, ms);
-    };
-    later(() => show(SAY_HOLD), 800);
-    later(() => show(SAY_HOLD), Math.max(8000, (state.until - Date.now()) / 2));
-}
-
 function glitchLoop() {
     if (reduced || state.ended) return;
 
     // One burst of 240 ms every few seconds: far below three a second.
     if (!document.hidden && state.phase === 'kewer') {
-        if (sayBox.classList.contains('is-shown')) {
-            sayBox.classList.remove('is-glitching', 'is-pop');
-            void sayBox.offsetWidth;
-            sayBox.classList.add('is-glitching');
-        }
         if (!lite) {
             root.classList.remove('is-shaking');
             void root.offsetWidth;
@@ -269,7 +177,7 @@ function buildWindows() {
     for (let i = 0; i < total; i += 1) {
         const win = el('div', 'hp-win');
         const bar = el('header');
-        bar.append(el('i'), el('span', null, ['TERMINAL', 'root@kewer', 'nmap.exe', 'sshd', 'kewer.sh'][i % 5]));
+        bar.append(el('i'), el('i'), el('i'), el('span', null, ['TERMINAL', 'root@kewer', 'nmap.exe', 'sshd', 'kewer.sh'][i % 5]));
         const body = el('pre');
         win.append(bar, body);
         win.style.setProperty('--x0', `${rand(0, w * 0.55)}px`);
@@ -283,6 +191,13 @@ function buildWindows() {
     }
 }
 
+// A window line wears the dark lockdown look: a pink "$" on commands, red on refusals, soft grey on the rest.
+function termLine(line) {
+    const cmd = line.startsWith('$ ');
+    const row = el('p', cmd ? 'is-cmd' : /denied|cannot|not found|refused|failed/i.test(line) ? 'is-err' : 'is-out', cmd ? line.slice(2) : line);
+    return row;
+}
+
 let lineIndex = 0;
 function feedWindows() {
     if (state.ended) return;
@@ -292,7 +207,7 @@ function feedWindows() {
             const next = index === 0 && lineIndex % 7 === 3 && state.ip ? `> trace ${state.ip} ... logged` : TERM_LINES[(lineIndex + index * 3) % TERM_LINES.length];
             entry.lines.push(next);
             if (entry.lines.length > 4) entry.lines.shift();
-            entry.body.textContent = entry.lines.join('\n');
+            entry.body.replaceChildren(...entry.lines.map(termLine));
         });
         lineIndex += 1;
     }
@@ -2677,7 +2592,6 @@ function startKewer() {
     feedWindows();
     later(stampLoop, 900);
     later(glitchLoop, 2600);
-    caption();
     forceFullscreen();
 }
 

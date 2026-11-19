@@ -87,7 +87,7 @@ class HoneypotTrapTest extends TestCase
         $this->elapsed(60);
 
         $this->get('/menu')->assertOk();
-        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
+        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('hp-windows');
         $this->get('/menu')->assertOk();
     }
 
@@ -99,10 +99,9 @@ class HoneypotTrapTest extends TestCase
         $this->assertStringNotContainsString('returnValue', $html);
         $this->assertStringNotContainsString('data-music', $html);
         $this->assertStringContainsString('BRREAD! COLD ROOM 03', $html);
-        $this->assertStringContainsString('Mana Mungkin Seorang &quot;Vassell Enha&quot;', $html);
-        // The owner's line in phase B is the same terminal window as the floating ones, not a separate black box.
-        $this->assertStringContainsString('vassell@brread:~$ say', $html);
-        $this->assertStringContainsString('class="hp-win hp-say"', $html);
+        // The Kewer scene has only the floating terminal windows, no separate line from the owner.
+        $this->assertStringNotContainsString('hp-say', $html);
+        $this->assertStringNotContainsString('Mana Mungkin', $html);
         $this->assertStringNotContainsString('hp-center', $html);
     }
 
@@ -120,7 +119,7 @@ class HoneypotTrapTest extends TestCase
     {
         foreach (['/admin/login', '/admin/anything/deeper', '/administrator', '/wp-admin', '/wp-admin/setup.php'] as $path) {
             Cache::flush();
-            $this->get($path)->assertOk()->assertSee('Amatiran');
+            $this->get($path)->assertOk()->assertSee('hp-windows');
         }
     }
 
@@ -155,14 +154,14 @@ class HoneypotTrapTest extends TestCase
         $this->get('/menu')->assertOk();
 
         // Back to /admin right after: the browser is only sent on to Home, no new hold.
-        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
+        $this->get('/admin')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('hp-windows');
         $this->assertSame(0, HoneypotTrap::remaining(request()));
         $this->get('/menu')->assertOk();
     }
 
     public function test_a_browser_resuming_an_ended_hold_does_not_start_a_new_one(): void
     {
-        $this->get('/admin?resume=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
+        $this->get('/admin?resume=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('hp-windows');
         $this->get('/menu')->assertOk();
         $this->assertSame(0, SecurityEvent::where('reason', 'honeypot')->count());
     }
@@ -171,7 +170,7 @@ class HoneypotTrapTest extends TestCase
     {
         $this->actingAs(User::where('username', 'staffmrp')->firstOrFail());
 
-        $this->get('/admin')->assertOk()->assertDontSee('Amatiran');
+        $this->get('/admin')->assertOk()->assertDontSee('hp-windows');
         $this->get('/staff/orders')->assertOk();
         $this->assertSame(0, $this->heldSince());
     }
@@ -216,15 +215,15 @@ class HoneypotTrapTest extends TestCase
     {
         foreach (['/login', '/dashboard', '/panel', '/cpanel', '/phpmyadmin', '/backend', '/phpmyadmin/index.php', '/backend/users'] as $path) {
             Cache::flush();
-            $this->get($path)->assertOk()->assertSee('Amatiran');
+            $this->get($path)->assertOk()->assertSee('hp-windows');
             $this->assertGreaterThan(0, $this->heldSince());
         }
     }
 
     public function test_the_real_sign_in_addresses_are_not_bait(): void
     {
-        $this->get('/staff')->assertOk()->assertDontSee('Amatiran');
-        $this->get('/superadmin')->assertOk()->assertDontSee('Amatiran');
+        $this->get('/staff')->assertOk()->assertDontSee('hp-windows');
+        $this->get('/superadmin')->assertOk()->assertDontSee('hp-windows');
         $this->assertSame(0, $this->heldSince());
     }
 
@@ -259,12 +258,12 @@ class HoneypotTrapTest extends TestCase
         Cache::forget('honeypot-hold:127.0.0.1');
 
         // inside the grace period the address is left alone ...
-        $this->get('/admin')->assertOk()->assertDontSee('Amatiran');
+        $this->get('/admin')->assertOk()->assertDontSee('hp-windows');
         $this->assertSame(0, $this->heldSince());
 
         // ... until a developer asks for a replay
         $this->assertFalse(app()->environment('production'));
-        $this->get('/admin?replay=1')->assertOk()->assertSee('Amatiran')->assertSee('data-elapsed="0"', false);
+        $this->get('/admin?replay=1')->assertOk()->assertSee('hp-windows')->assertSee('data-elapsed="0"', false);
         $this->assertGreaterThan(0, $this->heldSince());
     }
 
@@ -282,7 +281,7 @@ class HoneypotTrapTest extends TestCase
         $this->get('/admin')->assertOk();
         Cache::forget('honeypot-hold:127.0.0.1');
 
-        $this->get('/admin?replay=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
+        $this->get('/admin?replay=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('hp-windows');
         $this->assertSame(0, $this->heldSince());
 
         // a hold that is running is not restarted by it either

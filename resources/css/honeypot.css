@@ -64,8 +64,6 @@ html, body {
     background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.72) 100%);
 }
 
-/* ---- the line itself: the same terminal window as the floating ones, anchored bottom centre ---- */
-
 .hp {
     --disp: 'Bagel Fat One', 'Baloo 2', ui-rounded, 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
     --mono: 'Space Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, 'Liberation Mono', monospace;
@@ -74,52 +72,6 @@ html, body {
     --cream: #f7ecd4;
     --teal: #9fc2c9;
 }
-
-.hp-win.hp-say {
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 6vh);
-    width: min(86vw, 780px);
-    margin: 0 auto;
-    background: rgba(8, 6, 8, 0.86);
-    border: 1px solid rgba(247, 163, 182, 0.6);
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.85);
-    color: var(--cream);
-    opacity: 0;
-    transform: none;
-    animation: none;
-    transition: opacity 300ms ease;
-    will-change: opacity, transform;
-}
-
-.hp-say.is-shown { opacity: 1; }
-.hp-say.is-pop { animation: hp-say-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-.hp-say.is-glitching { animation: hp-glitch 240ms steps(2, end) both; }
-
-.hp-win.hp-say header { background: rgba(247, 163, 182, 0.14); color: var(--pink); font-family: var(--mono); font-weight: 700; font-size: clamp(9px, 2.4vw, 11px); }
-.hp-win.hp-say header i:nth-child(2) { background: #ffd36b; }
-.hp-win.hp-say header i:nth-child(3) { background: #6dffb0; }
-
-.hp-say-text {
-    margin: 0;
-    padding: 0.5em clamp(12px, 3vw, 20px) 0.65em;
-    font-family: 'IBM Plex Mono', var(--mono);
-    font-weight: 700;
-    font-size: clamp(16px, 4.2vw, 26px);
-    line-height: 1.2;
-    color: var(--cream);
-    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7);
-    overflow-wrap: break-word;
-}
-
-.hp-say-line { display: block; }
-.hp-say-text .w { display: inline-block; white-space: nowrap; }
-.hp-say-text .c { opacity: 0; }
-.hp-say-text .c.on { opacity: 1; }
-.hp-say-text .hl { color: var(--pink); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7), 0 0 18px rgba(247, 163, 182, 0.6); }
-.hp-say-text .cur { position: relative; display: inline-block; width: 0; }
-.hp-say-text .cur::before { content: ''; position: absolute; left: 0.04em; top: 0.12em; width: 0.5em; height: 0.95em; background: var(--pink); animation: hp-caret 900ms steps(1, end) infinite; }
 
 /* ---- countdown: only the time left ---- */
 
@@ -148,30 +100,57 @@ html, body {
     left: 0;
     top: 0;
     width: min(300px, 64vw);
-    background: rgba(8, 10, 14, 0.82);
-    border: 1px solid rgba(80, 255, 160, 0.55);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-    font-size: 11px;
-    line-height: 1.45;
-    color: #6dffb0;
+    overflow: hidden;
+    border: 1px solid rgba(247, 163, 182, 0.35);
+    border-radius: 14px;
+    background: #16151b;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #e8e4ea;
     will-change: transform;
     animation: hp-drift var(--dur, 14s) ease-in-out infinite alternate;
     animation-delay: var(--delay, 0s);
 }
 
+/* The same dark window as the sign-in lockdown: a grey bar with three round lights and a centred title. */
 .hp-win header {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    background: rgba(80, 255, 160, 0.16);
-    color: #b9ffd8;
-    font-size: 10px;
-    letter-spacing: 0.06em;
+    gap: 7px;
+    padding: 9px 12px;
+    background: #24222b;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.hp-win header i { width: 7px; height: 7px; border-radius: 50%; background: #ff4d6d; }
-.hp-win pre { margin: 0; padding: 6px 8px 8px; min-height: 5.8em; white-space: pre-wrap; overflow: hidden; font: inherit; }
+.hp-win header i { flex: none; width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.hp-win header i:nth-child(2) { background: #febc2e; }
+.hp-win header i:nth-child(3) { background: #28c840; }
+.hp-win header span {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(251, 238, 228, 0.6);
+    white-space: nowrap;
+}
+
+.hp-win pre { margin: 0; padding: 12px 14px 14px; min-height: 6.6em; white-space: pre-wrap; overflow: hidden; font: inherit; }
+.hp-win pre p { margin: 0; overflow-wrap: anywhere; }
+.hp-win .is-cmd::before { content: '$ '; color: #f7a3b6; }
+.hp-win .is-err { color: #ff6b81; }
+.hp-win .is-out { color: rgba(232, 228, 234, 0.75); }
+.hp-win pre p:last-child::after {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    margin-left: 3px;
+    vertical-align: middle;
+    background: #f7a3b6;
+    animation: hp-caret 900ms steps(1, end) infinite;
+}
 
 /* ---- big stamped taunts ---- */
 
@@ -244,20 +223,8 @@ html, body {
     100% { transform: translate3d(0, 0, 0); }
 }
 
-@keyframes hp-glitch {
-    0% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); text-shadow: 6px 0 rgba(255, 40, 90, 0.8), -6px 0 rgba(0, 220, 255, 0.8); }
-    40% { transform: translate3d(-5px, 0, 0); clip-path: inset(10% 0 55% 0); }
-    70% { transform: translate3d(5px, 0, 0); clip-path: inset(55% 0 8% 0); }
-    100% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); }
-}
-
 @keyframes hp-caret {
     50% { opacity: 0; }
-}
-
-@keyframes hp-say-pop {
-    from { transform: scale(0.92); }
-    to { transform: scale(1); }
 }
 
 /* Gentler on small screens and slow machines: fewer windows, no shaking. */
@@ -266,15 +233,14 @@ html, body {
 .hp.is-lite .hp-video { filter: none; }
 
 /* Reduced motion keeps the trap and the video, but nothing shakes, glitches or strobes, and everything moves slowly. */
-.hp.is-calm.is-shaking, .hp.is-calm .hp-say.is-glitching, .hp.is-calm .hp-say.is-pop { animation: none; }
-.hp.is-calm .hp-say.is-shown { opacity: 1; }
-.hp.is-calm .hp-say-text .cur::before { animation: none; }
+.hp.is-calm.is-shaking { animation: none; }
+.hp.is-calm .hp-win pre p:last-child::after { animation: none; }
 .hp.is-calm .hp-win { animation-duration: 60s; }
 .hp.is-calm .hp-stamp.is-on { animation-duration: 4200ms; }
 .hp.is-calm .hp-pop.is-on { animation-duration: 4200ms; }
 
 @media (prefers-reduced-motion: reduce) {
-    .hp.is-shaking, .hp-say.is-glitching, .hp-say.is-pop { animation: none; }
+    .hp.is-shaking { animation: none; }
     .hp-win { animation-duration: 60s; }
 }
 
