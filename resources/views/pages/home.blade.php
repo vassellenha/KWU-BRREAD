@@ -283,7 +283,7 @@
                         <h2 class="font-headline-lg text-headline-lg text-on-surface">Made by our customers</h2>
                         @include('partials.squiggle')
                     </div>
-                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Tag <span class="text-primary font-bold">@brread.id</span> to be featured and win a monthly Rp 500.000 ice cream allowance.</p>
+                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Tag <a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline">{{ '@'.config('services.instagram.handle') }}</a> to be featured and win a monthly Rp 500.000 ice cream allowance.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg md:gap-space-xl" data-reveal-group>

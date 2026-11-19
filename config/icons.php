@@ -40,6 +40,7 @@ return [
         'content_copy',
         'cookie',
         'delete',
+        'directions',
         'done',
         'download',
         'edit',

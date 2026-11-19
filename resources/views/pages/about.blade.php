@@ -243,7 +243,7 @@
                     <a href="{{ route('build') }}" class="btn-chunky bg-primary text-on-primary px-space-xl py-4 rounded-full font-label-lg text-[16px]" style="--chunk: #40000e">Open the Studio</a>
                     <a href="{{ route('contact') }}" class="btn-chunky bg-surface-container-lowest text-on-surface px-space-xl py-4 rounded-full font-label-lg text-[16px]" style="--chunk: #c9728a">Visit the counter</a>
                 </div>
-                <p class="mt-space-lg font-body-lg text-body-lg text-[#40000e]/80">Jl. Melawai Raya No. 12, Jakarta Selatan &middot; Daily, 11:00 AM – 9:30 PM</p>
+                <p class="mt-space-lg font-body-lg text-body-lg text-[#40000e]/80">Minangkabau, Tel-U, Jakarta Selatan &middot; Daily, 11:00 AM – 9:30 PM</p>
             </div>
         </section>
     </div>

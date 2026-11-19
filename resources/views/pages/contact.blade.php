@@ -35,7 +35,7 @@
             },
             async copyAddress() {
                 try {
-                    await navigator.clipboard.writeText('Jl. Melawai Raya No. 12, Jakarta Selatan 12160');
+                    await navigator.clipboard.writeText('Telkom University Jakarta Kampus C, Jl. Minangkabau Barat No. 50, Pasar Manggis, Setiabudi, Jakarta Selatan');
                     this.copied = true;
                     setTimeout(() => (this.copied = false), 2000);
                 } catch (e) {}
@@ -66,7 +66,17 @@
                     <dl>
                         <div>
                             <dt class="font-hand text-[24px] leading-none text-primary">where</dt>
-                            <dd class="mt-1 font-headline-md text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] font-bold text-on-surface">Jl. Melawai Raya No. 12<br>Jakarta Selatan 12160</dd>
+                            <dd class="mt-2">
+                                <p class="inline-flex items-center gap-3 rounded-full bg-surface-container-lowest border border-outline-variant pl-2 pr-3 py-1.5 shadow-sm">
+                                    <span class="flex w-9 h-9 items-center justify-center rounded-full bg-[#f6a21e] text-white"><span class="material-symbols-outlined text-[22px]">location_on</span></span>
+                                    <span class="flex flex-col leading-tight">
+                                        <span class="text-[10px] font-extrabold tracking-[0.14em] text-on-surface-variant">LOKASI</span>
+                                        <span class="font-label-lg text-[17px] font-extrabold text-on-surface">Minangkabau, Tel-U</span>
+                                    </span>
+                                    <span class="rounded-full bg-primary text-on-primary text-[11px] font-extrabold tracking-wide px-2.5 py-1">+ BISA ONLINE</span>
+                                </p>
+                                <p class="mt-space-md font-headline-md text-[clamp(1.3rem,2.6vw,1.8rem)] leading-[1.2] font-bold text-on-surface">Telkom University, Kampus C<br>Jl. Minangkabau Barat No. 50<br>Setiabudi, Jakarta Selatan</p>
+                            </dd>
                         </div>
                     </dl>
                             <button type="button" @click="copyAddress()" data-tip="Copies the full address" class="press-scale -mt-space-sm mb-space-lg inline-flex items-center gap-1.5 font-label-lg text-label-lg text-primary underline underline-offset-4 decoration-dotted">
@@ -79,8 +89,8 @@
                                 <dd class="mt-1"><a href="tel:+622172501234" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">+62 21 7250 1234</a></dd>
                             </dl>
                             <dl>
-                                <dt class="font-hand text-[24px] leading-none text-primary">write</dt>
-                                <dd class="mt-1"><a href="mailto:hello@brread.id" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">hello@brread.id</a></dd>
+                                <dt class="font-hand text-[24px] leading-none text-primary">follow</dt>
+                                <dd class="mt-1"><a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ '@'.config('services.instagram.handle') }}</a></dd>
                             </dl>
                         </div>
                     </div>
@@ -89,41 +99,20 @@
                         <a href="tel:+622172501234" class="btn-chunky inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-space-xl py-3 rounded-full font-label-lg text-label-lg">
                             <span class="material-symbols-outlined text-[20px]">call</span>Call the counter
                         </a>
-                        <a href="mailto:hello@brread.id" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border border-outline-variant px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #debfc0">
-                            <span class="material-symbols-outlined text-[20px]">mail</span>Send an email
+                        <a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border border-outline-variant px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #debfc0">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor"/></svg>Message us on Instagram
                         </a>
                     </div>
                 </div>
 
-                {{-- Hand-drawn neighbourhood sketch. Decorative: the address above is the real direction. --}}
+                {{-- Live Google Map of the counter. The polaroid still overlaps its corner. --}}
                 <div class="lg:col-span-6 relative" data-reveal>
                     <div class="contact-map">
-                        <svg viewBox="0 0 560 460" role="img" aria-label="Sketch map showing Brread! on Jl. Melawai Raya">
-                            <rect width="560" height="460" fill="#fbe9d0" />
-                            <g fill="#f3d9b4">
-                                <path d="M-10 -10h170l-18 150H-10zM196 -10h170l-12 142H180zM402 -10h170v160l-150-14zM-10 196l150-10-14 150H-10zM176 190l180-8-10 152-182 8zM396 180l176 14v150l-184-10zM-10 386l136-8-8 100H-10zM160 380l188-8-6 100H154zM386 374l186 10v90H380z" />
-                            </g>
-                            <path d="M40 232c30-22 62-20 84 0s16 60-12 72-70 2-82-22 0-42 10-50z" fill="#cfe6c8" />
-                            <g fill="none" stroke="#fffaf3" stroke-linecap="round">
-                                <path d="M-10 166c120-10 250-16 580-2" stroke-width="30" />
-                                <path d="M-10 360c160-12 330-14 580 0" stroke-width="22" />
-                                <path d="M166 -10c-6 150-16 320-22 480" stroke-width="22" />
-                                <path d="M380 -10c-4 160-10 320-8 480" stroke-width="26" />
-                            </g>
-                            <path d="M-10 166c120-10 250-16 580-2" fill="none" stroke="#e7c9a0" stroke-width="2" stroke-dasharray="12 12" />
-                            <path id="melawai" d="M24 160c110-9 230-14 520-3" fill="none" />
-                            <text font-family="'Baloo 2', sans-serif" font-weight="700" font-size="15" fill="#9a6b3a" letter-spacing="1"><textPath href="#melawai" startOffset="4%">JL. MELAWAI RAYA</textPath></text>
-                            <g class="contact-map-pin">
-                                <circle cx="280" cy="208" r="26" fill="#f58fa6" opacity=".35" class="contact-map-pulse" />
-                                <path d="M280 134c-25 0-44 19-44 43 0 31 44 71 44 71s44-40 44-71c0-24-19-43-44-43z" fill="#c74659" />
-                                <path d="M252 168c2-13 13-23 28-23" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round" />
-                                <rect x="262" y="160" width="36" height="9" rx="4" fill="#fbe9d0" /><rect x="265" y="169" width="30" height="11" rx="2" fill="#f7a3b6" /><rect x="262" y="180" width="36" height="9" rx="4" fill="#fbe9d0" />
-                            </g>
-                        </svg>
-                        <p class="contact-map-note font-hand">we're right here
-                            <svg width="54" height="44" viewBox="0 0 54 44" fill="none" aria-hidden="true"><path d="M50 4C40 30 24 36 6 34" stroke="currentColor" stroke-width="3" stroke-linecap="round" /><path d="M16 26l-11 8 12 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                        </p>
-                        <p class="contact-map-scale font-hand">not to scale, obviously</p>
+                        @include('partials.google-map')
+                    </div>
+                    <div class="mt-space-md flex flex-wrap gap-x-space-lg gap-y-2 justify-end font-label-lg text-label-lg">
+                        <a href="{{ config('services.google_maps.place_url') }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">location_on</span>Open in Google Maps</a>
+                        <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ urlencode(config('services.google_maps.query')) }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">directions</span>Get directions</a>
                     </div>
                     <figure class="polaroid contact-polaroid" style="--tilt: 6deg; --tape: -5deg">
                         <img src="/img/marketing/hero-held.jpg" alt="A hand holding a strawberry ice cream sandwich with sprinkles" loading="lazy">

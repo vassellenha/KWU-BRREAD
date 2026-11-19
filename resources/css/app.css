@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './order-status.css';
 @config '../../tailwind.config.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -1273,42 +1274,11 @@ html.has-scoopbar::-webkit-scrollbar {
     box-shadow: 0 20px 44px rgba(113, 59, 44, 0.18);
     transform: rotate(-2deg);
 }
-.contact-map svg {
+.contact-map-frame {
     display: block;
     width: 100%;
-    height: auto;
-}
-.contact-map-pin {
-    transform-origin: 280px 248px;
-    animation: contact-pin 2.6s var(--ease-bounce) infinite;
-}
-@keyframes contact-pin {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-14px); }
-}
-.contact-map-pulse {
-    transform-origin: 280px 248px;
-    transform: translateY(40px) scale(1, 0.4);
-}
-.contact-map-note {
-    position: absolute;
-    top: 13%;
-    right: 6%;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    font-size: 30px;
-    line-height: 1;
-    color: #a62d42;
-    transform: rotate(4deg);
-}
-.contact-map-scale {
-    position: absolute;
-    right: 4%;
-    bottom: 3%;
-    font-size: 22px;
-    line-height: 1;
-    color: #9a6b3a;
+    height: clamp(320px, 42vw, 460px);
+    border: 0;
 }
 .contact-polaroid {
     position: absolute;
@@ -1371,7 +1341,6 @@ html.has-scoopbar::-webkit-scrollbar {
     transform: rotate(8deg);
 }
 @media (prefers-reduced-motion: reduce) {
-    .contact-map-pin { animation: none; }
     .menu-tile, .menu-tile-art { transition: none; }
 }
 

@@ -1,5 +1,9 @@
+import '@fontsource/bagel-fat-one/latin-400.css';
+import '@fontsource/space-mono/latin-400.css';
+import '@fontsource/space-mono/latin-700.css';
 import Alpine from 'alpinejs';
 import axios from 'axios';
+import { registerOrderFx } from './order-fx.js';
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -1280,6 +1284,8 @@ Alpine.data('signatureMenu', (products) => ({
 }));
 
 window.Alpine = Alpine;
+registerOrderFx(Alpine);
+
 Alpine.start();
 
 // Entrance reveals: fade + rise once an element scrolls into view, staggered within each group.

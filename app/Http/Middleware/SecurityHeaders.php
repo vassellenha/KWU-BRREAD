@@ -45,6 +45,7 @@ class SecurityHeaders
                 "font-src 'self' https://fonts.gstatic.com data:",
                 "img-src 'self' data: blob:",
                 "connect-src 'self'",
+                "frame-src https://www.google.com https://maps.google.com",
                 "worker-src 'self' blob:",
                 "object-src 'none'",
                 "base-uri 'self'",

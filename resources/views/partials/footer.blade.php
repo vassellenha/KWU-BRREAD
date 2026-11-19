@@ -36,7 +36,7 @@
             <div class="space-y-space-sm">
                 <h2 class="font-title-md text-title-md text-on-surface">Visit</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
-                    Jl. Melawai Raya No. 12<br>Jakarta Selatan 12160
+                    Telkom University Jakarta, Kampus C<br>Jl. Minangkabau Barat No. 50<br>Setiabudi, Jakarta Selatan
                 </p>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
                     Daily, 11:00 AM – 9:30 PM

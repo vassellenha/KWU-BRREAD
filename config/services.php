@@ -36,6 +36,23 @@ return [
     ],
 
 
+    // The counter on the Contact page. With a Maps Embed API key the page shows the official
+    // embed; without one it falls back to the keyless Google Maps embed, so the map always shows.
+    // The key is public by design (it sits in the page), so restrict it to this site's domain and
+    // to the Maps Embed API in Google Cloud.
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+        'query' => 'Telkom University Jakarta Kampus C Minangkabau, Jl. Minangkabau Barat No. 50, Pasar Manggis, Setiabudi, Jakarta Selatan',
+        'place_url' => 'https://maps.google.com/maps?udm&fvr=1&pvq=Cg0vZy8xMXk5OHl5dmR4IhQKDmthbXB1cyBjIHRlbHl1EAIYA4kBObVASptQE0Y&lqi=Cg5rYW1wdXMgYyB0ZWx5dUic0_uOpb2AgAhaHhAAEAEQAhgAGAIiDmthbXB1cyBjIHRlbHl1MgJpZJIBF2VkdWNhdGlvbmFsX2luc3RpdHV0aW9u&vet=10CAAQoqAOahcKEwjQ7vvAh5GYAxUAAAAAHQAAAAAQDw..i&cs=1&um=1&ie=UTF-8&fb=1&gl=id&sa=X&ftid=0x2e69f5d99fe71b5b:0x4613509b4a40b539',
+        'zoom' => 17,
+    ],
+
+    // Where "write to us" points now that the counter answers on Instagram.
+    'instagram' => [
+        'handle' => 'brread.official',
+        'url' => 'https://www.instagram.com/brread.official/',
+    ],
+
     // Approximate location of addresses that trigger the sign-in lockdown (ip-api.com).
     'geoip' => [
         'enabled' => (bool) env('GEOIP_ENABLED', true),
