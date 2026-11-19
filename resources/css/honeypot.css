@@ -359,7 +359,8 @@ html, body {
 
 /* ---- the face reveal and the shot: the aim plate, laid out by honeypot.js ---- */
 
-.cr-aim { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #1c0006, #070002 70%); will-change: transform, opacity; }
+.cr-aim-bg { inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1c0006, #070002 70%); }
+.cr-aim { inset: 0; opacity: 0; pointer-events: none; overflow: hidden; will-change: transform, opacity; }
 .cr-aim-img {
     position: absolute;
     left: 50%;
@@ -371,21 +372,9 @@ html, body {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
-.cr-aim-gun, .cr-aim-cover {
-    -webkit-mask-image: radial-gradient(ellipse 20% 26% at 34% 60%, #000 70%, transparent 100%), radial-gradient(ellipse 30% 22% at 30% 88%, #000 78%, transparent 100%);
-    mask-image: radial-gradient(ellipse 20% 26% at 34% 60%, #000 70%, transparent 100%), radial-gradient(ellipse 30% 22% at 30% 88%, #000 78%, transparent 100%);
-}
-.cr-aim-gun { will-change: transform; }
-.cr-aim-cover {
-    position: absolute;
-    left: 50%;
-    top: var(--at, 0px);
-    width: var(--aw, 100%);
-    height: var(--ah, 100%);
-    margin-left: calc(var(--aw, 100%) / -2);
-    overflow: hidden;
-}
-.cr-aim-flip { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; transform: scaleX(-1); transform-origin: 51.7% 50%; }
+.cr-aim-gun { transform-origin: 30% 100%; will-change: transform; visibility: hidden; }
+.cr-aim-trail { opacity: 0; }
+.cr-aim-full { visibility: hidden; }
 .cr-aim-eyes {
     inset: 0;
     opacity: 0;
@@ -628,3 +617,14 @@ html, body {
 .cr-tap-rec i { width: 7px; height: 7px; border-radius: 50%; background: #ff3050; }
 @keyframes cr-tap-blink { 0% { opacity: 1; } 100% { opacity: 0.35; } }
 .hz.is-calm .cr-tap-box em { animation: none; }
+
+/* Analog horror: snow canvas, tape OSD, and the sliced title */
+.cr-vhs { inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; image-rendering: pixelated; z-index: 6; }
+.cr-osd { left: max(16px, env(safe-area-inset-left)); font-family: var(--mono); font-size: clamp(13px, 3.4vw, 22px); letter-spacing: 0.12em; color: #e9f4ee; text-shadow: 2px 2px 0 #000, 0 0 6px rgba(190, 255, 220, 0.35); opacity: 0; pointer-events: none; z-index: 7; }
+.cr-osd.on { opacity: 0.92; }
+.cr-osd-t { top: calc(max(14px, env(safe-area-inset-top)) + 2px); }
+.cr-osd-b { bottom: max(16px, env(safe-area-inset-bottom)); }
+.cr-dc-t { position: relative; }
+.cr-dc-t::before, .cr-dc-t::after { content: attr(data-t); position: absolute; inset: 0; pointer-events: none; white-space: nowrap; opacity: var(--dco, 0); }
+.cr-dc-t::before { clip-path: inset(var(--s1t, 30%) 0 var(--s1b, 56%) 0); transform: translateX(var(--s1x, 0px)); color: #fff; text-shadow: 3px 0 0 rgba(255, 40, 90, 0.9); }
+.cr-dc-t::after { clip-path: inset(var(--s2t, 60%) 0 var(--s2b, 30%) 0); transform: translateX(var(--s2x, 0px)); color: #e8ffff; text-shadow: -3px 0 0 rgba(0, 230, 255, 0.85); }

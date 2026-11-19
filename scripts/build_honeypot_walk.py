@@ -1,229 +1,190 @@
-"""Cuts the 30 frame walk cycle of the owner into a transparent sprite atlas for the /admin trap.
+"""Builds the 30 frame walk atlas of the owner for the /admin trap from his sharp full body cutout.
 
-Reads   public/img/honeypot/walk-sheet/walk-cycle.png   (2172x724, 10 x 3 frames, left to right then top to bottom,
-                                                          a dark crimson wall with vertical banding behind every frame)
-Writes  public/img/honeypot/walk-atlas.webp            (6 x 5 cells, RGBA)
-        public/img/honeypot/walk-atlas.json            (cellW, cellH, anchorX, anchorY, cols, frames, scale, seam)
+Reads   public/img/honeypot/character-fullbody.webp   (676x1180 RGBA, standing, facing the camera)
+Writes  public/img/honeypot/walk-atlas.webp           (6 x 5 cells, RGBA, one gait cycle of two steps)
+        public/img/honeypot/walk-atlas.json           (cellW, cellH, anchorX, anchorY, cols, frames, scale, rig)
 
-How the wall is removed: a salient object model (rembg, u2net) mattes every frame at 3x, which keeps the torso solid and the
-cloak soft. The matte is trimmed to the largest blob, taken one pixel in, its translucent part lifted a little (so the cloak
-never reads as a hole), and the colour of the solid inside is pushed outwards over the soft edge, so no wall red is left in it.
-Without rembg installed a hand made key is used (the wall is rebuilt from the border strips of each row, everything clearly
-darker is subject), which is good for most frames but loses cloak and torso on some.
-Every frame is then placed on one uniform scale (1.6x Lanczos plus a light unsharp), with the point between the feet at
-(anchorX, anchorY), so the pose changes and the stride length stay true. The loop seam (frame 29 to 0) is measured and,
-if it jumps, the last two frames are cross faded towards frame 0.
+Why a rig: a walk sheet drawn at 217x241 px per frame had to be enlarged five times, so the face went soft and one leg did
+all the work. Here the head, the torso and the boots keep the pixels of the cutout (the cells are rendered at 0.6x, so the
+face stays sharp) and the gait is built from the cutout itself:
+  * the two legs are cut out along a polygon each and the cape behind them is filled in, so both can move on their own;
+  * each leg follows the same gait phase, half a cycle apart: the foot travels from nearest to the camera (heel strike) back
+    to farthest (toe off), then swings forward again with a lift, while the hip stays and the leg shortens and lengthens;
+  * the stance foot stays put against the body's bob (lowest at both heel strikes, highest at mid stance), the hips sway over
+    the stance leg, the upper body rolls against them, the hands swing a little and the cape lags behind with a hem ripple.
+Frame 0 is the left heel strike and frame 15 the right one, the cycle loops with no seam (frame 29 runs into frame 0).
 
 Run from the project root:  python scripts/build_honeypot_walk.py
-Needs: pillow, numpy, scipy; and for the matte: pip install rembg onnxruntime (the u2net model downloads on first use).
+Needs: pillow, numpy, scipy, opencv-python-headless.
 """
 
 import json
+import math
 from pathlib import Path
 
+import cv2
 import numpy as np
-from PIL import Image, ImageFilter
-from scipy import ndimage as ndi
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "public" / "img" / "honeypot" / "walk-sheet" / "walk-cycle.png"
 OUT = ROOT / "public" / "img" / "honeypot"
 
-COLS, ROWS = 10, 3
-EXTRA_L, EXTRA_R = 80, 8
-FIRST_CENTRE = 138  # x of the figure in the first cell, measured on the sheet
-SCALE = 1.6
-CELL_W, CELL_H = 400, 408  # wide enough for the cloak when it flares out to the left
-ATLAS_COLS, ATLAS_ROWS = 6, 5
-ANCHOR = (CELL_W // 2, CELL_H - 18)
+FRAMES, ATLAS_COLS = 30, 6
+SCALE = 0.6  # source px to cell px
+MARGIN_X, MARGIN_TOP, MARGIN_BOT = 22, 14, 44  # room for the sway, the cape ripple and the lowest foot (source px)
+CX, HIP_Y, SHOULDER_Y, FOOT_Y = 342.0, 590.0, 235.0, 1178.0
+
+# gait amplitudes, source px
+BOB, SWAY, LIFT, DEPTH = 9.0, 11.0, 74.0, 28.0
+ROLL_DEG, ARM_SWING, CAPE_SWAY, HEM_RIPPLE = 1.3, 14.0, 11.0, 9.0
+
+LEFT_LEG = [(215, 575), (CX, 575), (CX, 1100), (262, 1100), (258, 1180), (108, 1180), (120, 1120), (150, 1040), (158, 930),
+            (170, 860), (182, 800), (190, 700), (202, 640)]
+RIGHT_LEG = [(2 * CX - x, y) for x, y in LEFT_LEG]
+HEM = [(0, 1040), (100, 1075), (200, 1098), (342, 1100), (484, 1098), (584, 1075), (676, 1040)]  # where the cape ends
 
 
-def frame_window(sheet, i):
-    h, w, _ = sheet.shape
-    cw, ch = w / COLS, h / ROWS
-    r, c = divmod(i, COLS)
-    # the window reaches past the cell on the left, where the cloak flares; the neighbours' figures stay outside it
-    x0 = int(round(FIRST_CENTRE + c * cw - cw / 2)) - EXTRA_L
-    x1 = int(round(FIRST_CENTRE + c * cw - cw / 2)) + int(cw) + EXTRA_R
-    x0, x1 = max(0, x0), min(w, x1)
-    y0, y1 = int(round(r * ch)), int(round((r + 1) * ch))
-    f = sheet[y0:y1, x0:x1]
-    pad = (EXTRA_L + int(cw) + EXTRA_R) - f.shape[1]
-    if pad > 0:  # the first and the last cell: pad with the wall colour of their own edge
-        edge = f[:, :1] if x0 == 0 else f[:, -1:]
-        f = np.concatenate([np.repeat(edge, pad, 1), f] if x0 == 0 else [f, np.repeat(edge, pad, 1)], 1) if x0 == 0 else np.concatenate([f, np.repeat(edge, pad, 1)], 1)
-    return f
+def load():
+    im = np.asarray(Image.open(OUT / "character-fullbody.webp").convert("RGBA")).astype(np.float32)
+    return im
 
 
-def segment(f):
-    R, G, B = f[..., 0], f[..., 1], f[..., 2]
-    h, w = R.shape
-    left = np.median(R[:, :10], axis=1)
-    right = np.median(R[:, -10:], axis=1)
-    t = np.linspace(0, 1, w)[None, :]
-    wall = np.maximum(left[:, None] * (1 - t) + right[:, None] * t, 8)
-    dark = R < 0.62 * wall + 2
-    lit = ((G + B) / (2 * R + 6) > 0.3) & ((R + G + B) > 40)
-    m = dark | lit
-    m[:, :6] = False
-    m[:, -6:] = False
-    m = ndi.binary_opening(m, iterations=1)
-    lab, n = ndi.label(m)
-    if n == 0:
-        return m
-    sizes = ndi.sum(m, lab, range(1, n + 1))
-    m = lab == (1 + int(np.argmax(sizes)))
-
-    cols = np.where(m.any(0))[0]
-    cx = int(np.median(cols[(cols > cols.min() + 10) & (cols < cols.max() - 10)])) if len(cols) > 30 else w // 2
-    width = m.sum(1)
-    sh = int(np.argmax(width > 28)) if (width > 28).any() else 60
-    diff = np.abs(R - wall) > (0.36 * wall + 6)
-    head = np.zeros_like(m)
-    y0, y1, x0, x1 = max(0, sh - 48), sh + 6, max(0, cx - 26), cx + 26
-    head[y0:y1, x0:x1] = diff[y0:y1, x0:x1]
-    head = ndi.binary_opening(head, iterations=2)
-    m = m | head
-    m = ndi.binary_closing(m, iterations=3)
-    lab, n = ndi.label(m)
-    sizes = ndi.sum(m, lab, range(1, n + 1))
-    m = lab == (1 + int(np.argmax(sizes)))
-    return ndi.binary_fill_holes(m)
+def poly_mask(h, w, pts, feather=2.2):
+    m = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(m, [np.array(pts, np.int32)], 255)
+    return cv2.GaussianBlur(m.astype(np.float32) / 255.0, (0, 0), feather)
 
 
-def feet_anchor(m):
-    """Where the feet are, in the pixels of the mask it is given: the middle of the bottom rows and the bottom row."""
-    ys, xs = np.where(m)
-    bottom = ys.max()
-    band = ys > bottom - 16
-    return float(xs[band].mean()), float(bottom)
+def premul(im):
+    out = im.copy()
+    out[..., :3] *= out[..., 3:4] / 255.0
+    return out
 
 
-def model_session():
-    """The matte comes from a salient object model (rembg, u2net) when it is installed: pip install rembg onnxruntime.
-    Without it the hand made key above is used, which is good for most frames but loses cape and torso on some."""
-    try:
-        from rembg import new_session
+def split_layers(im):
+    """Returns (base, left, right) as premultiplied float images, the legs taken out of the base and the cape filled in."""
+    h, w, _ = im.shape
+    ml, mr = poly_mask(h, w, LEFT_LEG), poly_mask(h, w, RIGHT_LEG)
+    mlegs = np.clip(ml + mr, 0, 1)
+    pm = premul(im)
+    left, right = pm * ml[..., None], pm * mr[..., None]
 
-        return new_session("u2net")
-    except Exception:
-        return None
-
-
-def model_alpha(f, session):
-    from rembg import remove
-
-    h, w = f.shape[:2]
-    big = Image.fromarray(f.astype(np.uint8)).resize((w * 3, h * 3), Image.LANCZOS)
-    return remove(big, session=session, only_mask=True)  # a soft matte at 3x
-
-
-def keep_largest(m):
-    lab, n = ndi.label(m)
-    if n <= 1:
-        return m
-    sizes = ndi.sum(m, lab, range(1, n + 1))
-    return lab == (1 + int(np.argmax(sizes)))
+    # the cape between and behind the legs: a dark fill that ends on the hem curve
+    hem = np.zeros((h, w), np.uint8)
+    pts = HEM + [(w, 0), (0, 0)]
+    cv2.fillPoly(hem, [np.array(pts, np.int32)], 255)
+    hem = cv2.GaussianBlur(hem.astype(np.float32) / 255.0, (0, 0), 1.5)
+    ring = cv2.dilate((mlegs > 0.02).astype(np.uint8), np.ones((9, 9), np.uint8)) - (mlegs > 0.02).astype(np.uint8)
+    rgb = im[..., :3] * (im[..., 3:4] / 255.0)
+    sel = (ring > 0) & (im[..., 3] > 200) & (np.arange(h)[:, None] > 560) & (np.arange(h)[:, None] < 1060)
+    fill = np.median(rgb[sel], axis=0) if sel.any() else np.array([6, 3, 5], np.float32)
+    fill = np.minimum(fill, 14)  # the gap between the legs is almost black
+    base = pm * (1 - mlegs[..., None])
+    a_fill = hem * mlegs
+    base[..., :3] += fill[None, None, :] * (a_fill[..., None] * 1.0)
+    base[..., 3] = np.maximum(base[..., 3], a_fill * 255.0)
+    return base, left, right
 
 
-def build():
-    sheet = np.asarray(Image.open(SRC).convert("RGB")).astype(np.float32)
-    session = model_session()
-    frames = []
-    for i in range(COLS * ROWS):
-        f = frame_window(sheet, i)
-        h0, w0 = f.shape[:2]
-        nw, nh = int(round(w0 * SCALE)), int(round(h0 * SCALE))
-        if session is not None:
-            alpha = model_alpha(f, session).resize((nw, nh), Image.LANCZOS)
-            a = np.asarray(alpha).astype(np.float32) / 255.0
-            m = keep_largest(a > 0.5)
-            # drop specks the model left around the figure, keep its soft edge (the cape is meant to be soft)
-            near = ndi.binary_dilation(m, iterations=6)
-            a = np.where(near, a, 0)
-            a = ndi.grey_erosion(a, size=(3, 3))  # one pixel in: the wall red stays out of the edge
-            a = np.clip((a - 0.06) / 0.84, 0, 1) ** 0.75  # lift the translucent cape a little, so it never reads as a hole
-            a = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7))).astype(np.float32) / 255.0
-        else:
-            m0 = segment(f)
-            mask = ndi.binary_erosion(m0, iterations=1)
-            alpha = Image.fromarray((mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.2)).resize((nw, nh), Image.LANCZOS)
-            a = np.asarray(alpha).astype(np.float32) / 255.0
-            m = np.asarray(Image.fromarray((m0 * 255).astype(np.uint8)).resize((nw, nh), Image.NEAREST)) > 127
-        ax, ay = feet_anchor(m)
-        # colour: scale the frame, then push the colour of the solid inside outwards over the soft edge, so no wall red is left in it
-        rgb = np.asarray(Image.fromarray(f.astype(np.uint8)).resize((nw, nh), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))).astype(np.float32)
-        solid = a > 0.92
-        if solid.any():
-            idx = ndi.distance_transform_edt(~solid, return_distances=False, return_indices=True)
-            ext = rgb[idx[0], idx[1]]
-            w = np.clip((a - 0.5) / 0.42, 0, 1)[..., None]  # inside the solid the true colour, on the edge the extended one
-            rgb = rgb * w + ext * (1 - w)
-        out = np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.uint8)
-        ox = int(round(ANCHOR[0] - ax))
-        oy = int(round(ANCHOR[1] - ay))
-        big = Image.new("RGBA", (CELL_W + 2 * nw, CELL_H + 2 * nh), (0, 0, 0, 0))
-        big.alpha_composite(Image.fromarray(out, "RGBA"), (ox + nw, oy + nh))
-        cell = big.crop((nw, nh, nw + CELL_W, nh + CELL_H))
-        frames.append(cell)
+def smooth(x):
+    x = np.clip(x, 0, 1)
+    return x * x * (3 - 2 * x)
 
-    # frames whose key went wrong (a hole in the torso, a lost cape, a stray streak) are rebuilt from the two frames around
-    # them: premultiplied average, so the stride stays continuous. Measured on the alpha, never judged by eye.
-    def stats(fr):
-        al = np.asarray(fr.getchannel("A")) > 128
-        xs = np.where(al.any(0))[0]
-        return int(al.sum()), int(xs.max() - xs.min()) if len(xs) else 0
 
-    st = [stats(f) for f in frames]
-    med_area = float(np.median([a for a, _ in st]))
-    med_w = float(np.median([w for _, w in st]))
-    bad = [i for i, (a, w) in enumerate(st) if a < 0.8 * med_area or w > 1.5 * med_w]
-    print('alpha area per frame', [a for a, _ in st], 'repaired', bad)
-    for i in bad:
-        lo = i - 1
-        while lo % len(frames) in bad:
-            lo -= 1
-        hi = i + 1
-        while hi % len(frames) in bad:
-            hi += 1
-        a = np.asarray(frames[lo % len(frames)]).astype(np.float32)
-        b = np.asarray(frames[hi % len(frames)]).astype(np.float32)
-        t = (i - lo) / (hi - lo)
-        pa, pb = a[..., :3] * a[..., 3:] / 255.0, b[..., :3] * b[..., 3:] / 255.0
-        al = a[..., 3:] * (1 - t) + b[..., 3:] * t
-        rgb = (pa * (1 - t) + pb * t) / np.maximum(al / 255.0, 1e-3)
-        frames[i] = Image.fromarray(np.dstack([np.clip(rgb, 0, 255), al]).astype(np.uint8), "RGBA")
+def leg_pose(theta):
+    """Foot offset of one leg for the gait phase theta (0 = heel strike): dx, dy, scale about the hip, lift 0..1."""
+    s = math.cos(theta)  # +1 nearest to the camera (heel strike), -1 farthest (toe off)
+    swing = max(0.0, -math.sin(theta))  # the foot is in the air from toe off to the next heel strike
+    lift = swing ** 0.8 * (1 - 0.15 * s)
+    return dict(dx=0.0, dy=DEPTH * s - LIFT * lift, scale=1 + 0.04 * s, lift=lift)
 
-    # loop seam: frame 29 to 0 against the typical step to step difference
-    def d(a, b):
-        return float(np.abs(np.asarray(a).astype(np.int16) - np.asarray(b).astype(np.int16))[..., :3].mean())
 
-    steps = [d(frames[i], frames[i + 1]) for i in range(len(frames) - 1)]
-    seam = d(frames[-1], frames[0])
-    blended = False
-    if seam > 3.0 * float(np.median(steps)):  # a ghosted double figure reads worse than a small pop
-        blended = True
-        for k, t in ((len(frames) - 2, 1 / 3), (len(frames) - 1, 2 / 3)):
-            frames[k] = Image.blend(frames[k], frames[0], t)
+def remap(layer, field_x, field_y, out_w, out_h, ox, oy):
+    """Backward map: the pixel at (x, y) of the output comes from (x + field), after the margin offset (ox, oy)."""
+    yy, xx = np.mgrid[0:out_h, 0:out_w].astype(np.float32)
+    mx, my = xx - ox + field_x, yy - oy + field_y
+    return cv2.remap(layer, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
-    atlas = Image.new("RGBA", (CELL_W * ATLAS_COLS, CELL_H * ATLAS_ROWS), (0, 0, 0, 0))
-    for i, fr in enumerate(frames):
-        atlas.paste(fr, ((i % ATLAS_COLS) * CELL_W, (i // ATLAS_COLS) * CELL_H))
-    atlas.save(OUT / "walk-atlas.webp", quality=80, method=6)
-    meta = dict(
-        cellW=CELL_W,
-        cellH=CELL_H,
-        anchorX=ANCHOR[0],
-        anchorY=ANCHOR[1],
-        cols=ATLAS_COLS,
-        frames=len(frames),
-        scale=SCALE,
-        repaired=bad,
-        seam=dict(jump=round(seam, 2), typicalStep=round(float(np.median(steps)), 2), crossfaded=blended),
-    )
-    (OUT / "walk-atlas.json").write_text(json.dumps(meta, indent=2) + "\n")
+
+def build_frame(base, left, right, i):
+    h, w, _ = base.shape
+    out_w, out_h = w + 2 * MARGIN_X, h + MARGIN_TOP + MARGIN_BOT
+    ox, oy = MARGIN_X, MARGIN_TOP
+    phi = 2 * math.pi * i / FRAMES
+    thL, thR = phi, phi + math.pi
+    yy, xx = np.mgrid[0:out_h, 0:out_w].astype(np.float32)
+    sx, sy = xx - ox, yy - oy  # source coordinates of the output grid
+
+    bob = BOB * math.cos(2 * phi)  # lowest at heel strike, highest at mid stance
+    sway = -SWAY * math.sin(phi)  # the body over the stance leg
+    roll = math.radians(ROLL_DEG) * math.sin(phi)
+
+    # base: the cape and the upper body, one smooth field (small enough to be used as its own backward map)
+    wb = smooth((sy - SHOULDER_Y) / (FOOT_Y - SHOULDER_Y))  # 0 at the shoulders, 1 at the hem
+    lag = math.sin(phi - 0.9)  # the cape lags the body
+    side = (sx - CX) / 340.0
+    fx = sway + roll * (HIP_Y - sy) * 0.0 + CAPE_SWAY * lag * wb ** 1.6 + 3.0 * math.sin(phi) * wb
+    fy = bob + HEM_RIPPLE * np.sin(2 * phi - 1.3 + side * 2.2) * wb ** 3 * np.abs(side) * 0.8
+    # arms: the left hand goes back when the left foot goes forward
+    arm = np.clip((sy - 250.0) / 330.0, 0, 1) * np.clip(np.abs(side) * 3.0 - 1.15, 0, 1) * (1 - smooth((sy - 640.0) / 120.0))
+    fy = fy + ARM_SWING * arm * (-np.sign(side)) * math.cos(phi) * 1.0
+    # upper body roll about the hips, a rigid turn of whatever lies above them
+    above = 1 - smooth((sy - HIP_Y) / 90.0)
+    fx = fx + above * roll * (HIP_Y - sy)
+    fy = fy + above * roll * (sx - CX) * -1.0
+    base_f = remap(base, -fx, -fy, out_w, out_h, ox, oy)
+    # legs
+    layers = [base_f]
+    for leg, th in ((left, thL), (right, thR)):
+        p = leg_pose(th)
+        wl = np.clip((sy - HIP_Y) / (FOOT_Y - HIP_Y), 0, 1) ** 1.25
+        k = 1 - wl
+        sc = p["scale"]
+        # the leg shortens or lengthens about the hip, the foot takes the gait offset, the hip takes the body's bob and sway
+        dyf = (sc - 1) * (sy - HIP_Y) * wl + p["dy"] * wl
+        fy_l = k * bob + dyf
+        fx_l = k * sway + p["dx"] * wl + (sc - 1) * (sx - CX) * wl
+        layers.append(remap(leg, -fx_l, -fy_l, out_w, out_h, ox, oy))
+    # composite, the base first and the legs over it (the leg that is farther back goes under the other)
+    order = [layers[0]] + sorted(layers[1:], key=lambda _: 0)
+    res = np.zeros_like(order[0])
+    for L in order:
+        res = L + res * (1 - L[..., 3:4] / 255.0)
+    return res
+
+
+def to_cell(prem, cell_w, cell_h):
+    a = prem[..., 3:4]
+    rgb = np.where(a > 0.5, prem[..., :3] / np.maximum(a / 255.0, 1e-3), 0)
+    rgba = np.concatenate([np.clip(rgb, 0, 255), a], -1)
+    # downscale with premultiplied area averaging, which keeps the edges free of dark fringes
+    pm = np.concatenate([prem[..., :3], a], -1)
+    small = cv2.resize(pm, (cell_w, cell_h), interpolation=cv2.INTER_AREA)
+    sa = small[..., 3:4]
+    out_rgb = np.where(sa > 0.8, small[..., :3] / np.maximum(sa / 255.0, 1e-3), 0)
+    return np.concatenate([np.clip(out_rgb, 0, 255), sa], -1).astype(np.uint8)
+
+
+def main():
+    im = load()
+    base, left, right = split_layers(im)
+    h, w, _ = base.shape
+    out_w, out_h = w + 2 * MARGIN_X, h + MARGIN_TOP + MARGIN_BOT
+    cell_w, cell_h = int(round(out_w * SCALE)), int(round(out_h * SCALE))
+    rows = -(-FRAMES // ATLAS_COLS)
+    atlas = Image.new("RGBA", (cell_w * ATLAS_COLS, cell_h * rows), (0, 0, 0, 0))
+    for i in range(FRAMES):
+        fr = build_frame(base, left, right, i)
+        cell = to_cell(fr, cell_w, cell_h)
+        atlas.paste(Image.fromarray(cell, "RGBA"), ((i % ATLAS_COLS) * cell_w, (i // ATLAS_COLS) * cell_h))
+    atlas.save(OUT / "walk-atlas.webp", quality=84, method=6, alpha_quality=92)
+    anchor_x = round((MARGIN_X + CX) * SCALE)
+    anchor_y = round((MARGIN_TOP + FOOT_Y + DEPTH) * SCALE)
+    meta = dict(cellW=cell_w, cellH=cell_h, anchorX=anchor_x, anchorY=anchor_y, cols=ATLAS_COLS, frames=FRAMES, scale=SCALE,
+                rig=dict(bob=BOB, sway=SWAY, lift=LIFT, depth=DEPTH))
+    (OUT / "walk-atlas.json").write_text(json.dumps(meta))
     print(meta, (OUT / "walk-atlas.webp").stat().st_size, "bytes")
 
 
 if __name__ == "__main__":
-    build()
+    main()

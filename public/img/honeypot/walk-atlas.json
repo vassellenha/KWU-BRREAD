@@ -1,15 +1,1 @@
-{
-  "cellW": 400,
-  "cellH": 408,
-  "anchorX": 200,
-  "anchorY": 390,
-  "cols": 6,
-  "frames": 30,
-  "scale": 1.6,
-  "repaired": [],
-  "seam": {
-    "jump": 3.9,
-    "typicalStep": 2.01,
-    "crossfaded": false
-  }
-}
+{"cellW": 432, "cellH": 743, "anchorX": 218, "anchorY": 732, "cols": 6, "frames": 30, "scale": 0.6, "rig": {"bob": 9.0, "sway": 11.0, "lift": 74.0, "depth": 28.0}}

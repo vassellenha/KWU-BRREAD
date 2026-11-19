@@ -591,7 +591,10 @@ const horror = (() => {
     const aimWarm = $('cr-aim-warm');
     const aimEyes = $('cr-aim-eyes');
     const gun = $('cr-aim-gun');
-    const cover = $('cr-aim-cover');
+    const aimBg = $('cr-aim-bg');
+    const gun2 = $('cr-aim-gun2');
+    const gun3 = $('cr-aim-gun3');
+    const aimFull = $('cr-aim-full');
     const flashImg = $('cr-flash-img');
     const flashTwin = $('cr-flash-twin');
     const crackWrap = $('cr-crackwrap');
@@ -602,6 +605,17 @@ const horror = (() => {
     let nosig = null;
     let dcBox = null;
     let dcTitle = null;
+    let vhs = null;
+    let vhsCtx = null;
+    let vhsImg = null;
+    let vhsW = 0;
+    let vhsH = 0;
+    let vhsFrame = -1;
+    let vhsOn = false;
+    let dcFrame = -1;
+    let osdTop = null;
+    let osdBot = null;
+    let osdTxt = '';
     let zone = { l: 0, t: 0, r: 0, b: 0 };
     let guardDirty = true;
     let guardAt = -1e9;
@@ -938,6 +952,14 @@ const horror = (() => {
             node.stop(t + 0.3);
             osc(c, out, 'sawtooth', 50 * r, 50 * r, t, 0.1, 0.05, 0.004, 0.25); // mains buzz under the arc
         },
+        // Dead tape: a bed of hiss that swells from the cut to the power-off, mains hum under it and one slow sagging tone (wow).
+        tape: (c, t, o) => {
+            const out = voice(c, o);
+            hiss(c, out, t, 2.1, 'bandpass', 4200, 0.5, 0.11, 0.3, 1.5);
+            hiss(c, out, t, 2.1, 'highpass', 7500, 0.7, 0.05, 0.5, 1.3);
+            osc(c, out, 'sine', 60, 60, t, 0.1, 0.06, 0.4, 1.5);
+            osc(c, out, 'sine', 410, 300, t + 0.15, 1.6, 0.02, 0.5, 1.2);
+        },
         // The tube losing power: a falling electronic whine, then one small pop when the dot dies.
         crtoff: (c, t, o) => {
             const out = voice(c, o);
@@ -1004,6 +1026,7 @@ const horror = (() => {
         shot: { dist: 0, send: 0.35, bypass: true },
         glass: { dist: 0.05, send: 0.3, bypass: true },
         zap: { dist: 0.2, send: 0.2 },
+        tape: { dist: 0.1, send: 0.04 },
         crtoff: { dist: 0.3, send: 0.15 },
         thud: { dist: 0.3, send: 0.3 },
     };
@@ -1019,6 +1042,14 @@ const horror = (() => {
     const outBack = (x) => { const v = clamp(x) - 1; return 1 + 2.2 * v * v * v + 1.2 * v * v; };
     // A damped spring that starts at 1 and swings through zero: the recoil.
     const spring = (x) => (x < 0 ? 0 : Math.exp(-x / 0.09) * Math.cos((2 * Math.PI * x) / 0.22));
+    // The step response of a spring (damping .72): 0 at the start, a hair over 1 once, then still. The hand lifting the pistol.
+    const stepResp = (t) => {
+        if (t <= 0) return 0;
+        const z = 0.72;
+        const w = 12;
+        const wd = w * Math.sqrt(1 - z * z);
+        return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z / Math.sqrt(1 - z * z)) * Math.sin(wd * t));
+    };
     const frac = (x) => x - Math.floor(x);
     const lerp = (a, b, x) => a + (b - a) * x;
     const flag = (name, on, target = hz) => {
@@ -1112,6 +1143,7 @@ const horror = (() => {
         [T.rise1, 'click'],
         [T.shot, 'shot'],
         [T.shot + 0.06, 'glass'],
+        [T.glitch0 + 0.3, 'tape'],
         [T.dc0, 'zap'],
         [T.crt0, 'crtoff'],
         [T.crt1 + 0.05, 'thud'],
@@ -1218,6 +1250,8 @@ const horror = (() => {
         { key: 'wlk', src: `${ART}walk-atlas.webp`, from: 4.0, until: 24.2, soft: true, bitmap: true },
         { key: 'wlkjson', src: `${ART}walk-atlas.json`, from: 4.0, until: 24.2, soft: true, json: true },
         { key: 'aim', src: `${ART}aim-pose.webp`, from: 23.6, until: 28.6 },
+        { key: 'aimclean', src: `${ART}aim-clean.webp`, from: 23.6, until: 28.6 },
+        { key: 'aimgun', src: `${ART}aim-gun.webp`, from: 23.6, until: 28.6 },
         { key: 'flash', src: `${ART}muzzle-flash.webp`, from: 26.0, until: 27.4 },
         { key: 'crack', src: `${ART}glass-crack.webp`, from: 26.0, until: 28.6 },
     ];
@@ -1297,6 +1331,7 @@ const horror = (() => {
         // the two glitch bands stay either side of it
         hz.style.setProperty('--tear-a', `${Math.max(0, zone.t - 0.036 * H - 6).toFixed(0)}px`);
         hz.style.setProperty('--tear-b', `${Math.min(H * 0.96, zone.b + 6).toFixed(0)}px`);
+        sizeVhs();
         guardDirty = true;
         aim.style.transformOrigin = `${mx.toFixed(1)}px ${my.toFixed(1)}px`;
         aim.style.setProperty('--fx', `${afx.toFixed(0)}px`);
@@ -1468,9 +1503,8 @@ const horror = (() => {
             cv.style.width = `${fig.cw}px`;
             cv.style.height = `${fig.h}px`;
         });
-        figCanvas.style.filter = lite || reduced ? '' : 'blur(0.55px)'; // a light depth of field; static, so it costs nothing per frame
         fig.ctx = figCanvas.getContext('2d');
-        fig.face = [fig.cw / 2 - PAD, 0.1 * fig.h];
+        fig.face = [fig.cw / 2 - PAD, 0.095 * fig.h]; // the eyes: the camera pushes in on this point
         fig.glints = [];
         wk.m = m;
         wk.src = src;
@@ -1670,9 +1704,16 @@ const horror = (() => {
         dcEl.setAttribute('aria-hidden', 'true');
         dcEl.append(dcBox);
         nosig = el('div', 'cr-nosig', 'CAM 3  NO SIGNAL');
-        screen.append(nosig, dcEl);
+        dcTitle.dataset.t = 'DISCONNECTED';
+        // Analog horror: a low resolution canvas for the snow, the tracking band and the dropouts, and a tape OSD that outlives the HUD.
+        vhs = el('canvas', 'cr-vhs');
+        vhs.setAttribute('aria-hidden', 'true');
+        osdTop = el('div', 'cr-osd cr-osd-t');
+        osdBot = el('div', 'cr-osd cr-osd-b', 'SP  CH 03');
+        screen.append(vhs, osdTop, osdBot, nosig, dcEl);
+        sizeVhs();
         hz.append(lineEl);
-        hudParts = Array.from(hz.querySelectorAll('.cr-hud-top, .cr-side, .cr-alert, .cr-bl, .cr-map, .cr-br'));
+        hudParts = Array.from(hz.querySelectorAll('.cr-hud-top, .cr-side, .cr-alert, .cr-bl, .cr-map, .cr-br, .cr-osd'));
     };
 
     // The muzzle flash: one event, 2 to 3 frames, low peak, local to the face and the haze. Reduced motion gets a soft ramp.
@@ -1686,6 +1727,91 @@ const horror = (() => {
     // The glitch beat (glitch0 to dc0, 800 ms): two tear bursts and a flickering CAM 3 NO SIGNAL, so at most 3 bright flashes a second.
     const tearOn = (u) => !reduced && ((u >= T.glitch0 + 0.12 && u < T.glitch0 + 0.2) || (u >= T.glitch0 + 0.5 && u < T.glitch0 + 0.62));
     const sigOn = (u) => (reduced ? u >= T.glitch0 + 0.1 && u < T.dc0 : (u >= T.glitch0 + 0.05 && u < T.glitch0 + 0.3) || (u >= T.glitch0 + 0.4 && u < T.glitch0 + 0.7) || (u >= T.glitch0 + 0.74 && u < T.dc0));
+    // ---- Analog horror, 26.8 to 29.4. Everything is a pure function of u (the noise is a hash of position and frame, never
+    // Math.random), redrawn at 15 fps on a canvas a quarter of the screen size (a sixth on small or slow devices).
+    const h2 = (a, b, c) => {
+        let x = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 2147483647);
+        x = Math.imul(x ^ (x >>> 13), 1274126177);
+        return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+    };
+    const sizeVhs = () => {
+        if (!vhs) return;
+        const q = lite ? 6 : 4;
+        vhsW = Math.max(40, Math.ceil(W / q));
+        vhsH = Math.max(40, Math.ceil(H / q));
+        vhs.width = vhsW;
+        vhs.height = vhsH;
+        vhsCtx = vhs.getContext('2d');
+        vhsImg = vhsCtx ? vhsCtx.createImageData(vhsW, vhsH) : null;
+        vhsFrame = -1;
+    };
+    // How much snow: a soft rise out of the tear, a dead signal that breathes, a swell as the tube loses power.
+    const vhsI = (u) => {
+        if (u < T.glitch0 || u >= T.crt0 + 0.35) return 0;
+        const rise = smooth((u - T.glitch0) / 0.3);
+        const base = u < T.dc0 ? 0.16 + 0.14 * ((u - T.glitch0) / 0.8) : 0.36 + 0.08 * Math.sin(u * 3.1);
+        const burst = tearOn(u) ? 0.3 : 0;
+        const swell = 0.25 * smooth((u - (T.crt0 - 0.3)) / 0.3);
+        return clamp(rise * (base + burst) + swell) * (1 - smooth((u - T.crt0 - 0.05) / 0.3));
+    };
+    // The face loses the picture and finds it again: a hard cut every 300 ms (about 1.7 a second), never fully black so the pistol stays readable.
+    const lockAt = (u) => {
+        if (reduced || u < T.dc0 || u >= T.crt0) return 1;
+        const w = Math.floor((u - T.dc0) / 0.3);
+        return [0.4, 0.95, 0.35, 1, 0.6][w] ?? 1;
+    };
+    const vhsDraw = (u, I) => {
+        const f = Math.floor(u * 15);
+        if (f === vhsFrame || !vhsImg) return;
+        vhsFrame = f;
+        const w = vhsW;
+        const h = vhsH;
+        const d = vhsImg.data;
+        const zl = (zone.l / W) * w;
+        const zr = (zone.r / W) * w;
+        const zt = (zone.t / H) * h;
+        const zb = (zone.b / H) * h;
+        const bandC = h * (1.15 - ((u * 0.27) % 1.3)); // the tracking band climbs the tube
+        const bandH = h * 0.11;
+        const guard = u >= ZONE_ON;
+        let i = 0;
+        for (let y = 0; y < h; y += 1) {
+            const bk = Math.max(0, 1 - Math.abs(y - bandC) / bandH);
+            const smear = 5 + Math.floor(h2(y, f, 3) * 22);
+            const head = y > h * 0.955 ? 1 : 0;
+            for (let x = 0; x < w; x += 1) {
+                let a;
+                if (bk > 0) a = I * (0.3 + 0.7 * bk) * (0.35 + 0.65 * h2((x / smear) | 0, y, f + 91));
+                else {
+                    const n = h2(x, y, f);
+                    a = I * 0.55 * n * n;
+                }
+                if (head) a = Math.max(a, I * 0.9 * h2((x / 9) | 0, y, f + 17));
+                if (guard && x > zl && x < zr && y > zt && y < zb) a *= 0.22;
+                const k = h2(x, y, 7) < 0.5 ? 0 : 1;
+                d[i] = 232 + k * 14;
+                d[i + 1] = 240;
+                d[i + 2] = 255 - k * 20;
+                d[i + 3] = Math.min(255, a * 255);
+                i += 4;
+            }
+        }
+        // dropouts: short bright streaks, a few per frame, only when the signal is already bad
+        if (I > 0.25) {
+            for (let k = 0; k < 5; k += 1) {
+                if (h2(k, f, 12) > 0.6) continue;
+                const y = Math.floor(h2(k, f, 9) * h);
+                const x0 = Math.floor(h2(k, f, 10) * w * 0.8);
+                const len = Math.floor(8 + h2(k, f, 11) * w * 0.35);
+                for (let x = x0; x < Math.min(w, x0 + len); x += 1) {
+                    if (guard && x > zl && x < zr && y > zt && y < zb) continue;
+                    const j = (y * w + x) * 4;
+                    d[j] = 255; d[j + 1] = 255; d[j + 2] = 255; d[j + 3] = Math.min(230, 150 + I * 160);
+                }
+            }
+        }
+        vhsCtx.putImageData(vhsImg, 0, 0);
+    };
     let chipFlag = false;
 
     const shotAt = (u) => {
@@ -1745,6 +1871,28 @@ const horror = (() => {
         flag('hud-off', u >= T.glitch0 && (u >= T.glitch0 + 0.3 || (Math.floor((u - T.glitch0) / 0.06) * 7) % 5 < 3));
         flag('sig', sigOn(u), nosig);
         flag('is-tear', tearOn(u));
+        const vI = reduced ? 0 : vhsI(u);
+        if (vhs) {
+            if (vI > 0.001) {
+                vhsDraw(u, vI);
+                if (!vhsOn) { vhsOn = true; vhs.style.opacity = '1'; }
+            } else if (vhsOn) {
+                vhsOn = false;
+                vhs.style.opacity = '0';
+            }
+        }
+        // the tape OSD outlives the HUD: PLAY while the picture tears, TRACKING (blinking) once the signal is gone
+        if (osdTop) {
+            const osdLive = u >= T.glitch0 + 0.3 && u < T.crt0 + 0.1;
+            const txt = u < T.dc0 ? 'PLAY' : 'TRACKING';
+            if (txt !== osdTxt) {
+                osdTxt = txt;
+                osdTop.textContent = txt === 'PLAY' ? '\u25B6 PLAY' : 'TRACKING';
+            }
+            const blink = txt === 'TRACKING' && !reduced ? Math.floor(u * 2.5) % 2 === 0 : true;
+            osdTop.classList.toggle('on', osdLive && blink);
+            osdBot.classList.toggle('on', osdLive);
+        }
 
         // ---- picture slip: jitter, then one vertical roll, a little less than 1.4 s of unrest
         let sx = 0;
@@ -1781,7 +1929,25 @@ const horror = (() => {
                 dcY = Math.round(Math.sin(u * 53 + 1));
             }
         }
-        dcEl.style.opacity = dcOp.toFixed(2);
+        // after the snap the title tears in slices now and then, and its light sags a little, like a burn-in on a tired tube
+        if (!reduced && dx >= 0.0667) {
+            const f = Math.floor(u * 15);
+            if (f !== dcFrame) {
+                dcFrame = f;
+                const on = h2(f, 21, 5) < 0.3;
+                const t1 = 8 + h2(f, 22, 5) * 50;
+                const t2 = 20 + h2(f, 23, 5) * 55;
+                dcEl.style.setProperty('--dco', on ? '1' : '0');
+                dcEl.style.setProperty('--s1t', `${t1.toFixed(0)}%`);
+                dcEl.style.setProperty('--s1b', `${(100 - t1 - 14).toFixed(0)}%`);
+                dcEl.style.setProperty('--s1x', `${((h2(f, 24, 5) - 0.5) * 22).toFixed(0)}px`);
+                dcEl.style.setProperty('--s2t', `${t2.toFixed(0)}%`);
+                dcEl.style.setProperty('--s2b', `${(100 - t2 - 10).toFixed(0)}%`);
+                dcEl.style.setProperty('--s2x', `${((h2(f, 25, 5) - 0.5) * 30).toFixed(0)}px`);
+                dcEl.dataset.sag = h2(f, 26, 5) < 0.18 ? '1' : '';
+            }
+        }
+        dcEl.style.opacity = (dcOp * (dcEl.dataset.sag && dx > 0.5 ? 0.8 : 1)).toFixed(2);
         dcBox.style.transform = dcOp ? `translate3d(${dcX}px, ${dcY}px, 0) skewX(${dcSkew}deg)` : '';
         dcEl.style.setProperty('--dcs', `${dcSplit}px`);
 
@@ -2230,28 +2396,65 @@ const horror = (() => {
             const F = flashAt(u);
             const x = u - T.shot;
             const rx = u - T.reveal0;
-            // push-in 1 to 1.12 as the face comes up, then a slow creep toward the shot
-            const sa = reduced ? 1 : 1 + 0.12 * outCubic(rx / 0.45) + 0.03 * inOut((u - 25.0) / 1.6);
+            // The match cut: the plate starts as small as his head is on screen (the world has been pushed in on it for six
+            // seconds), stays locked on the face (the camera has just panned it onto F), and grows to full size in 550 ms with the rack focus, so the cut reads as one
+            // crash zoom into the face. After that comes the push-in 1 to 1.12 and a slow creep toward the shot.
+            const figH = (wk.ok ? WALK_H : 0.9) * H;
+            const s0 = clamp((0.123 * figH * S) / (0.59 * geo.ah), 0.2, 1);
+            const grow = outCubic(rx / 0.55);
+            const early = reduced ? 1 : Math.min(1, Math.exp(Math.log(s0) * (1 - grow)));
+            const sa = reduced ? 1 : early * (1 + 0.12 * grow + 0.03 * inOut((u - 25.0) / 1.6));
+            const match = reduced ? 0 : 1 - Math.min(1, sa);
+            const mtx = match * (geo.afx - W / 2);
+            const mty = match * (geo.afy - H / 2);
             // recoil: the plate jumps up 10 px and settles back on a damped spring, with a hair of scale and tilt
             const dyP = !reduced && x > 0 && x < 0.7 ? -10 * spring(x) : 0;
             const hit = !reduced && x > 0 && x < 0.6 ? Math.exp(-x / 0.07) : 0;
-            aim.style.opacity = cut.toFixed(3);
-            aim.style.transform = `translate3d(0, ${dyP.toFixed(1)}px, 0) scale(${(sa * (1 + 0.02 * hit)).toFixed(4)}) rotate(${(-1 * hit).toFixed(2)}deg)`;
+            // handheld: a slow drift and a breath on the whole plate, so the face is never a still picture
+            const hh = reduced ? 0 : smooth(rx / 0.6);
+            const hx = hh * (1.4 * Math.sin(u * 1.9 + 1) + 0.8 * Math.sin(u * 4.7));
+            const hy = hh * (1.2 * Math.sin(u * 1.3) + 0.7 * Math.sin(u * 3.9 + 2) + 0.9 * Math.sin(u * 2.2));
+            const hr = hh * 0.09 * Math.sin(u * 1.1);
+            const hs = 1 + hh * 0.0025 * Math.sin(u * 2.2);
+            aim.style.opacity = (cut * lockAt(u)).toFixed(3);
+            aimBg.style.opacity = cut.toFixed(3);
+            aim.style.transform = `translate3d(${(hx + mtx).toFixed(2)}px, ${(dyP + hy + mty).toFixed(2)}px, 0) scale(${(sa * hs * (1 + 0.02 * hit)).toFixed(4)}) rotate(${(-1 * hit + hr).toFixed(3)}deg)`;
             // rack focus: the plate starts soft and pulls sharp as the crossfade lands
             const blur = reduced || lite || degraded ? 0 : Math.round(7 * (1 - outCubic(rx / 0.9)) * 2) / 2;
             if (blur !== aimBlurNow) {
                 aimBlurNow = blur;
                 aim.style.filter = blur ? `blur(${blur}px)` : '';
             }
-            // the pistol rises from below the frame, held from the end of the rise until the shot
-            const rise = reduced ? 1 : outBack((u - T.rise0) / (T.rise1 - T.rise0));
-            gun.style.transform = `translate3d(0, ${((1 - rise) * geo.drop).toFixed(1)}px, 0)`;
-            const patch = !reduced && u < T.rise1 + 0.2; // once the pistol is home, the plate itself shows it: the patch and the copy are hidden
-            cover.style.opacity = reduced ? '0' : (1 - smooth((u - T.rise1 - 0.05) / 0.15)).toFixed(3);
-            if (patch !== cls.patch) {
-                cls.patch = patch;
-                cover.style.visibility = patch ? '' : 'hidden';
-                gun.style.visibility = patch ? '' : 'hidden';
+            // The pistol is its own layer: it comes up from below and to the right on an arc (a turn about the wrist and a growth
+            // in size as it nears the lens) on a damped spring with one small overshoot, with two fading trails while it is fast.
+            // Once it is still (150 ms after rise1) the whole plate takes over, which is the same picture.
+            const rt = u - T.rise0;
+            const home = reduced || u >= T.rise1 + 0.15;
+            const showGun = !home && u >= T.rise0 - 0.05;
+            const place = (el, p, shake) => {
+                const q = 1 - p;
+                el.style.transform = `translate3d(${(q * 0.13 * geo.aw + shake[0]).toFixed(1)}px, ${(q * geo.drop + shake[1]).toFixed(1)}px, 0) rotate(${(q * 8).toFixed(2)}deg) scale(${(1 - 0.12 * q).toFixed(4)})`;
+            };
+            if (showGun) {
+                const pos = stepResp(rt);
+                const tremor = smooth((rt - 0.4) / 0.2);
+                const sh = [tremor * (0.7 * Math.sin(u * 47) + 0.4 * Math.sin(u * 83)), tremor * 0.6 * Math.sin(u * 53)];
+                place(gun, pos, sh);
+                const p2 = stepResp(rt - 0.04);
+                const p3 = stepResp(rt - 0.08);
+                const speed = clamp((pos - p2) * 9);
+                gun2.style.opacity = (0.42 * speed).toFixed(3);
+                gun3.style.opacity = (0.22 * clamp((p2 - p3) * 9)).toFixed(3);
+                place(gun2, p2, sh);
+                place(gun3, p3, sh);
+            }
+            if (showGun !== cls.gunOn) {
+                cls.gunOn = showGun;
+                [gun, gun2, gun3].forEach((el) => { el.style.visibility = showGun ? 'visible' : 'hidden'; });
+            }
+            if (home !== cls.home) {
+                cls.home = home;
+                aimFull.style.visibility = home ? 'visible' : 'hidden';
             }
             // the red light in the eyes ignites 150 ms before the face is fully there
             const eyes = smooth((u - (T.reveal1 - 0.15)) / 0.2) * (reduced ? 1 : 0.88 + 0.12 * Math.sin(u * 7.3));
