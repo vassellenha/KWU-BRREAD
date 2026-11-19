@@ -565,14 +565,18 @@ const horror = (() => {
     const clock = $('cr-time');
     const grain = $('hz-canvas');
     const layers = { far: $('cr-far'), mid: $('cr-mid'), near: $('cr-near') };
-    const openImg = $('cr-open');
+    const openImg = $('cr-open'); // room-open without its door: the plate under the closed room
+    const closedImg = $('cr-closed');
+    const holeEl = $('cr-hole');
+    const doorCv = $('cr-door');
     const spill = $('cr-spill');
     const doorline = $('cr-doorline');
     const bloom = $('cr-bloom');
     const fogs = $('cr-fogs');
     const dust = $('cr-dust');
-    const sandWrap = $('cr-sand-wrap');
-    const sand = $('cr-sand');
+    const eggWrap = $('cr-egg');
+    const eggLit = $('cr-egg-lit');
+    const eggGlint = $('cr-egg-glint');
     const figEl = $('cr-fig');
     const figCanvas = $('cr-fig-canvas');
     const shadowEl = $('cr-shadow');
@@ -636,12 +640,13 @@ const horror = (() => {
             return {};
         }
     })();
-    const FILE = { buzz: 'fluorescent-buzz', drip: 'drip', boom: 'heavy-thud', creak: 'door-creak', foot: 'footstep-wet', rustle: 'cape-rustle', sting: 'stinger', shot: 'gunshot', glass: 'glass-crack', zap: 'zap', crtoff: 'crt-off', thud: 'heavy-thud' };
+    const FILE = { buzz: 'fluorescent-buzz', drip: 'drip', boom: 'heavy-thud', creak: 'door-creak', hinge: 'door-creak', foot: 'footstep-wet', rustle: 'cape-rustle', sting: 'stinger', shot: 'gunshot', glass: 'glass-crack', zap: 'zap', crtoff: 'crt-off', thud: 'heavy-thud' };
     const buffers = {};
     let bus = null;
 
     const rnd = (a, b) => a + Math.random() * (b - a);
     const pitch = () => 1 + rnd(-0.04, 0.04); // random pitch, plus or minus 4 percent, on every play
+    const rateOf = (o) => (o && o.rate) || 1; // a sound can sit higher or lower than its recording or synthesis
     const dB = (v) => 10 ** (v / 20);
 
     // A cold concrete room: noise that decays over `seconds`, bright at first, then rising a little and falling dark.
@@ -816,7 +821,7 @@ const horror = (() => {
         // A hinge that wants oil: a slow saw glide through a narrow band, wood groan underneath, grit on top.
         creak: (c, t, o) => {
             const out = voice(c, o);
-            const r = pitch();
+            const r = pitch() * rateOf(o);
             const node = c.createOscillator();
             node.type = 'sawtooth';
             node.frequency.setValueAtTime(140 * r, t);
@@ -837,6 +842,24 @@ const horror = (() => {
             node.stop(t + 2.2);
             osc(c, out, 'triangle', 62 * r, 78 * r, t, 1.6, 0.05, 0.5, 1.4);
             [0.2, 0.55, 0.9, 1.35].forEach((d) => hiss(c, out, t + d, 0.05, 'bandpass', 1800 + d * 600, 3, 0.03, 0.003, 0.04));
+        },
+        // The same hinge a little higher and shorter, so the second squeak is not a repeat of the first.
+        hinge: (c, t, o) => SFX.creak(c, t, { ...o, rate: 1.22 }),
+        // The latch: a small steel click as the handle goes down, then the bolt drops into its keeper.
+        latch: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            hiss(c, out, t, 0.03, 'bandpass', 2600 * r, 3, 0.25, 0.001, 0.02);
+            osc(c, out, 'square', 1500 * r, 700 * r, t, 0.03, 0.06, 0.001, 0.03);
+            hiss(c, out, t + 0.07, 0.04, 'bandpass', 1500 * r, 2, 0.3, 0.001, 0.03);
+            osc(c, out, 'sine', 180 * r, 90 * r, t + 0.07, 0.08, 0.16, 0.002, 0.08);
+        },
+        // A bite into a frozen sandwich: four short, dry crackles and a dull knock under them.
+        crunch: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            [0, 0.045, 0.095, 0.16].forEach((d, i) => hiss(c, out, t + d, 0.05, 'bandpass', 2200 * r + i * 520, 1.4, 0.3 - 0.05 * i, 0.001, 0.04));
+            hiss(c, out, t, 0.12, 'lowpass', 520, 0.7, 0.16, 0.002, 0.1);
         },
         // A heavy boot on concrete: low thud, sole click, wet slap. Duller and quieter while he is far away.
         foot: (c, t, o) => {
@@ -953,7 +976,7 @@ const horror = (() => {
             if (buffer) {
                 const source = c.createBufferSource();
                 source.buffer = buffer;
-                source.playbackRate.value = pitch();
+                source.playbackRate.value = pitch() * rateOf(o);
                 // A recording has one loudness, so the synthesized voices' intensity argument becomes its gain.
                 const strength = typeof o.arg === 'number' && (name === 'foot' || name === 'sting' || name === 'boom') ? 0.4 + 0.7 * o.arg : 1;
                 source.connect(voice(c, { ...o, gain: (o.gain ?? 1) * strength }));
@@ -971,6 +994,9 @@ const horror = (() => {
         drip: { dist: 0.45, send: 0.35 },
         boom: { dist: 0.7, send: 0.3 },
         creak: { dist: 0.55, send: 0.3, pan: -0.05 },
+        hinge: { dist: 0.5, send: 0.3, pan: -0.05, rate: 1.22 },
+        latch: { dist: 0.5, send: 0.25, pan: -0.05 },
+        crunch: { dist: 0.1, send: 0.15 },
         foot: { send: 0.3 },
         rustle: { dist: 0.4, send: 0.2 },
         sting: { dist: 0.15, send: 0.3 },
@@ -1012,9 +1038,9 @@ const horror = (() => {
     const T = {
         boot: 2.2, // the room fades up from black
         knock: 5.4, // one heavy thud behind the door
-        door0: 7.0, // the door opens, slowly
-        door1: 10.0,
-        appear: 8.3, // the owner stands in the doorway
+        door0: 7.0, // the latch lets go and the door starts to swing (see DOOR)
+        door1: 10.0, // the leaf has hit its stop and rests
+        appear: 9.0, // the owner stands in the doorway, once the leaf is well past half open
         alert: 8.6,
         reveal0: 24.0, // the crossfade to the aim plate starts, with a push-in and a rack focus
         reveal1: 24.4, // the face is fully there
@@ -1049,6 +1075,10 @@ const horror = (() => {
     const STEPS = [];
     STRIDES.forEach((st) => st.strikes.forEach((hit, i) => STEPS.push({ a: i ? st.strikes[i - 1] : st.a, b: hit })));
     const STRIKES = STRIDES.flatMap((st) => st.strikes);
+    // The door, as a timeline of positions in the door atlas (frame numbers, fractional between two frames): the handle goes
+    // down and the latch clicks (6.6 to 7.0), the leaf sticks for a moment, lets go, swings on an in-out cubic to the stopper
+    // at 9.6, and takes two frames to rebound and rest. The room light and the fog follow the angle of the leaf.
+    const DOOR = { latch0: 6.6, latch1: 7.0, stuck1: 7.35, swing1: 9.6, knockTicks: 4 };
     const SETTLE = 0.25; // seconds of settle at a mark: down 3 px, then up
     const WS = 6; // weight shift, px at his nearest size
     const BOB = 7;
@@ -1062,7 +1092,10 @@ const horror = (() => {
         [0.9, 'buzz'],
         [3.6, 'drip'],
         [T.knock, 'boom', 1],
-        [6.95, 'creak'],
+        [6.85, 'latch'],
+        [7.3, 'creak'],
+        [8.55, 'hinge'],
+        [9.6, 'boom', 0.9],
         [10.3, 'foot', 0.3],
         [10.9, 'rustle'],
         [11.15, 'foot', 0.42],
@@ -1169,16 +1202,21 @@ const horror = (() => {
     /* ---- the art plates: a need-ordered manifest; nothing starts until what the current moment needs is decoded ---- */
 
     const ART = '/img/honeypot/';
-    const WALK = [1, 2, 3, 4].map((n) => `${ART}walk-sheet/walk-${n}.webp`); // optional walk cycle, see the walk block below
     const ASSETS = [
+        { key: 'door', src: `${ART}door-atlas.webp`, from: 0, until: 10.5, bitmap: true }, // the leaf is drawn from this, so it is needed with the room
+        { key: 'doorjson', src: `${ART}door-atlas.json`, from: 0, until: 10.5, json: true },
         { key: 'closed', src: `${ART}room-closed.webp`, from: 0, until: 10.5 },
-        { key: 'sand', src: `${ART}sandwich-hero.webp`, from: 2.2, until: 24.2 },
+        { key: 'egg', src: `${ART}egg-sandwich.webp`, from: 2.2, until: 24.2 },
+        { key: 'eggLit', src: `${ART}egg-sandwich-lit.webp`, from: 2.2, until: 24.2 },
         { key: 'fog', src: `${ART}fog.webp`, from: 2.2, until: 24.2 },
         { key: 'pipes', src: `${ART}foreground-pipes.webp`, from: 2.2, until: 24.2 },
-        { key: 'open', src: `${ART}room-open.webp`, from: 6.6, until: 24.2 },
+        { key: 'opn', src: `${ART}room-open-nodoor.webp`, from: 6.6, until: 24.2 },
         { key: 'spill', src: `${ART}light-spill.webp`, from: 6.6, until: 24.2 },
         { key: 'char', src: hz.dataset.figure, from: 8.0, until: 24.2 },
-        ...WALK.map((src, i) => ({ key: `walk${i}`, src, from: 4.0, until: 24.2, soft: true })), // optional: the scene never waits for them
+        // optional: the scene never waits for these; without them the standing cutout and a plain door fade are used
+        { key: 'dust', src: `${ART}dust-atlas.webp`, from: 4.0, until: 11, soft: true, bitmap: true },
+        { key: 'wlk', src: `${ART}walk-atlas.webp`, from: 4.0, until: 24.2, soft: true, bitmap: true },
+        { key: 'wlkjson', src: `${ART}walk-atlas.json`, from: 4.0, until: 24.2, soft: true, json: true },
         { key: 'aim', src: `${ART}aim-pose.webp`, from: 23.6, until: 28.6 },
         { key: 'flash', src: `${ART}muzzle-flash.webp`, from: 26.0, until: 27.4 },
         { key: 'crack', src: `${ART}glass-crack.webp`, from: 26.0, until: 28.6 },
@@ -1188,13 +1226,26 @@ const horror = (() => {
     // True when every plate the moment u needs is decoded (a plate that failed to load counts: the scene just stays dark there).
     const gate = (u) => ASSETS.every((a) => a.ready || a.soft || !needed(a, u));
     const loadAsset = (a) => new Promise((resolve) => {
+        if (a.json) {
+            fetch(a.src, { credentials: 'same-origin' })
+                .then((res) => (res.ok ? res.json() : Promise.reject(new Error('missing'))))
+                .then((data) => { a.data = data; })
+                .catch(() => {})
+                .then(() => { a.ready = true; resolve(); });
+            return;
+        }
         const img = new Image();
         img.decoding = 'async';
         img.src = a.src;
         const done = () => {
             a.img = img;
-            a.ready = true;
             if (img.naturalWidth) hz.querySelectorAll(`[data-asset="${a.key}"]`).forEach((n) => { n.src = a.src; });
+            // A sprite atlas is decoded once into a bitmap, so drawing a frame never decodes or converts anything.
+            if (a.bitmap && img.naturalWidth && window.createImageBitmap) {
+                window.createImageBitmap(img).then((bmp) => { a.bmp = bmp; }).catch(() => {}).then(() => { a.ready = true; resolve(); });
+                return;
+            }
+            a.ready = true;
             resolve();
         };
         (img.decode ? img.decode() : new Promise((ok) => { img.onload = ok; img.onerror = ok; })).then(done, done);
@@ -1280,16 +1331,7 @@ const horror = (() => {
         crackWrap.style.setProperty('--cy', `${my.toFixed(1)}px`);
         geo.reach = Math.max(Math.hypot(mx, my), Math.hypot(W - mx, my), Math.hypot(mx, H - my), Math.hypot(W - mx, H - my)) * 1.5;
 
-        // The sandwich sits on the left of his path; on a narrow screen it moves in so it stays in frame.
-        if (W / H < 1) {
-            sandWrap.style.left = '35.5%';
-            sandWrap.style.width = '11.5%';
-            sandWrap.style.top = '70%';
-        } else {
-            sandWrap.style.left = '';
-            sandWrap.style.width = '';
-            sandWrap.style.top = '';
-        }
+        walkMarks();
     };
 
     /* ---- the owner: one cutout, sliced into strips that sway out of phase. His own photo, never retouched. ---- */
@@ -1343,257 +1385,129 @@ const horror = (() => {
         fig.ready = true;
     };
 
-    /* ---- the real walk: four poses of one cycle, keyed out of their red background once and cached.
-       Sheet order (public/img/honeypot/walk-sheet/): walk-1 left foot contact, walk-2 passing, walk-3 right foot contact,
-       walk-4 passing. One step is two poses, so the step phase s from the gait picks the pose (poses sit on half steps)
-       and a short phase window crossfades neighbours. If the order on disk differs, change WALK_ORDER only.
-       Frames are normalized from their own alpha box: the same height for all, the sole of the lowest foot on the bottom
-       row and the torso (not the planted foot, which moves under the body) on the centre line, so the body never jumps.
-       Any failure (a missing file, a tainted canvas, a bad key) leaves wk.ok false and the standing cutout is used. ---- */
+    /* ---- the real walk: a 30 frame cycle in one atlas (public/img/honeypot/walk-atlas.webp, built by
+       scripts/build_honeypot_walk.py). It is drawn on a 15 fps tick ("on twos"): the frame is a function of the distance
+       he has covered on screen, so a foot never slides, and it is only redrawn when the frame index changes. The sprite
+       canvas holds the atlas cell at its own size and CSS scales it, so there is no per frame pixel work at all.
+       Any failure (a missing file, a bad atlas) leaves wk.ok false and the standing cutout is used. ---- */
 
-    const WALK_ORDER = lite ? [0, 1, 2, 1] : [0, 1, 2, 3]; // pose cycle as indexes into the sheet; lite keeps three frames
-    const WALK_XF = 0.13; // half width of the crossfade between poses, in half steps (about 100 ms at his cadence)
-    const wk = { ok: false, failed: reduced, job: null, frames: [], shown: -1 };
+    const WALK_H = 0.62; // his height while walking, of the screen height; the aim plate takes over for the face
+    const WALK_CYCLE = 30;
+    const WALK_STRIDE = 0.8; // one cycle (two steps) covers 0.8 of his own height on screen
+    const WALK_FAR = 1.6; // he walks toward the lens: growth in height counts as forward travel, 1.6 times over
+    const wk = { ok: false, failed: reduced, m: null, src: null, shown: -1, rawA: 1, rawB: 2 };
+    const stats = { fig: 0, door: 0, dust: 0, t: 0 };
 
-    // Key the red out of one sheet frame. The key colour is read from the four corners, so the exact red does not matter.
-    // Flat key-coloured pixels anywhere go (the gaps between arm and body); softer pixels go only when they touch the
-    // background, with their red mixed out (decontamination), so a red rim light inside the body is left alone.
-    function* keyImage(img) {
-        const w = img.naturalWidth;
-        const h = img.naturalHeight;
-        const cv = document.createElement('canvas');
-        cv.width = w;
-        cv.height = h;
-        const cx = cv.getContext('2d', { willReadFrequently: true });
-        cx.drawImage(img, 0, 0);
-        const id = cx.getImageData(0, 0, w, h);
-        const d = id.data;
-        let kr = 0;
-        let kg = 0;
-        let kb = 0;
-        let kn = 0;
-        [[0, 0], [w - 6, 0], [0, h - 6], [w - 6, h - 6]].forEach(([x0, y0]) => {
-            for (let y = y0; y < y0 + 6; y += 1) {
-                for (let x = x0; x < x0 + 6; x += 1) {
-                    const i = (y * w + x) * 4;
-                    kr += d[i];
-                    kg += d[i + 1];
-                    kb += d[i + 2];
-                    kn += 1;
-                }
+    // Where the path starts and ends, in plate pixels. Used by the geometry and by the step counter, so they always agree.
+    const pathNow = () => {
+        const x0 = 0.49 * PW;
+        const y0 = 0.708 * PH;
+        const h0 = 0.3 * PH;
+        const side = W >= 900 ? 0.09 * W : 0.05 * PW;
+        const x1 = PW / 2 + side;
+        const y1 = (PH - H) / 2 + 0.89 * H; // his feet stand a little above the bottom edge: the subtitle owns the last 10 percent
+        const h1 = (wk.ok ? WALK_H : 0.9) * H;
+        return { x0, y0, h0, x1, y1, h1 };
+    };
+    // Steps covered so far, in cycles, as a function of the path position p (screen distance over 0.8 of his height).
+    const walkRaw = (p) => {
+        const { x0, y0, h0, x1, y1, h1 } = pathNow();
+        const dh = h1 - h0;
+        return ((Math.hypot(x1 - x0, y1 - y0) + WALK_FAR * dh) / (WALK_STRIDE * dh)) * Math.log(lerp(h0, h1, clamp(p)) / h0);
+    };
+    // The two strides end on a foot contact: 1.5 cycles (three steps) each, so the stops land on frame 15 and frame 0.
+    const walkCycles = (p) => {
+        const a = STRIDES[0].w;
+        if (p <= a) return (1.5 * walkRaw(p)) / wk.rawA;
+        return 1.5 + (1.5 * (walkRaw(p) - wk.rawA)) / (wk.rawB - wk.rawA);
+    };
+    const walkFrame = (p) => {
+        const f = Math.floor(walkCycles(p) * WALK_CYCLE + 1e-4);
+        return ((f % WALK_CYCLE) + WALK_CYCLE) % WALK_CYCLE;
+    };
+    // The middle heel strike of each stride follows the walk instead of a fixed time: find where the step counter reaches
+    // the contact, and move its footstep (and its micro shake) there, so the sound lands on the foot that lands.
+    const FOOT_AT = EVENTS.map((e, i) => (e[1] === 'foot' ? i : -1)).filter((i) => i >= 0);
+    const walkMarks = () => {
+        if (reduced || !PW) return;
+        wk.rawA = Math.max(0.01, walkRaw(STRIDES[0].w));
+        wk.rawB = Math.max(wk.rawA + 0.01, walkRaw(1));
+        const when = (st, target) => {
+            let lo = st.a;
+            let hi = st.b;
+            for (let i = 0; i < 22; i += 1) {
+                const mid = (lo + hi) / 2;
+                if (walkCycles(gaitAt(mid).p) < target) lo = mid;
+                else hi = mid;
             }
+            return (lo + hi) / 2;
+        };
+        [[0, STRIDES[0], 0.5], [1, STRIDES[0], 1.0], [3, STRIDES[1], 2.0], [4, STRIDES[1], 2.5]].forEach(([n, st, target]) => {
+            const at = when(st, target);
+            if (FOOT_AT[n] !== undefined && !fired.has(FOOT_AT[n])) EVENTS[FOOT_AT[n]][0] = at;
+            STRIKES[n] = at;
         });
-        kr /= kn;
-        kg /= kn;
-        kb /= kn;
-        const dist2 = (i) => {
-            const dr = d[i] - kr;
-            const dg = d[i + 1] - kg;
-            const db = d[i + 2] - kb;
-            return dr * dr + dg * dg + db * db;
-        };
-        const FLAT = 30;
-        const SOFT = 150;
-        const n = w * h;
-        const bgm = new Uint8Array(n); // 1 where the background is
-        for (let p = 0; p < n; p += 1) {
-            if (dist2(p * 4) < FLAT * FLAT) bgm[p] = 1;
-            if ((p & 65535) === 0 && performance.now() > wkUntil) yield;
-        }
-        // flood in from the border through softly similar pixels (the anti-aliased rim of the figure is not reached)
-        const stack = new Int32Array(n);
-        let top = 0;
-        const push = (p) => {
-            if (!bgm[p] && dist2(p * 4) < 4096) {
-                bgm[p] = 1;
-                stack[top] = p;
-                top += 1;
-            }
-        };
-        for (let x = 0; x < w; x += 1) {
-            push(x);
-            push((h - 1) * w + x);
-        }
-        for (let y = 0; y < h; y += 1) {
-            push(y * w);
-            push(y * w + w - 1);
-        }
-        let spin = 0;
-        while (top > 0) {
-            spin += 1;
-            if ((spin & 65535) === 0 && performance.now() > wkUntil) yield;
-            top -= 1;
-            const p = stack[top];
-            const x = p % w;
-            if (x > 0) push(p - 1);
-            if (x < w - 1) push(p + 1);
-            if (p >= w) push(p - w);
-            if (p < n - w) push(p + w);
-        }
-        // a two pixel band around the background gets a soft alpha and its colour freed from the red
-        const band = new Uint8Array(n);
-        for (let pass = 0; pass < 2; pass += 1) {
-            for (let y = 1; y < h - 1; y += 1) {
-                if (performance.now() > wkUntil) yield;
-                for (let x = 1; x < w - 1; x += 1) {
-                    const p = y * w + x;
-                    if (bgm[p] || band[p] > pass) continue;
-                    if (bgm[p - 1] || bgm[p + 1] || bgm[p - w] || bgm[p + w] || (pass && (band[p - 1] === pass || band[p + 1] === pass || band[p - w] === pass || band[p + w] === pass))) band[p] = pass + 1;
-                }
-            }
-        }
-        for (let p = 0; p < n; p += 1) {
-            if ((p & 65535) === 0 && performance.now() > wkUntil) yield;
-            const i = p * 4;
-            if (bgm[p]) {
-                d[i] = 0;
-                d[i + 1] = 0;
-                d[i + 2] = 0;
-                d[i + 3] = 0;
-            } else if (band[p]) {
-                const a = clamp(smooth((Math.sqrt(dist2(i)) - FLAT) / (SOFT - FLAT)), 0.04, 1);
-                d[i] = clamp((d[i] - (1 - a) * kr) / a, 0, 255);
-                d[i + 1] = clamp((d[i + 1] - (1 - a) * kg) / a, 0, 255);
-                d[i + 2] = clamp((d[i + 2] - (1 - a) * kb) / a, 0, 255);
-                d[i + 3] = Math.round(255 * a);
-            }
-        }
-        cx.putImageData(id, 0, 0);
-        // the alpha box (a row or a column needs a few solid pixels, so a stray speck does not stretch it)
-        let y0 = -1;
-        let y1 = -1;
-        let x0 = w;
-        let x1 = -1;
-        let mx = 0;
-        let mn = 0;
-        for (let y = 0; y < h; y += 1) {
-            if ((y & 127) === 0 && performance.now() > wkUntil) yield;
-            let count = 0;
-            for (let x = 0; x < w; x += 1) {
-                if (d[(y * w + x) * 4 + 3] > 128) {
-                    count += 1;
-                    if (x < x0) x0 = x;
-                    if (x > x1) x1 = x;
-                }
-            }
-            if (count >= 3) {
-                if (y0 < 0) y0 = y;
-                y1 = y;
-            }
-        }
-        if (y0 < 0 || y1 - y0 < 100) throw new Error('walk frame has no figure');
-        // torso centre line: alpha weighted mean x over 25 to 55 percent of the height
-        const r0 = Math.round(y0 + 0.25 * (y1 - y0));
-        const r1 = Math.round(y0 + 0.55 * (y1 - y0));
-        for (let y = r0; y <= r1; y += 1) {
-            for (let x = 0; x < w; x += 1) {
-                const a = d[(y * w + x) * 4 + 3] / 255;
-                mx += a * x;
-                mn += a;
-            }
-        }
-        return { cv, w, h, y0, y1, x0, x1, ax: mn ? mx / mn : (x0 + x1) / 2 };
-    }
-
-    // The work runs as a job that gives the thread back after about 6 ms of each animation frame, so four frames are
-    // keyed and graded without one visible hitch.
-    let wkUntil = 0;
-    function* walkJob() {
-        try {
-            const imgs = WALK.map((_, i) => asset(`walk${i}`));
-            const used = WALK_ORDER.filter((v, i) => WALK_ORDER.indexOf(v) === i);
-            const keyed = [];
-            for (let i = 0; i < used.length; i += 1) {
-                const a = imgs[used[i]];
-                if (!a.img || !a.img.naturalWidth) throw new Error('walk frame missing');
-                keyed[i] = yield* keyImage(a.img);
-                yield;
-            }
-            const fh = fig.h;
-            const scales = keyed.map((kf) => fh / (kf.y1 - kf.y0 + 1));
-            const half = Math.max(...keyed.map((kf, i) => Math.max(kf.ax - kf.x0, kf.x1 - kf.ax) * scales[i]));
-            const fw = Math.max(fig.w, Math.ceil(2 * half) + 8);
-            const frames = [];
-            for (let i = 0; i < used.length; i += 1) {
-                const kf = keyed[i];
-                const lit = document.createElement('canvas');
-                lit.width = fw;
-                lit.height = fh;
-                const lc = lit.getContext('2d', { willReadFrequently: true });
-                lc.drawImage(kf.cv, fw / 2 - kf.ax * scales[i], -kf.y0 * scales[i], kf.w * scales[i], kf.h * scales[i]);
-                yield;
-                const dark = document.createElement('canvas');
-                dark.width = fw;
-                dark.height = fh;
-                const data = lc.getImageData(0, 0, fw, fh);
-                const px = data.data;
-                for (let j = 0; j < px.length; j += 4) {
-                    if ((j & 262143) === 0 && performance.now() > wkUntil) yield;
-                    const rim = smooth((px[j] - 70) / 110);
-                    const gain = 0.085 + 0.9 * rim;
-                    px[j] *= gain;
-                    px[j + 1] *= gain;
-                    px[j + 2] *= gain;
-                }
-                dark.getContext('2d').putImageData(data, 0, 0);
-                wk.frames[used[i]] = { lit, dark };
-                kf.cv.width = 1; // release the full size canvas
-                kf.cv.height = 1;
-                yield;
-            }
-            // adopt: every size that depended on the standing cutout follows the walk frames
-            fig.w = fw;
-            fig.cw = fw + PAD * 2;
-            figCanvas.width = fig.cw;
-            figCanvas.height = fh;
-            [shadowEl, reflectEl].forEach((cv) => {
-                cv.width = fig.cw;
-                cv.height = fh;
-            });
-            fig.face = [fw / 2 + 4, FACE_C[1]];
-            fig.glints = [[fw / 2 - 22, GLINTS[0][1]], [fw / 2 + 27, GLINTS[1][1]]];
-            wk.shown = -1;
-            wk.ok = true;
-        } catch (error) {
-            wk.failed = true; // keep the standing cutout, never crash
-        }
-    }
-    const walkStep = () => {
-        if (wk.ok || wk.failed || !fig.ready || !WALK.every((_, i) => asset(`walk${i}`).ready)) return;
-        if (!wk.job) wk.job = walkJob();
-        wkUntil = performance.now() + 6;
-        try {
-            if (wk.job.next().done) wk.job = null;
-        } catch (error) {
-            wk.failed = true;
-        }
     };
 
-    // The black copy for the cast shadow and the reflection follows the pose on screen (same frame, the CSS flips it).
-    const castFrame = (frame) => {
+    // Adopt the atlas: every size that depended on the standing cutout follows the cell (same nominal height, so the
+    // geometry, the camera and the shadow keep their numbers). The pixel store is the cell itself, CSS does the scaling.
+    const adoptAtlas = () => {
+        const a = asset('wlk');
+        if (wk.ok || wk.failed || !fig.ready || !a.ready) return;
+        const src = a.bmp || (a.img && a.img.naturalWidth ? a.img : null);
+        if (!src) {
+            wk.failed = true;
+            return;
+        }
+        const m = { cellW: 296, cellH: 408, anchorX: 148, anchorY: 390, cols: 6, frames: 30, ...((asset('wlkjson') || {}).data || {}) };
+        const scale = fig.h / m.anchorY;
+        fig.cw = Math.round(m.cellW * scale);
+        [figCanvas, shadowEl, reflectEl].forEach((cv) => {
+            cv.width = m.cellW;
+            cv.height = m.anchorY;
+            cv.style.width = `${fig.cw}px`;
+            cv.style.height = `${fig.h}px`;
+        });
+        figCanvas.style.filter = lite || reduced ? '' : 'blur(0.55px)'; // a light depth of field; static, so it costs nothing per frame
+        fig.ctx = figCanvas.getContext('2d');
+        fig.face = [fig.cw / 2 - PAD, 0.1 * fig.h];
+        fig.glints = [];
+        wk.m = m;
+        wk.src = src;
+        wk.shown = -1;
+        wk.ok = true;
+        walkMarks();
+    };
+
+    // The black copy for the cast shadow and the reflection comes from the same cell, on the same tick.
+    const castFrame = (sx, sy) => {
+        const m = wk.m;
         [shadowEl, reflectEl].forEach((cv) => {
             const c = cv.getContext('2d');
             c.globalCompositeOperation = 'source-over';
             c.clearRect(0, 0, cv.width, cv.height);
-            c.drawImage(frame.lit, PAD, 0);
+            c.drawImage(wk.src, sx, sy, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
             c.globalCompositeOperation = 'source-in';
             c.fillStyle = '#000';
             c.fillRect(0, 0, cv.width, cv.height);
             c.globalCompositeOperation = 'source-over';
         });
     };
+    const drawAtlas = (idx) => {
+        const m = wk.m;
+        const sx = (idx % m.cols) * m.cellW;
+        const sy = Math.floor(idx / m.cols) * m.cellH;
+        fig.ctx.clearRect(0, 0, m.cellW, m.anchorY);
+        fig.ctx.drawImage(wk.src, sx, sy, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
+        castFrame(sx, sy);
+        stats.fig += 1;
+    };
 
     // Where the cutout stands, from the gait: path position on an in-out cubic, plus the bob, the weight shift, the settle
     // at a mark and the small scale rise at each heel strike. Offsets are px at his nearest size and shrink with distance.
     const figGeom = (gait) => {
         const p = gait.p;
-        const x0 = 0.49 * PW;
-        const y0 = 0.708 * PH;
-        const h0 = 0.3 * PH;
-        const side = W >= 900 ? 0.09 * W : 0.05 * PW;
-        const x1 = PW / 2 + side;
-        const y1 = (PH - H) / 2 + 0.955 * H;
-        const h1 = 0.9 * H;
+        const { x0, y0, h0, x1, y1, h1 } = pathNow();
         const hgt = lerp(h0, h1, p);
         const near = hgt / h1;
         return {
@@ -1625,100 +1539,14 @@ const horror = (() => {
         });
     };
 
-    // The walking figure. The head and torso are one piece and barely move; only the lower 58 percent is cut into strips
-    // that sway out of phase (the cloak and its hem), their amplitude following the step speed. Segments tile on whole rows,
-    // and a crossfade between two poses is a premultiplied blend (A at 1 - w, then B at w with 'lighter'), so the body never
-    // goes thin in the middle of it.
-    const drawWalk = (t, u, D, body, gait) => {
-        const c = fig.ctx;
-        const fw = fig.w;
-        const fh = fig.h;
-        const q = gait.s * 2;
-        const idx = Math.floor(q + 0.5);
-        const loc = q - idx;
-        let nb = idx;
-        let w = 0;
-        if (loc > 0.5 - WALK_XF) {
-            nb = idx + 1;
-            w = smooth((loc - (0.5 - WALK_XF)) / (2 * WALK_XF));
-        } else if (loc < -0.5 + WALK_XF) {
-            nb = idx - 1;
-            w = smooth((-0.5 + WALK_XF - loc) / (2 * WALK_XF));
-        }
-        const pose = (i) => wk.frames[WALK_ORDER[((i % 4) + 4) % 4]];
-        const A = pose(idx);
-        const B = w > 0.004 ? pose(nb) : null;
-        const main = w > 0.5 ? B : A;
-        const mainIdx = w > 0.5 ? nb : idx;
-        if (mainIdx !== wk.shown) {
-            wk.shown = mainIdx;
-            castFrame(main);
-        }
-
-        c.clearRect(0, 0, fig.cw, fh);
-        const seg = (y0, y1, dx, sw = fw, off = 0) => {
-            const hgt = y1 - y0;
-            if (hgt <= 0) return;
-            const x = PAD + dx + off;
-            if (B) {
-                c.globalAlpha = 1 - w;
-                c.drawImage(A.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
-                c.globalCompositeOperation = 'lighter';
-                c.globalAlpha = w;
-                c.drawImage(B.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
-                c.globalCompositeOperation = 'source-over';
-                if (body > 0.02) {
-                    c.globalAlpha = (1 - w) * body;
-                    c.drawImage(A.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
-                    c.globalAlpha = w * body;
-                    c.drawImage(B.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
-                }
-            } else {
-                c.globalAlpha = 1;
-                c.drawImage(A.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
-                if (body > 0.02) {
-                    c.globalAlpha = body;
-                    c.drawImage(A.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
-                }
-            }
-        };
-
-        // The cloak follows his weight shift 120 to 180 ms late (the hem is the slowest), so it trails him and then overshoots a stop.
-        const calm = reduced ? 0.4 : 1;
-        const ref = Math.max(0.1, (0.9 * H) / fh);
-        const shiftFig = (x) => (WS / ref) * gaitAt(x).shift;
-        const now0 = shiftFig(u);
-        const turn = turnAt(u);
-        const split = Math.round(0.42 * fh);
-        const upper = reduced ? 0 : (shiftFig(u - 0.12) - now0) * 0.4 + Math.sin(t * 0.9) * 0.4;
-        if (turn > 0.001) {
-            const hd = Math.round(0.2 * fh);
-            const sw = fw * (1 - 0.045 * turn);
-            seg(0, hd, upper + turn * 3.5, sw, (fw - sw) / 2);
-            seg(hd, split, upper);
-        } else {
-            seg(0, split, upper);
-        }
-        const nh = Math.max(3, Math.round(fig.strips * 0.58));
-        for (let i = 0; i < nh; i += 1) {
-            const y0 = Math.round(split + ((fh - split) * i) / nh);
-            const y1 = Math.round(split + ((fh - split) * (i + 1)) / nh);
-            const f = y0 / fh;
-            const hem = smooth((f - 0.38) / 0.55);
-            const lag = 0.12 + 0.06 * hem;
-            const trail = reduced ? 0 : (shiftFig(u - lag) - now0) * (0.4 + 2.2 * hem);
-            const over = gait.over * 5 * (0.15 + 1.8 * hem);
-            const flutter = (0.5 + 2.2 * gait.sp) * 0.55 * (0.25 + 2.2 * hem) * Math.sin(t * 1.7 + i * 0.9) * calm;
-            seg(y0, y1, trail + over + flutter);
-        }
-        c.globalAlpha = 1;
-        drawGlints(c, u, D);
-    };
-
     const drawFigure = (t, u, D, body, gait) => {
         if (!fig.ready) return;
         if (wk.ok) {
-            drawWalk(t, u, D, body, gait);
+            const idx = walkFrame(gait.p);
+            if (idx !== wk.shown) {
+                wk.shown = idx;
+                drawAtlas(idx);
+            }
             return;
         }
         const c = fig.ctx;
@@ -1759,39 +1587,28 @@ const horror = (() => {
         drawGlints(c, u, D);
     };
 
-    /* ---- the dialogue card: per-letter reveal, driven by the clock ---- */
+    /* ---- the dialogue: an "audio intercept" subtitle blended into the camera picture, revealed word by word on the clock ---- */
 
+    const WORD_RATE = 0.045; // seconds between two words
     const PARTS = [
-        { at: P1[0], to: P1[1], rate: 0.024, lines: [[['Mana Mungkin Seorang '], ['"Vassell Enha"', true]]] },
-        { at: P2[0], to: P2[1], rate: 0.026, lines: [[['Memberikan Akses Panel Admin']], [['ke Amatiran Seperti Anda.']]] },
+        { at: P1[0], to: P1[1], words: [['Mana'], ['Mungkin'], ['Seorang'], ['"Vassell', true], ['Enha"', true]] },
+        { at: P2[0], to: P2[1], words: 'Memberikan Akses Panel Admin ke Amatiran Seperti Anda.'.split(' ').map((w) => [w]) },
     ];
     let shownPart = -1;
-    let chars = [];
+    let chars = []; // the word spans of the part on screen
+    let outAt = -1;
     const buildPart = (index, instant) => {
         dlgText.textContent = '';
         chars = [];
+        outAt = -1;
+        dlg.classList.remove('out');
         dlg.classList.toggle('instant', instant);
         if (index < 0) return;
-        PARTS[index].lines.forEach((line, li) => {
-            if (li > 0) dlgText.append(document.createElement('br'));
-            line.forEach(([str, hl]) => {
-                const holder = hl ? el('span', 'hl cr-w') : dlgText;
-                str.split(/(\s+)/).forEach((word) => {
-                    if (!word) return;
-                    if (/^\s+$/.test(word)) {
-                        holder.append(document.createTextNode(' '));
-                        return;
-                    }
-                    const w = hl ? holder : el('span', 'cr-w');
-                    Array.from(word).forEach((ch) => {
-                        const s = el('span', 'cr-ch', ch);
-                        w.append(s);
-                        chars.push(s);
-                    });
-                    if (!hl) holder.append(w);
-                });
-                if (hl) dlgText.append(holder);
-            });
+        PARTS[index].words.forEach(([word, hl], i) => {
+            if (i > 0) dlgText.append(document.createTextNode(' '));
+            const node = el('span', hl ? 'cr-w hl' : 'cr-w', word);
+            dlgText.append(node);
+            chars.push(node);
         });
     };
     const dialogue = (u, late) => {
@@ -1804,18 +1621,22 @@ const horror = (() => {
             dlg.style.visibility = hush ? 'hidden' : '';
         }
         if (part !== shownPart) {
+            const leaving = shownPart >= 0 && part < 0 && !late;
             shownPart = part;
-            buildPart(part, late);
+            if (leaving) {
+                // the part ends: the words fade with a small glitch, then are cleared (the card itself fades in DLG_FADE)
+                outAt = u;
+                dlg.classList.add('out');
+            } else {
+                buildPart(part, late);
+            }
         }
+        if (outAt >= 0 && (part >= 0 || u > outAt + 0.5)) buildPart(part, late);
         flag('on', part >= 0, dlg);
-        if (part < 0) {
-            flag('is-talking', false, dlg);
-            return false;
-        }
+        if (part < 0) return false;
         const p = PARTS[part];
-        const typed = Math.floor((u - p.at) / p.rate);
+        const typed = Math.floor((u - p.at) / WORD_RATE) + 1;
         chars.forEach((s, i) => s.classList.toggle('on', i < typed));
-        flag('is-talking', typed < chars.length, dlg);
         return typed < chars.length;
     };
 
@@ -2150,9 +1971,81 @@ const horror = (() => {
     let waiting = true;
     let startedAt = 0;
     let grainNow = -1;
+    // The door and the dust are drawn from one atlas each onto one canvas, on the same 15 fps tick as the walk.
+    const dr = { ok: false, failed: false, m: null, src: null, ctx: null, key: '' };
+    const adoptDoor = () => {
+        if (dr.ok || dr.failed) return;
+        const a = asset('door');
+        const j = asset('doorjson');
+        if (!a.ready || !j.ready) return;
+        const src = a.bmp || (a.img && a.img.naturalWidth ? a.img : null);
+        if (!src || !j.data || !j.data.frames) {
+            dr.failed = true; // no door atlas: the door simply fades with the room, as a plain crossfade
+            return;
+        }
+        dr.m = j.data;
+        dr.src = src;
+        doorCv.width = j.data.frameW;
+        doorCv.height = j.data.frameH;
+        dr.ctx = doorCv.getContext('2d');
+        dr.ok = true;
+    };
+    // Position in the atlas (a frame number, fractional between two frames) at time u.
+    const doorPos = (u) => {
+        if (u < DOOR.latch0) return 0;
+        if (u < DOOR.latch1) return 3 * smooth((u - DOOR.latch0) / (DOOR.latch1 - DOOR.latch0));
+        if (u < DOOR.stuck1) return 3 + 2 * ((u - DOOR.latch1) / (DOOR.stuck1 - DOOR.latch1));
+        if (u < DOOR.swing1) return 5 + 10 * inOut((u - DOOR.stuck1) / (DOOR.swing1 - DOOR.stuck1));
+        const x = clamp((u - DOOR.swing1) / (T.door1 - DOOR.swing1)); // the hit, one frame of rebound, the rest
+        return x < 0.375 ? 15 + x / 0.375 : 16 + (x - 0.375) / 0.625;
+    };
+    const doorAngle = (pos) => {
+        const table = dr.m ? dr.m.angleAt : null;
+        if (!table) return (pos / 17) * 121;
+        const i = Math.min(table.length - 2, Math.floor(pos));
+        return lerp(table[i], table[i + 1], clamp(pos - i));
+    };
+    const drawDoor = (a, b, f, shake, puffs) => {
+        const m = dr.m;
+        const c = dr.ctx;
+        const at = (n) => [(n % m.cols) * m.frameW, Math.floor(n / m.cols) * m.frameH];
+        c.globalCompositeOperation = 'source-over';
+        c.clearRect(0, 0, m.frameW, m.frameH);
+        const [ax, ay] = at(a);
+        c.globalAlpha = f > 0.001 ? 1 - f : 1;
+        c.drawImage(dr.src, ax, ay, m.frameW, m.frameH, shake, 0, m.frameW, m.frameH);
+        if (f > 0.001) {
+            const [bx, by] = at(b);
+            c.globalCompositeOperation = 'lighter'; // premultiplied add: a crossfade between two poses never goes thin
+            c.globalAlpha = f;
+            c.drawImage(dr.src, bx, by, m.frameW, m.frameH, shake, 0, m.frameW, m.frameH);
+            c.globalCompositeOperation = 'source-over';
+        }
+        const d = asset('dust');
+        const dsrc = d && (d.bmp || (d.img && d.img.naturalWidth ? d.img : null));
+        puffs.forEach(([n, cx, cy, size, alpha]) => {
+            if (!dsrc || n < 0 || n >= 8) return;
+            const cell = (m.dust && m.dust.cellW) || 128;
+            const cols = (m.dust && m.dust.cols) || 4;
+            c.globalAlpha = alpha * (1 - 0.15 * n / 7);
+            c.drawImage(dsrc, (n % cols) * cell, Math.floor(n / cols) * cell, cell, cell, (cx - m.offsetX) * m.scale - size * 0.5, (cy - m.offsetY) * m.scale - size * 0.62, size, size);
+        });
+        c.globalAlpha = 1;
+        stats.door += 1;
+    };
+
+    let lastTick = -1;
     const frame = () => {
         raf = window.requestAnimationFrame(frame);
+        if (document.hidden) return; // nothing runs while the tab is hidden; the clock is the server's
         const now = performance.now();
+        if (now - stats.t >= 1000) {
+            window.__hpStats = { fig: stats.fig, door: stats.door, fps: lite || degraded || reduced ? 10 : 15 };
+            if (import.meta.env && import.meta.env.DEV && stats.t) console.log('[honeypot] sprite redraws per second', window.__hpStats);
+            stats.fig = 0;
+            stats.door = 0;
+            stats.t = now;
+        }
         const t = (Date.now() - state.start) / 1000;
         const target = t / k;
         const dt = Math.min(0.1, (now - last) / 1000 || 0.016);
@@ -2190,7 +2083,12 @@ const horror = (() => {
         const u = waiting ? 0 : vis;
         const ut = u * k;
         if (!fig.ready) buildFigure();
-        else if (!wk.ok && !wk.failed && u > 2.5) walkStep();
+        else if (!wk.ok && !wk.failed && u > 2.5) adoptAtlas();
+        adoptDoor();
+        // The sprite tick: 15 per second, 10 on a weak device or with reduced motion. Nothing sprite related draws between ticks.
+        const tick = Math.floor(now / (1000 / (lite || degraded || reduced ? 10 : 15)));
+        const ticked = tick !== lastTick;
+        lastTick = tick;
 
         // One-shot sounds: scheduled on the audio clock a hair before the timeline reaches them, once each. Anything the
         // clock passed long ago (a reload at second N) stays silent, so a resume never replays old sounds.
@@ -2210,8 +2108,15 @@ const horror = (() => {
         const bootOp = smooth((u - 1.7) / 1.4);
         const cut = reduced ? smooth((u - T.reveal0) / 0.4) : inOut((u - T.reveal0) / (T.reveal1 - T.reveal0)); // the 400 ms crossfade
         const roomOn = u < T.reveal1 + 0.1;
-        const D = smooth((u - 7.2) / 2.8);
-        const door = smooth((u - T.door0) / (T.door1 - T.door0));
+        // The door: its position in the atlas is a pure function of u, so a seek lands on the right pose at once.
+        // The angle of the leaf drives the light that comes through (the room crossfade, the spill, the fog).
+        const wFade = reduced ? smooth((u - T.door0) / 0.4) : 0; // reduced motion: the leaf is simply there, after a 400 ms fade
+        const pos = reduced ? 0 : doorPos(u);
+        const ang = reduced ? 121 * wFade : doorAngle(pos);
+        const knockN = Math.floor((ut - T.knock * k) * 15);
+        const knocking = !reduced && knockN >= 0 && knockN < DOOR.knockTicks;
+        const door = smooth((ang - 4) / 60);
+        const D = smooth((ang - 2) / 110);
         const walk = gaitAt(u);
         const p = walk.p;
         // One slow dolly, built from two overlapping eases so it never stops: a gentle push over the room, then the long push
@@ -2222,7 +2127,29 @@ const horror = (() => {
 
         if (roomOn) {
             room.style.opacity = (bootOp * (1 - cut)).toFixed(3);
-            openImg.style.opacity = door.toFixed(3);
+            // the closed plate has a hole where its leaf is: the leaf comes from the atlas for as long as it moves
+            const holeOn = dr.ok && (reduced ? u >= T.door0 : pos > 0 || knocking);
+            if (holeOn !== cls.hole) {
+                cls.hole = holeOn;
+                closedImg.classList.toggle('has-hole', holeOn);
+                doorCv.style.visibility = holeOn ? 'visible' : 'hidden';
+                dr.key = '';
+            }
+            closedImg.style.opacity = (1 - door).toFixed(3);
+            holeEl.style.opacity = holeOn ? (1 - door).toFixed(3) : '0';
+            if (holeOn && (ticked || dr.key === '')) {
+                const hi = Math.min(16, Math.floor(pos));
+                const a = reduced ? 0 : hi;
+                const b = reduced ? 17 : hi + 1;
+                const f = reduced ? Math.round(wFade * 8) / 8 : Math.round((pos - hi) * 6) / 6;
+                const shake = knocking ? (knockN % 2 ? 2 : -2) : 0;
+                const puffs = lite || reduced || degraded ? [] : [[knockN, 785, 728, 70, 0.5], [Math.floor((ut - DOOR.swing1 * k) * 15), 950, 728, 130, 0.85]];
+                const key = `${a}|${f}|${shake}|${puffs.map((q) => (q[0] >= 0 && q[0] < 8 ? q[0] : -1)).join(',')}`;
+                if (key !== dr.key) {
+                    dr.key = key;
+                    drawDoor(a, b, f, shake, puffs);
+                }
+            }
             spill.style.opacity = (D * (1 - 0.3 * p)).toFixed(3);
             bloom.style.opacity = (0.5 * D * (1 - 0.3 * cam1)).toFixed(3);
             fogs.style.opacity = (0.06 + 0.26 * D).toFixed(3);
@@ -2235,6 +2162,13 @@ const horror = (() => {
             const cw = fig.cw || 724;
             const ch = fig.h || 1180;
             figEl.style.opacity = fOpacity.toFixed(3);
+            // Inside the door frame he is clipped to the opening; the box widens as he crosses the threshold, then is released.
+            const through = wk.ok ? smooth((p - 0.2) / 0.3) : 1;
+            if (through < 1 || cls.clipped) {
+                cls.clipped = through < 1;
+                const clip = through >= 1 ? '' : `inset(${(lerp(0.31, 0, through) * 100).toFixed(2)}% ${(lerp(0.43, 0, through) * 100).toFixed(2)}% 0% ${(lerp(0.41, 0, through) * 100).toFixed(2)}%)`;
+                figEl.style.clipPath = clip;
+            }
             // Shoulder roll: a turn of up to 1.2 degrees about his hips, alternating with each step.
             const hips = -0.48 * ch;
             figCanvas.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)}) translate(0px, ${hips.toFixed(1)}px) rotate(${(1.2 * walk.roll).toFixed(3)}deg) translate(0px, ${(-hips).toFixed(1)}px)`;
@@ -2245,19 +2179,28 @@ const horror = (() => {
             shadowEl.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)}, ${(-g.sc * len).toFixed(4)}) skewX(${skew.toFixed(2)}deg)`;
             reflectEl.style.opacity = (0.18 * D * fOpacity).toFixed(3);
             reflectEl.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch + walk.bob * 2).toFixed(1)}px, 0) scale(${(g.sc * 0.97).toFixed(4)}, ${(-g.sc * 0.82).toFixed(4)})`;
-            // sandwich: cold rim first, then the red light reaches it
-            sandWrap.firstElementChild.style.opacity = '1';
-            if (sandLit) sandLit.style.opacity = (0.6 * D).toFixed(3);
+            // the sandwich on the shelf: cold rim first, the lit copy comes up with the light, one slow glint once the door is open
+            eggLit.style.opacity = D.toFixed(3);
+            const gl = clamp((u - (T.door1 + 0.5)) / 1.6);
+            const glOn = gl > 0 && gl < 1 && !reduced;
+            if (glOn || cls.glint) {
+                cls.glint = glOn;
+                eggGlint.style.opacity = glOn ? (Math.sin(Math.PI * gl) ** 2 * 0.9).toFixed(3) : '0';
+                eggGlint.firstElementChild.style.transform = `translate3d(${lerp(-70, 70, gl).toFixed(1)}%, 0, 0)`;
+            }
 
-            if (now - fig.drawAt > fig.every) {
+            if (wk.ok ? ticked : now - fig.drawAt > fig.every) {
                 fig.drawAt = now;
                 drawFigure(ut, u, D, 0.05 + 0.1 * cam2, walk);
             }
 
             // ---- camera: one move, handheld drift on top, parallax by layer
             const drift = reduced ? 0 : 1;
-            const dx = (driftX(ut) + walk.shakeX * 2) * drift;
-            const dy = (driftY(ut) + walk.shakeY * 2) * drift;
+            // the stopper: 3 px of shake that dies away in 400 ms (none with reduced motion)
+            const hit = reduced ? 0 : (ut - DOOR.swing1 * k) / 0.4;
+            const sk = hit > 0 && hit < 1 ? Math.exp(-hit * 5) : 0;
+            const dx = (driftX(ut) + walk.shakeX * 2 + 3 * sk * Math.sin(hit * 46)) * drift;
+            const dy = (driftY(ut) + walk.shakeY * 2 + 2 * sk * Math.cos(hit * 37)) * drift;
             const face = toScreen(g, fig.face[0], fig.face[1]);
             const ox = lerp(W / 2, face.x, cam2);
             const oy = lerp(H / 2, face.y, cam2);
@@ -2277,7 +2220,6 @@ const horror = (() => {
                 if (blur !== blurNow) {
                     blurNow = blur;
                     layers.far.style.filter = blur ? `blur(${blur}px)` : '';
-                    sandWrap.style.filter = blur ? `blur(${(blur * 0.8).toFixed(1)}px)` : '';
                 }
             }
         }
@@ -2404,8 +2346,6 @@ const horror = (() => {
         hz.dataset.slot = SLOTS[chosen] || 'bottom';
     };
 
-    let sandLit = null;
-
     return {
         start(elapsedMs = 0) {
             if (started) return;
@@ -2420,11 +2360,11 @@ const horror = (() => {
             // The brand fonts must really be applied before the card is read; otherwise the fallback stack carries it.
             hz.dataset.fonts = 'pending';
             if (document.fonts && document.fonts.load) {
-                Promise.all([document.fonts.load('800 24px "Bagel Fat One"'), document.fonts.load('700 12px "Space Mono"')])
+                Promise.all([document.fonts.load('800 24px "Bagel Fat One"'), document.fonts.load('700 12px "Space Mono"'), document.fonts.load('600 24px "Oswald"'), document.fonts.load('700 12px "IBM Plex Mono"')])
                     .then(() => document.fonts.ready)
                     .then(() => {
                         const loaded = (name) => Array.from(document.fonts).some((face) => face.family.replace(/"/g, '') === name && face.status === 'loaded');
-                        hz.dataset.fonts = loaded('Bagel Fat One') && loaded('Space Mono') ? 'brand' : 'fallback';
+                        hz.dataset.fonts = ['Bagel Fat One', 'Space Mono', 'Oswald', 'IBM Plex Mono'].every(loaded) ? 'brand' : 'fallback';
                     })
                     .catch(() => { hz.dataset.fonts = 'fallback'; });
             } else {
@@ -2433,11 +2373,11 @@ const horror = (() => {
 
             layout();
             window.addEventListener('resize', layout);
-            // A lit copy of the sandwich fades in over the dim one when the red light arrives.
-            sandLit = sand.cloneNode(false);
-            sandLit.removeAttribute('id');
-            sandLit.className = 'cr-sand cr-sand-lit';
-            sandWrap.append(sandLit);
+            // Press or tap the sandwich on the shelf: a small crunch. No hint, no text.
+            eggWrap.addEventListener('click', () => {
+                play('crunch', SPACE.crunch);
+                if (eggWrap.animate && !reduced) eggWrap.animate([{ transform: 'scale(1)' }, { transform: 'scale(0.9) rotate(-2deg)' }, { transform: 'scale(1)' }], { duration: 150, easing: 'ease-out' });
+            });
             buildEnding();
             grain.style.transition = 'none';
             stopGrain = startCanvas(grain, { bars: false });

@@ -9,7 +9,7 @@
     <title>Brread!</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bagel+Fat+One&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bagel+Fat+One&family=Space+Mono:wght@400;700&family=Oswald:wght@600&family=IBM+Plex+Mono:wght@700&display=swap" rel="stylesheet">
     <noscript>
         <meta http-equiv="refresh" content="{{ $remaining + 1 }};url=/admin?resume=1">
         <style>#hz { display: none !important; } #hp-kewer { display: block !important; }</style>
@@ -25,22 +25,26 @@
             <div class="cr-screen" id="cr-screen">
             {{-- One continuous shot: a dark basement cold room, one door at the back, one motivated light. Driven by honeypot.js on a single clock. --}}
             <div class="cr-room" id="cr-room">
-                {{-- far layer: the cold room plates. The door opening is a cross-fade between the closed and the open plate. --}}
+                {{-- far layer: the cold room plates. Under everything is the open room without its door; the closed plate lies over it with a hole where its door leaf is, and the leaf swings from an atlas on one canvas (frame by frame, 15 fps). The shelf sandwich lives here too, so it follows the room. --}}
                 <div class="cr-layer cr-far" id="cr-far">
                     <div class="cr-plate">
-                        <img class="cr-img" data-asset="closed" alt="" decoding="async">
-                        <img class="cr-img cr-open" id="cr-open" data-asset="open" alt="" decoding="async">
+                        <img class="cr-img cr-open" id="cr-open" data-asset="opn" alt="" decoding="async">
+                        <i class="cr-hole" id="cr-hole"></i>
+                        <img class="cr-img cr-closed" id="cr-closed" data-asset="closed" alt="" decoding="async">
+                        <div class="cr-egg" id="cr-egg" aria-hidden="true">
+                            <img class="cr-egg-img" data-asset="egg" alt="" decoding="async">
+                            <img class="cr-egg-img cr-egg-lit" id="cr-egg-lit" data-asset="eggLit" alt="" decoding="async">
+                            <i class="cr-egg-glint" id="cr-egg-glint"><b></b></i>
+                        </div>
+                        <canvas class="cr-door" id="cr-door" aria-hidden="true"></canvas>
                         <i class="cr-doorline" id="cr-doorline"></i>
                         <img class="cr-img cr-spill" id="cr-spill" data-asset="spill" alt="" decoding="async">
                         
                     </div>
                 </div>
 
-                {{-- mid layer: the sandwich, the owner (canvas strips), his cast shadow and reflection, fog --}}
+                {{-- mid layer: the owner (one canvas, drawn from the walk atlas), his cast shadow and reflection, fog --}}
                 <div class="cr-layer cr-mid" id="cr-mid">
-                    <div class="cr-plate">
-                        <div class="cr-sand-wrap" id="cr-sand-wrap"><img class="cr-sand" id="cr-sand" data-asset="sand" alt="" decoding="async"></div>
-                    </div>
                     <canvas class="cr-cast cr-shadow" id="cr-shadow"></canvas>
                     <canvas class="cr-cast cr-reflect" id="cr-reflect"></canvas>
                     <div class="cr-fig" id="cr-fig"><canvas class="cr-fig-canvas" id="cr-fig-canvas"></canvas></div>
@@ -101,9 +105,9 @@
 
             {{-- The owner speaks: a dialogue card, no voice --}}
             <div class="cr-dlg" id="cr-dlg">
-                <div class="cr-dlg-tag"><span>VASSELL ENHA</span><i class="cr-wave"><b></b><b></b><b></b><b></b><b></b></i></div>
-                <span class="cr-dlg-bar"></span>
+                <div class="cr-dlg-tag"><i class="cr-dlg-rec"></i><span>AUDIO INTERCEPT / MIC 2 / V. ENHA</span></div>
                 <p class="cr-dlg-text" id="cr-dlg-text"></p>
+                <i class="cr-dlg-mk cr-dlg-mk-a"></i><i class="cr-dlg-mk cr-dlg-mk-b"></i>
             </div>
 
             <div class="cr-dark"></div>
