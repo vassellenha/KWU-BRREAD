@@ -14,7 +14,13 @@ use Illuminate\Support\Facades\Cache;
 class HoneypotTrap
 {
     /** Addresses that count as the honeypot, each with its sub-paths. */
-    public const PATHS = ['admin', 'administrator', 'wp-admin'];
+    public const PATHS = ['admin', 'administrator', 'wp-admin', 'login', 'dashboard', 'panel', 'cpanel', 'phpmyadmin', 'backend'];
+
+    /** Names of the optional real sound files in public/audio/honeypot/ (any of mp3, ogg, wav, m4a). */
+    public const SAMPLES = [
+        'door-creak', 'footstep-wet', 'drip', 'heavy-thud', 'cape-rustle', 'fluorescent-buzz',
+        'gunshot', 'glass-crack', 'zap', 'crt-off', 'stinger',
+    ];
 
     /** Where a held visitor is sent back to from any other page. */
     public const HOME_PATH = '/admin';
@@ -90,12 +96,53 @@ class HoneypotTrap
     }
 
     /**
+     * "?replay=1" lets a developer run the trap again at once, ignoring the grace period. It exists
+     * only outside production, so a visitor of the live site can never use it to restart or dodge a hold.
+     */
+    public static function replayAllowed(Request $request): bool
+    {
+        return $request->boolean('replay') && ! app()->environment('production');
+    }
+
+    /**
+     * The real sound files that are actually present, as name => public URL. The page hands this list to the
+     * browser so it never has to probe for a missing file (a probe would be sent to the trap while a hold runs).
+     *
+     * @return array<string, string>
+     */
+    public static function samples(?string $directory = null): array
+    {
+        $directory ??= public_path('audio/honeypot');
+        $found = [];
+
+        foreach (self::SAMPLES as $name) {
+            foreach (['mp3', 'ogg', 'wav', 'm4a'] as $extension) {
+                if (is_file($directory.'/'.$name.'.'.$extension)) {
+                    $found[$name] = '/audio/honeypot/'.$name.'.'.$extension;
+
+                    break;
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * Starts the hold unless the address was just released. False means "leave them alone".
      * The grace period starts with the hold and outlasts it, so Back cannot restart the trap.
+     * With $replay the grace period and any finished hold are wiped first (see replayAllowed).
      */
-    public static function begin(Request $request): bool
+    public static function begin(Request $request, bool $replay = false): bool
     {
-        if (! self::enabled() || Cache::has(self::key('grace', $request))) {
+        if (! self::enabled()) {
+            return false;
+        }
+
+        if ($replay) {
+            Cache::forget(self::key('hold', $request));
+            Cache::forget(self::key('grace', $request));
+        } elseif (Cache::has(self::key('grace', $request))) {
             return false;
         }
 

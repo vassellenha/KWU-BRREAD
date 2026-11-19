@@ -208,6 +208,107 @@ class HoneypotTrapTest extends TestCase
         $this->get('/staff/orders')->assertRedirect('/staff');
     }
 
+    public function test_the_extra_bait_addresses_start_the_hold(): void
+    {
+        foreach (['/login', '/dashboard', '/panel', '/cpanel', '/phpmyadmin', '/backend', '/phpmyadmin/index.php', '/backend/users'] as $path) {
+            Cache::flush();
+            $this->get($path)->assertOk()->assertSee('Amatiran');
+            $this->assertGreaterThan(0, $this->heldSince());
+        }
+    }
+
+    public function test_the_real_sign_in_addresses_are_not_bait(): void
+    {
+        $this->get('/staff')->assertOk()->assertDontSee('Amatiran');
+        $this->get('/superadmin')->assertOk()->assertDontSee('Amatiran');
+        $this->assertSame(0, $this->heldSince());
+    }
+
+    public function test_no_bait_address_ever_redirects_and_every_answer_is_never_cached(): void
+    {
+        foreach (HoneypotTrap::PATHS as $path) {
+            Cache::flush();
+            $trap = $this->get('/'.$path);
+            $trap->assertOk();
+            $this->assertStringContainsString('no-store', (string) $trap->headers->get('Cache-Control'));
+
+            // while the hold runs, a held visitor is only ever sent back with a 303, never a permanent redirect
+            $this->get('/menu')->assertStatus(303)->assertRedirect('/admin')->assertHeader('Cache-Control', 'no-store, private');
+        }
+
+        Cache::flush();
+        $this->get('/admin')->assertOk();
+        Cache::forget('honeypot-hold:127.0.0.1');
+        $released = $this->get('/admin');
+        $released->assertOk();
+        $this->assertStringContainsString('no-store', (string) $released->headers->get('Cache-Control'));
+
+        config(['auth.honeypot_trap' => false]);
+        $off = $this->get('/admin');
+        $off->assertNotFound();
+        $this->assertStringContainsString('no-store', (string) $off->headers->get('Cache-Control'));
+    }
+
+    public function test_replay_ignores_the_grace_period_outside_production(): void
+    {
+        $this->get('/admin')->assertOk();
+        Cache::forget('honeypot-hold:127.0.0.1');
+
+        // inside the grace period the address is left alone ...
+        $this->get('/admin')->assertOk()->assertDontSee('Amatiran');
+        $this->assertSame(0, $this->heldSince());
+
+        // ... until a developer asks for a replay
+        $this->assertFalse(app()->environment('production'));
+        $this->get('/admin?replay=1')->assertOk()->assertSee('Amatiran')->assertSee('data-elapsed="0"', false);
+        $this->assertGreaterThan(0, $this->heldSince());
+    }
+
+    public function test_replay_restarts_a_finished_hold_even_when_a_browser_is_resuming(): void
+    {
+        $this->get('/admin')->assertOk();
+        $this->elapsed(75);
+
+        $this->get('/admin?resume=1&replay=1')->assertOk()->assertSee('data-elapsed="0"', false);
+    }
+
+    public function test_replay_is_ignored_in_production(): void
+    {
+        $this->app['env'] = 'production';
+        $this->get('/admin')->assertOk();
+        Cache::forget('honeypot-hold:127.0.0.1');
+
+        $this->get('/admin?replay=1')->assertOk()->assertSee("location.replace('/')", false)->assertDontSee('Amatiran');
+        $this->assertSame(0, $this->heldSince());
+
+        // a hold that is running is not restarted by it either
+        Cache::flush();
+        $this->get('/admin')->assertOk();
+        $this->elapsed(12);
+        $this->get('/admin?replay=1')->assertOk()->assertSee('data-elapsed="12"', false);
+    }
+
+    public function test_the_page_lists_only_the_sound_files_that_exist(): void
+    {
+        // The page hands over exactly what is on disk (the real recordings are bundled), never a guess.
+        $this->get('/admin')->assertOk()->assertSee('data-samples="'.e(json_encode(HoneypotTrap::samples(), JSON_UNESCAPED_SLASHES)).'"', false);
+
+        // The scan itself runs against a scratch folder, so no real recording is touched.
+        $dir = sys_get_temp_dir().'/honeypot-samples-'.uniqid();
+        mkdir($dir, 0777, true);
+        file_put_contents($dir.'/gunshot.mp3', 'x');
+        file_put_contents($dir.'/zap.ogg', 'x');
+        file_put_contents($dir.'/not-a-known-sound.mp3', 'x');
+
+        try {
+            $this->assertSame(['gunshot' => '/audio/honeypot/gunshot.mp3', 'zap' => '/audio/honeypot/zap.ogg'], HoneypotTrap::samples($dir));
+            $this->assertSame([], HoneypotTrap::samples($dir.'/missing'));
+        } finally {
+            array_map('unlink', glob($dir.'/*') ?: []);
+            @rmdir($dir);
+        }
+    }
+
     public function test_the_flag_turns_the_trap_off(): void
     {
         config(['auth.honeypot_trap' => false]);

@@ -625,6 +625,7 @@ const horror = (() => {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
             buildBus(ctx);
             loadSamples(ctx);
+            loadCue(ctx);
         } catch (error) {
             bus = null;
         }
@@ -872,7 +873,9 @@ const horror = (() => {
                 const source = c.createBufferSource();
                 source.buffer = buffer;
                 source.playbackRate.value = pitch();
-                source.connect(voice(c, o));
+                // A recording has one loudness, so the synthesized voices' intensity argument becomes its gain.
+                const strength = typeof o.arg === 'number' && (name === 'foot' || name === 'sting' || name === 'boom') ? 0.4 + 0.7 * o.arg : 1;
+                source.connect(voice(c, { ...o, gain: (o.gain ?? 1) * strength }));
                 source.start(t);
             } else {
                 SFX[name](c, t, o);
@@ -959,7 +962,6 @@ const horror = (() => {
     const REST = { p: 1, s: 0, sp: 0, bob: 0, roll: 0, shift: 0, settle: 0, heel: 0, over: 0, shakeX: 0, shakeY: 0 };
     const P1 = [16.1, 19.0];
     const P2 = [19.8, 24.0];
-    const QUIET = [[12.5, 14.0], [26.1, 26.55], [T.black, 31]]; // windows where the cue is faded to nothing
 
     // [time, sound, argument]. The sound is scheduled on the audio clock just before the time, so it lands with the timeline.
     const EVENTS = [
@@ -1027,6 +1029,15 @@ const horror = (() => {
                 break;
             }
         }
+        // Forward speed follows the step phase: a little quicker at each heel contact, a little slower through the passing
+        // pose. A whole step adds nothing, so every stride still ends exactly on its mark.
+        let first = 0;
+        STRIDES.forEach((st) => {
+            const local = clamp(s - first, 0, st.strikes.length);
+            const env = Math.sin(Math.PI * clamp((u - st.a) / (st.b - st.a))); // zero at both ends, so he never creeps backwards
+            p += ((st.w / st.strikes.length) * 0.3 * env * Math.sin(2 * Math.PI * local)) / (2 * Math.PI);
+            first += st.strikes.length;
+        });
         let heel = 0;
         let shakeX = 0;
         let shakeY = 0;
@@ -1064,6 +1075,7 @@ const horror = (() => {
     /* ---- the art plates: a need-ordered manifest; nothing starts until what the current moment needs is decoded ---- */
 
     const ART = '/img/honeypot/';
+    const WALK = [1, 2, 3, 4].map((n) => `${ART}walk-sheet/walk-${n}.webp`); // optional walk cycle, see the walk block below
     const ASSETS = [
         { key: 'closed', src: `${ART}room-closed.webp`, from: 0, until: 10.5 },
         { key: 'sand', src: `${ART}sandwich-hero.webp`, from: 2.2, until: 24.2 },
@@ -1072,6 +1084,7 @@ const horror = (() => {
         { key: 'open', src: `${ART}room-open.webp`, from: 6.6, until: 24.2 },
         { key: 'spill', src: `${ART}light-spill.webp`, from: 6.6, until: 24.2 },
         { key: 'char', src: hz.dataset.figure, from: 8.0, until: 24.2 },
+        ...WALK.map((src, i) => ({ key: `walk${i}`, src, from: 4.0, until: 24.2, soft: true })), // optional: the scene never waits for them
         { key: 'aim', src: `${ART}aim-pose.webp`, from: 23.6, until: 28.6 },
         { key: 'flash', src: `${ART}muzzle-flash.webp`, from: 26.0, until: 27.4 },
         { key: 'crack', src: `${ART}glass-crack.webp`, from: 26.0, until: 28.6 },
@@ -1079,7 +1092,7 @@ const horror = (() => {
     const asset = (key) => ASSETS.find((a) => a.key === key);
     const needed = (a, u) => a.from <= u + 0.25 && a.until > u;
     // True when every plate the moment u needs is decoded (a plate that failed to load counts: the scene just stays dark there).
-    const gate = (u) => ASSETS.every((a) => a.ready || !needed(a, u));
+    const gate = (u) => ASSETS.every((a) => a.ready || a.soft || !needed(a, u));
     const loadAsset = (a) => new Promise((resolve) => {
         const img = new Image();
         img.decoding = 'async';
@@ -1182,7 +1195,7 @@ const horror = (() => {
     const PAD = 24;
     const GLINTS = [[316, 106], [365, 106]];
     const FACE_C = [342, 112];
-    const fig = { ready: false, w: 0, h: 0, cw: 0, lit: null, dark: null, ctx: null, strips: lite ? 9 : 16, drawAt: 0, every: lite ? 50 : 33 };
+    const fig = { ready: false, w: 0, h: 0, cw: 0, face: FACE_C, glints: GLINTS, lit: null, dark: null, ctx: null, strips: lite ? 9 : 16, drawAt: 0, every: lite ? 50 : 33 };
 
     const silhouette = (target, img) => {
         const c = target.getContext('2d');
@@ -1228,6 +1241,246 @@ const horror = (() => {
         fig.ready = true;
     };
 
+    /* ---- the real walk: four poses of one cycle, keyed out of their red background once and cached.
+       Sheet order (public/img/honeypot/walk-sheet/): walk-1 left foot contact, walk-2 passing, walk-3 right foot contact,
+       walk-4 passing. One step is two poses, so the step phase s from the gait picks the pose (poses sit on half steps)
+       and a short phase window crossfades neighbours. If the order on disk differs, change WALK_ORDER only.
+       Frames are normalized from their own alpha box: the same height for all, the sole of the lowest foot on the bottom
+       row and the torso (not the planted foot, which moves under the body) on the centre line, so the body never jumps.
+       Any failure (a missing file, a tainted canvas, a bad key) leaves wk.ok false and the standing cutout is used. ---- */
+
+    const WALK_ORDER = lite ? [0, 1, 2, 1] : [0, 1, 2, 3]; // pose cycle as indexes into the sheet; lite keeps three frames
+    const WALK_XF = 0.13; // half width of the crossfade between poses, in half steps (about 100 ms at his cadence)
+    const wk = { ok: false, failed: reduced, job: null, frames: [], shown: -1 };
+
+    // Key the red out of one sheet frame. The key colour is read from the four corners, so the exact red does not matter.
+    // Flat key-coloured pixels anywhere go (the gaps between arm and body); softer pixels go only when they touch the
+    // background, with their red mixed out (decontamination), so a red rim light inside the body is left alone.
+    function* keyImage(img) {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        const cx = cv.getContext('2d', { willReadFrequently: true });
+        cx.drawImage(img, 0, 0);
+        const id = cx.getImageData(0, 0, w, h);
+        const d = id.data;
+        let kr = 0;
+        let kg = 0;
+        let kb = 0;
+        let kn = 0;
+        [[0, 0], [w - 6, 0], [0, h - 6], [w - 6, h - 6]].forEach(([x0, y0]) => {
+            for (let y = y0; y < y0 + 6; y += 1) {
+                for (let x = x0; x < x0 + 6; x += 1) {
+                    const i = (y * w + x) * 4;
+                    kr += d[i];
+                    kg += d[i + 1];
+                    kb += d[i + 2];
+                    kn += 1;
+                }
+            }
+        });
+        kr /= kn;
+        kg /= kn;
+        kb /= kn;
+        const dist2 = (i) => {
+            const dr = d[i] - kr;
+            const dg = d[i + 1] - kg;
+            const db = d[i + 2] - kb;
+            return dr * dr + dg * dg + db * db;
+        };
+        const FLAT = 30;
+        const SOFT = 150;
+        const n = w * h;
+        const bgm = new Uint8Array(n); // 1 where the background is
+        for (let p = 0; p < n; p += 1) {
+            if (dist2(p * 4) < FLAT * FLAT) bgm[p] = 1;
+            if ((p & 65535) === 0 && performance.now() > wkUntil) yield;
+        }
+        // flood in from the border through softly similar pixels (the anti-aliased rim of the figure is not reached)
+        const stack = new Int32Array(n);
+        let top = 0;
+        const push = (p) => {
+            if (!bgm[p] && dist2(p * 4) < 4096) {
+                bgm[p] = 1;
+                stack[top] = p;
+                top += 1;
+            }
+        };
+        for (let x = 0; x < w; x += 1) {
+            push(x);
+            push((h - 1) * w + x);
+        }
+        for (let y = 0; y < h; y += 1) {
+            push(y * w);
+            push(y * w + w - 1);
+        }
+        let spin = 0;
+        while (top > 0) {
+            spin += 1;
+            if ((spin & 65535) === 0 && performance.now() > wkUntil) yield;
+            top -= 1;
+            const p = stack[top];
+            const x = p % w;
+            if (x > 0) push(p - 1);
+            if (x < w - 1) push(p + 1);
+            if (p >= w) push(p - w);
+            if (p < n - w) push(p + w);
+        }
+        // a two pixel band around the background gets a soft alpha and its colour freed from the red
+        const band = new Uint8Array(n);
+        for (let pass = 0; pass < 2; pass += 1) {
+            for (let y = 1; y < h - 1; y += 1) {
+                if (performance.now() > wkUntil) yield;
+                for (let x = 1; x < w - 1; x += 1) {
+                    const p = y * w + x;
+                    if (bgm[p] || band[p] > pass) continue;
+                    if (bgm[p - 1] || bgm[p + 1] || bgm[p - w] || bgm[p + w] || (pass && (band[p - 1] === pass || band[p + 1] === pass || band[p - w] === pass || band[p + w] === pass))) band[p] = pass + 1;
+                }
+            }
+        }
+        for (let p = 0; p < n; p += 1) {
+            if ((p & 65535) === 0 && performance.now() > wkUntil) yield;
+            const i = p * 4;
+            if (bgm[p]) {
+                d[i] = 0;
+                d[i + 1] = 0;
+                d[i + 2] = 0;
+                d[i + 3] = 0;
+            } else if (band[p]) {
+                const a = clamp(smooth((Math.sqrt(dist2(i)) - FLAT) / (SOFT - FLAT)), 0.04, 1);
+                d[i] = clamp((d[i] - (1 - a) * kr) / a, 0, 255);
+                d[i + 1] = clamp((d[i + 1] - (1 - a) * kg) / a, 0, 255);
+                d[i + 2] = clamp((d[i + 2] - (1 - a) * kb) / a, 0, 255);
+                d[i + 3] = Math.round(255 * a);
+            }
+        }
+        cx.putImageData(id, 0, 0);
+        // the alpha box (a row or a column needs a few solid pixels, so a stray speck does not stretch it)
+        let y0 = -1;
+        let y1 = -1;
+        let x0 = w;
+        let x1 = -1;
+        let mx = 0;
+        let mn = 0;
+        for (let y = 0; y < h; y += 1) {
+            if ((y & 127) === 0 && performance.now() > wkUntil) yield;
+            let count = 0;
+            for (let x = 0; x < w; x += 1) {
+                if (d[(y * w + x) * 4 + 3] > 128) {
+                    count += 1;
+                    if (x < x0) x0 = x;
+                    if (x > x1) x1 = x;
+                }
+            }
+            if (count >= 3) {
+                if (y0 < 0) y0 = y;
+                y1 = y;
+            }
+        }
+        if (y0 < 0 || y1 - y0 < 100) throw new Error('walk frame has no figure');
+        // torso centre line: alpha weighted mean x over 25 to 55 percent of the height
+        const r0 = Math.round(y0 + 0.25 * (y1 - y0));
+        const r1 = Math.round(y0 + 0.55 * (y1 - y0));
+        for (let y = r0; y <= r1; y += 1) {
+            for (let x = 0; x < w; x += 1) {
+                const a = d[(y * w + x) * 4 + 3] / 255;
+                mx += a * x;
+                mn += a;
+            }
+        }
+        return { cv, w, h, y0, y1, x0, x1, ax: mn ? mx / mn : (x0 + x1) / 2 };
+    }
+
+    // The work runs as a job that gives the thread back after about 6 ms of each animation frame, so four frames are
+    // keyed and graded without one visible hitch.
+    let wkUntil = 0;
+    function* walkJob() {
+        try {
+            const imgs = WALK.map((_, i) => asset(`walk${i}`));
+            const used = WALK_ORDER.filter((v, i) => WALK_ORDER.indexOf(v) === i);
+            const keyed = [];
+            for (let i = 0; i < used.length; i += 1) {
+                const a = imgs[used[i]];
+                if (!a.img || !a.img.naturalWidth) throw new Error('walk frame missing');
+                keyed[i] = yield* keyImage(a.img);
+                yield;
+            }
+            const fh = fig.h;
+            const scales = keyed.map((kf) => fh / (kf.y1 - kf.y0 + 1));
+            const half = Math.max(...keyed.map((kf, i) => Math.max(kf.ax - kf.x0, kf.x1 - kf.ax) * scales[i]));
+            const fw = Math.max(fig.w, Math.ceil(2 * half) + 8);
+            const frames = [];
+            for (let i = 0; i < used.length; i += 1) {
+                const kf = keyed[i];
+                const lit = document.createElement('canvas');
+                lit.width = fw;
+                lit.height = fh;
+                const lc = lit.getContext('2d', { willReadFrequently: true });
+                lc.drawImage(kf.cv, fw / 2 - kf.ax * scales[i], -kf.y0 * scales[i], kf.w * scales[i], kf.h * scales[i]);
+                yield;
+                const dark = document.createElement('canvas');
+                dark.width = fw;
+                dark.height = fh;
+                const data = lc.getImageData(0, 0, fw, fh);
+                const px = data.data;
+                for (let j = 0; j < px.length; j += 4) {
+                    if ((j & 262143) === 0 && performance.now() > wkUntil) yield;
+                    const rim = smooth((px[j] - 70) / 110);
+                    const gain = 0.085 + 0.9 * rim;
+                    px[j] *= gain;
+                    px[j + 1] *= gain;
+                    px[j + 2] *= gain;
+                }
+                dark.getContext('2d').putImageData(data, 0, 0);
+                wk.frames[used[i]] = { lit, dark };
+                kf.cv.width = 1; // release the full size canvas
+                kf.cv.height = 1;
+                yield;
+            }
+            // adopt: every size that depended on the standing cutout follows the walk frames
+            fig.w = fw;
+            fig.cw = fw + PAD * 2;
+            figCanvas.width = fig.cw;
+            figCanvas.height = fh;
+            [shadowEl, reflectEl].forEach((cv) => {
+                cv.width = fig.cw;
+                cv.height = fh;
+            });
+            fig.face = [fw / 2 + 4, FACE_C[1]];
+            fig.glints = [[fw / 2 - 22, GLINTS[0][1]], [fw / 2 + 27, GLINTS[1][1]]];
+            wk.shown = -1;
+            wk.ok = true;
+        } catch (error) {
+            wk.failed = true; // keep the standing cutout, never crash
+        }
+    }
+    const walkStep = () => {
+        if (wk.ok || wk.failed || !fig.ready || !WALK.every((_, i) => asset(`walk${i}`).ready)) return;
+        if (!wk.job) wk.job = walkJob();
+        wkUntil = performance.now() + 6;
+        try {
+            if (wk.job.next().done) wk.job = null;
+        } catch (error) {
+            wk.failed = true;
+        }
+    };
+
+    // The black copy for the cast shadow and the reflection follows the pose on screen (same frame, the CSS flips it).
+    const castFrame = (frame) => {
+        [shadowEl, reflectEl].forEach((cv) => {
+            const c = cv.getContext('2d');
+            c.globalCompositeOperation = 'source-over';
+            c.clearRect(0, 0, cv.width, cv.height);
+            c.drawImage(frame.lit, PAD, 0);
+            c.globalCompositeOperation = 'source-in';
+            c.fillStyle = '#000';
+            c.fillRect(0, 0, cv.width, cv.height);
+            c.globalCompositeOperation = 'source-over';
+        });
+    };
+
     // Where the cutout stands, from the gait: path position on an in-out cubic, plus the bob, the weight shift, the settle
     // at a mark and the small scale rise at each heel strike. Offsets are px at his nearest size and shrink with distance.
     const figGeom = (gait) => {
@@ -1255,8 +1508,117 @@ const horror = (() => {
 
     const turnAt = (u) => (reduced ? 0 : smooth((u - 12.9) / 0.5) * (1 - 0.35 * smooth((u - 13.8) / 0.4)) * (1 - smooth((u - 14.2) / 0.5)));
 
+    // Lens glints: two small points, faintly alive; they catch the light as the door opens, and go red as the face comes up.
+    const drawGlints = (c, u, D) => {
+        const rd = smooth((u - T.reveal0) / 0.25);
+        const ga = 0.1 + 0.32 * D + 0.5 * rd;
+        const rgb = `${Math.round(235 + 20 * rd)},${Math.round(252 - 190 * rd)},${Math.round(255 - 195 * rd)}`;
+        fig.glints.forEach(([gx, gy]) => {
+            const r = 5 + 4 * rd;
+            const g = c.createRadialGradient(PAD + gx, gy, 0, PAD + gx, gy, r);
+            g.addColorStop(0, `rgba(${rgb},${ga.toFixed(3)})`);
+            g.addColorStop(1, `rgba(${rgb},0)`);
+            c.fillStyle = g;
+            c.fillRect(PAD + gx - 14, gy - 14, 28, 28);
+        });
+    };
+
+    // The walking figure. The head and torso are one piece and barely move; only the lower 58 percent is cut into strips
+    // that sway out of phase (the cloak and its hem), their amplitude following the step speed. Segments tile on whole rows,
+    // and a crossfade between two poses is a premultiplied blend (A at 1 - w, then B at w with 'lighter'), so the body never
+    // goes thin in the middle of it.
+    const drawWalk = (t, u, D, body, gait) => {
+        const c = fig.ctx;
+        const fw = fig.w;
+        const fh = fig.h;
+        const q = gait.s * 2;
+        const idx = Math.floor(q + 0.5);
+        const loc = q - idx;
+        let nb = idx;
+        let w = 0;
+        if (loc > 0.5 - WALK_XF) {
+            nb = idx + 1;
+            w = smooth((loc - (0.5 - WALK_XF)) / (2 * WALK_XF));
+        } else if (loc < -0.5 + WALK_XF) {
+            nb = idx - 1;
+            w = smooth((-0.5 + WALK_XF - loc) / (2 * WALK_XF));
+        }
+        const pose = (i) => wk.frames[WALK_ORDER[((i % 4) + 4) % 4]];
+        const A = pose(idx);
+        const B = w > 0.004 ? pose(nb) : null;
+        const main = w > 0.5 ? B : A;
+        const mainIdx = w > 0.5 ? nb : idx;
+        if (mainIdx !== wk.shown) {
+            wk.shown = mainIdx;
+            castFrame(main);
+        }
+
+        c.clearRect(0, 0, fig.cw, fh);
+        const seg = (y0, y1, dx, sw = fw, off = 0) => {
+            const hgt = y1 - y0;
+            if (hgt <= 0) return;
+            const x = PAD + dx + off;
+            if (B) {
+                c.globalAlpha = 1 - w;
+                c.drawImage(A.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
+                c.globalCompositeOperation = 'lighter';
+                c.globalAlpha = w;
+                c.drawImage(B.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
+                c.globalCompositeOperation = 'source-over';
+                if (body > 0.02) {
+                    c.globalAlpha = (1 - w) * body;
+                    c.drawImage(A.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
+                    c.globalAlpha = w * body;
+                    c.drawImage(B.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
+                }
+            } else {
+                c.globalAlpha = 1;
+                c.drawImage(A.dark, 0, y0, fw, hgt, x, y0, sw, hgt);
+                if (body > 0.02) {
+                    c.globalAlpha = body;
+                    c.drawImage(A.lit, 0, y0, fw, hgt, x, y0, sw, hgt);
+                }
+            }
+        };
+
+        // The cloak follows his weight shift 120 to 180 ms late (the hem is the slowest), so it trails him and then overshoots a stop.
+        const calm = reduced ? 0.4 : 1;
+        const ref = Math.max(0.1, (0.9 * H) / fh);
+        const shiftFig = (x) => (WS / ref) * gaitAt(x).shift;
+        const now0 = shiftFig(u);
+        const turn = turnAt(u);
+        const split = Math.round(0.42 * fh);
+        const upper = reduced ? 0 : (shiftFig(u - 0.12) - now0) * 0.4 + Math.sin(t * 0.9) * 0.4;
+        if (turn > 0.001) {
+            const hd = Math.round(0.2 * fh);
+            const sw = fw * (1 - 0.045 * turn);
+            seg(0, hd, upper + turn * 3.5, sw, (fw - sw) / 2);
+            seg(hd, split, upper);
+        } else {
+            seg(0, split, upper);
+        }
+        const nh = Math.max(3, Math.round(fig.strips * 0.58));
+        for (let i = 0; i < nh; i += 1) {
+            const y0 = Math.round(split + ((fh - split) * i) / nh);
+            const y1 = Math.round(split + ((fh - split) * (i + 1)) / nh);
+            const f = y0 / fh;
+            const hem = smooth((f - 0.38) / 0.55);
+            const lag = 0.12 + 0.06 * hem;
+            const trail = reduced ? 0 : (shiftFig(u - lag) - now0) * (0.4 + 2.2 * hem);
+            const over = gait.over * 5 * (0.15 + 1.8 * hem);
+            const flutter = (0.5 + 2.2 * gait.sp) * 0.55 * (0.25 + 2.2 * hem) * Math.sin(t * 1.7 + i * 0.9) * calm;
+            seg(y0, y1, trail + over + flutter);
+        }
+        c.globalAlpha = 1;
+        drawGlints(c, u, D);
+    };
+
     const drawFigure = (t, u, D, body, gait) => {
         if (!fig.ready) return;
+        if (wk.ok) {
+            drawWalk(t, u, D, body, gait);
+            return;
+        }
         const c = fig.ctx;
         const n = fig.strips;
         const sh = fig.h / n;
@@ -1292,18 +1654,7 @@ const horror = (() => {
             }
         }
         c.globalAlpha = 1;
-        // Lens glints: two small points, faintly alive; they catch the light as the door opens, and go red as the face comes up.
-        const rd = smooth((u - T.reveal0) / 0.25);
-        const ga = 0.1 + 0.32 * D + 0.5 * rd;
-        const rgb = `${Math.round(235 + 20 * rd)},${Math.round(252 - 190 * rd)},${Math.round(255 - 195 * rd)}`;
-        GLINTS.forEach(([gx, gy]) => {
-            const r = 5 + 4 * rd;
-            const g = c.createRadialGradient(PAD + gx, gy, 0, PAD + gx, gy, r);
-            g.addColorStop(0, `rgba(${rgb},${ga.toFixed(3)})`);
-            g.addColorStop(1, `rgba(${rgb},0)`);
-            c.fillStyle = g;
-            c.fillRect(PAD + gx - 14, gy - 14, 28, 28);
-        });
+        drawGlints(c, u, D);
     };
 
     /* ---- the dialogue card: per-letter reveal, driven by the clock ---- */
@@ -1485,32 +1836,161 @@ const horror = (() => {
         flag('b-dead', u >= 28.8);
     };
 
-    /* ---- the optional cue track: played once with the master clock, ducked under sound effects and dialogue ---- */
+    /* ---- the Suno cue: decoded once, played once through the master bus, locked to the timeline.
+       The file is 29.8 s and the shot is at 26.6 s, so it is placed, not stretched: its loudest bar (CUE_PEAK, measured)
+       sits on the start of the face reveal (T.reveal0), which makes it start 1.0 s into the file at u = 0 and cut hard at
+       the shot (a sample-accurate stop() scheduled when it starts). The gain follows the scene: silent until the door
+       opens, a slow swell as he appears, strongest on the approach, a climax from the reveal, a 300 ms gap, the cut.
+       A reload at second N starts it at the matching file position. If the decode or the context fails, a plain Audio
+       element plays the same file with the same envelope. ---- */
 
     const CUE = '/audio/honeypot-cue.mp3';
-    let cue = null;
+    const CUE_PEAK = 25.0; // second of the file where the track peaks, landed on T.reveal0
+    const CUE_GAIN = 0.55; // pre-bus gain at the climax: about -8 dBFS peak and -16 dBFS RMS after the bus
+    const CUE_DUCK = dB(-4); // under dialogue and sound effects, only 4 dB
+    const CUE_GAP = 0.3; // the one silence, right before the shot
+    let cue = null; // the Audio element, only used when WebAudio cannot
+    let cueBuf = null;
+    let cueMode = 'loading'; // loading, buffer, element
+    let cueGain = null;
+    let cueSrc = null;
+    let cueT0 = 0;
+    let cueOff = 0;
+    let cueAt = -1e9;
     let cueVol = 0;
-    let cueTry = 0;
+    let cueBlocked = false;
+
+    const loadCue = (c) => {
+        fetch(CUE, { credentials: 'same-origin' })
+            .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('missing'))))
+            .then((data) => new Promise((ok, fail) => {
+                const run = c.decodeAudioData(data, ok, fail);
+                if (run && run.catch) run.catch(fail);
+            }))
+            .then((buffer) => {
+                cueBuf = buffer;
+                cueGain = c.createGain();
+                cueGain.gain.value = 0;
+                cueGain.connect(bus.master);
+                const send = c.createGain(); // a small send into the cold-room reverb, so it sits in the same space
+                send.gain.value = 0.12;
+                cueGain.connect(send);
+                send.connect(bus.verb);
+                cueMode = 'buffer';
+            })
+            .catch(() => { cueMode = 'element'; });
+    };
+
+    // 0 to 1: the shape of the level across the scene.
+    const cueEnv = (u) => {
+        const swell = smooth((u - T.door0) / 2.2); // the door opens: it comes up from nothing
+        const steps = 0.5 + 0.2 * smooth((u - 15.4) / 1.6); // the approach
+        const climax = 0.3 * smooth((u - (T.reveal0 - 1.4)) / 1.4); // the reveal
+        return swell * (steps + climax);
+    };
+    const cueStop = () => {
+        if (!cueSrc) return;
+        try { cueSrc.stop(); } catch (error) { /* already stopped */ }
+        try { cueSrc.disconnect(); } catch (error) { /* already gone */ }
+        cueSrc = null;
+    };
+    const cueStart = (c, u, fileAt) => {
+        cueStop();
+        try {
+            const src = c.createBufferSource();
+            src.buffer = cueBuf;
+            src.connect(cueGain);
+            const when = c.currentTime + 0.03;
+            src.start(when, fileAt);
+            src.stop(when + Math.max(0.05, (T.shot - u) * k)); // the hard cut, on the audio clock
+            cueSrc = src;
+            cueT0 = when;
+            cueOff = fileAt;
+        } catch (error) {
+            cueSrc = null;
+        }
+    };
     const syncCue = (now, u, dt, talking) => {
-        if (!cue) return;
-        if (u < 0 || u > 29.7 || document.hidden) {
-            if (!cue.paused) cue.pause();
+        if (u < 0 || document.hidden || u >= T.shot + 0.05) {
+            cueStop();
+            if (cue && !cue.paused) cue.pause();
+            cueVol = 0;
             return;
         }
-        let want = 0.28; // low and under everything: it plays once with the timeline and is never looped
-        QUIET.forEach(([a, b]) => { if (u >= a && u < b) want = 0; });
-        if (now < duckUntil || talking) want *= 0.38;
-        cueVol += (want - cueVol) * Math.min(1, dt * 7);
-        cue.volume = clamp(cueVol);
-        if (cue.paused) {
-            if (now - cueTry > 900) {
-                cueTry = now;
-                try { cue.currentTime = u; } catch (error) { /* not seekable yet */ }
-                const run = cue.play();
-                if (run && run.catch) run.catch(() => {});
+        const gap = u >= T.shot - CUE_GAP;
+        let want = gap ? 0 : cueEnv(u);
+        if (!gap && (talking || now < duckUntil)) want *= CUE_DUCK;
+        cueVol += (want - cueVol) * Math.min(1, dt * (gap ? 40 : 7));
+        const fileAt = (u - T.reveal0) * k + CUE_PEAK;
+
+        if (cueMode === 'buffer') {
+            const c = ctx;
+            if (!c || !bus || !cueGain || c.state !== 'running') return;
+            cueGain.gain.setTargetAtTime(cueVol * CUE_GAIN, c.currentTime, 0.02);
+            if (u < T.door0 - 0.3) return; // nothing audible yet: start just before the door
+            if (!cueSrc) {
+                if (now - cueAt > 400 && fileAt < cueBuf.duration) {
+                    cueAt = now;
+                    cueStart(c, u, fileAt);
+                }
+            } else if (c.currentTime > cueT0 && Math.abs(cueOff + (c.currentTime - cueT0) - fileAt) > 0.25 && now - cueAt > 500) {
+                cueAt = now; // the timeline jumped (reload, a snap, a hidden tab): land on the same second again
+                cueStart(c, u, fileAt);
             }
-        } else if (Math.abs(cue.currentTime - u) > 0.4) {
-            try { cue.currentTime = u; } catch (error) { /* not seekable yet */ }
+            return;
+        }
+
+        if (cueMode !== 'element') return;
+        if (!cue) {
+            cue = new Audio(CUE);
+            cue.preload = 'auto';
+            cue.volume = 0;
+        }
+        cue.volume = clamp(cueVol * CUE_GAIN);
+        if (u < T.door0 - 0.3) return;
+        if (cue.paused) {
+            if (now - cueAt > 900) {
+                cueAt = now;
+                try { cue.currentTime = fileAt; } catch (error) { /* not seekable yet */ }
+                const run = cue.play();
+                if (run && run.catch) run.catch(() => { cueBlocked = true; });
+            }
+        } else if (Math.abs(cue.currentTime - fileAt) > 0.4) {
+            try { cue.currentTime = fileAt; } catch (error) { /* not seekable yet */ }
+        }
+    };
+
+    /* ---- sound needs a gesture in most browsers. Only if the audio clock cannot run, a dark CCTV card asks for a tap.
+       Any tap or key opens sound and removes it. The timeline never waits for it: the server's clock keeps running. ---- */
+
+    let tapEl = null;
+    let tapState = 'check'; // check, shown, done
+    const tapClose = () => {
+        if (tapState !== 'shown') return;
+        tapState = 'done';
+        if (tapEl) {
+            const el = tapEl;
+            el.classList.add('is-gone');
+            window.setTimeout(() => el.remove(), 450);
+            tapEl = null;
+        }
+    };
+    const tapOpen = () => {
+        tapState = 'shown';
+        tapEl = document.createElement('div');
+        tapEl.className = 'cr-tap';
+        tapEl.innerHTML = '<div class="cr-tap-box"><span class="cr-tap-rec"><i></i>REC</span><b>SINYAL TERTAHAN</b><em>KETUK UNTUK MELANJUTKAN</em><small>CAM 3 / AUDIO OFF</small></div>';
+        hz.append(tapEl);
+    };
+    const tapCheck = (now) => {
+        if (tapState !== 'check' || now - startedAt < 500) return;
+        const running = ctx && ctx.state === 'running';
+        if (running) {
+            tapState = 'done'; // audio is allowed already: no card
+        } else if (ctx || cueBlocked) {
+            tapOpen();
+        } else if (!(window.AudioContext || window.webkitAudioContext) && now - startedAt > 1500) {
+            tapState = 'done';
         }
     };
 
@@ -1563,6 +2043,7 @@ const horror = (() => {
         const u = waiting ? 0 : vis;
         const ut = u * k;
         if (!fig.ready) buildFigure();
+        else if (!wk.ok && !wk.failed && u > 2.5) walkStep();
 
         // One-shot sounds: scheduled on the audio clock a hair before the timeline reaches them, once each. Anything the
         // clock passed long ago (a reload at second N) stays silent, so a resume never replays old sounds.
@@ -1630,7 +2111,7 @@ const horror = (() => {
             const drift = reduced ? 0 : 1;
             const dx = (driftX(ut) + walk.shakeX * 2) * drift;
             const dy = (driftY(ut) + walk.shakeY * 2) * drift;
-            const face = toScreen(g, FACE_C[0], FACE_C[1]);
+            const face = toScreen(g, fig.face[0], fig.face[1]);
             const ox = lerp(W / 2, face.x, cam2);
             const oy = lerp(H / 2, face.y, cam2);
             const panX = (geo.afx - face.x) * cam2;
@@ -1735,6 +2216,7 @@ const horror = (() => {
         shotAt(u);
         flag('b-black', u >= T.black);
         syncCue(now, waiting ? -1 : u, dt, talking);
+        tapCheck(now);
     };
 
     let sandLit = null;
@@ -1776,21 +2258,22 @@ const horror = (() => {
             stopGrain = startCanvas(grain, { bars: false });
             preload(elapsedMs / 1000 / k);
 
-            cue = new Audio(CUE);
-            cue.preload = 'auto';
-            cue.volume = 0;
-
-            // Sound needs a gesture in most browsers: try now, and again on the first press, key or touch.
+            // Sound needs a gesture in most browsers: try now, and again on every press, key or touch until it runs.
             audio();
             wake();
-            ['pointerdown', 'keydown', 'touchstart'].forEach((type) => window.addEventListener(type, () => { wake(); cueTry = 0; }, { once: true, capture: true }));
+            const gesture = () => {
+                wake();
+                cueAt = -1e9;
+                tapClose();
+            };
+            ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'keydown'].forEach((type) => window.addEventListener(type, gesture, { capture: true, passive: true }));
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
                     if (cue) cue.pause();
                 } else {
                     wake();
-                    cueTry = 0;
+                    cueAt = -1e9;
                 }
             });
 
@@ -1803,7 +2286,9 @@ const horror = (() => {
             window.cancelAnimationFrame(raf);
             stopGrain();
             hz.hidden = true;
+            cueStop();
             if (cue) cue.pause();
+            if (tapEl) tapEl.remove();
             if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
         },
     };
