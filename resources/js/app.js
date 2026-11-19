@@ -1504,16 +1504,38 @@ if (aboutRoot) {
 }
 
 // The entry intro is driven entirely by CSS (it leaves even if this script never runs);
-// this only clears the node out of the DOM afterwards.
+// this only clears the node out of the DOM afterwards. The quick variant (html.quick-intro) gets a 1.6s hard cap.
 const intro = document.getElementById('brread-intro');
 if (intro) {
     const done = () => intro.remove();
-    if (document.documentElement.classList.contains('no-intro')) done();
+    const root = document.documentElement;
+    if (root.classList.contains('no-intro')) done();
     else {
         intro.addEventListener('animationend', (event) => event.animationName === 'intro-out' && done());
-        setTimeout(done, 4000);
+        setTimeout(done, root.classList.contains('quick-intro') ? 1600 : 4000);
     }
 }
+
+// Back/forward cache: a page restored from it must never show a stale loader or carry a stale flag.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    document.getElementById('brread-intro')?.remove();
+    try { sessionStorage.removeItem('brreadHomeNav'); } catch (e) { /* storage unavailable */ }
+});
+
+// Logo or Home link in the public navbar (desktop and mobile menu): flag the next page load so Home plays the short
+// intro. The browser still navigates normally; plain left clicks only, and never when already on Home.
+document.addEventListener('click', (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest('.site-nav a[href]') : null;
+    if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+    let url;
+    try { url = new URL(link.href, location.href); } catch (e) { return; }
+    if (url.origin !== location.origin || url.pathname !== '/' || location.pathname === '/') return;
+    try {
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) sessionStorage.setItem('brreadHomeNav', String(Date.now()));
+    } catch (e) { /* storage unavailable: no loader, navigation still works */ }
+});
 
 // Watches for elements added after the initial paint too (Alpine x-for lists populated by an
 // async axios call render their [data-reveal] nodes well after DOMContentLoaded).

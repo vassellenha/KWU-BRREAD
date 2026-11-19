@@ -567,6 +567,22 @@ html.no-intro #brread-intro {
     #brread-intro { display: none; }
 }
 
+/* Quick variant (~1s): same markup, same keyframes, shorter timings. The head script in layouts/app.blade.php adds
+   html.quick-intro when Home is opened through the logo or the Home link; app.js caps it at 1.6s. */
+html.quick-intro #brread-intro { animation-delay: 1000ms; }
+html.quick-intro #brread-intro .intro-panel { animation-delay: 690ms; }
+html.quick-intro #brread-intro .intro-stack { animation-duration: 260ms; animation-delay: 380ms; }
+html.quick-intro #brread-intro .intro-piece { animation-duration: 300ms; }
+html.quick-intro #brread-intro .intro-bottom { animation-delay: 0ms; }
+html.quick-intro #brread-intro .intro-ice { animation-delay: 80ms; }
+html.quick-intro #brread-intro .intro-top { animation-delay: 160ms; }
+html.quick-intro #brread-intro .intro-sprinkle { animation-duration: 450ms; animation-delay: 400ms; }
+html.quick-intro #brread-intro .intro-logo { animation-duration: 260ms; animation-delay: 280ms; }
+html.quick-intro #brread-intro .intro-count { animation-duration: 200ms; animation-delay: 140ms; }
+html.quick-intro #brread-intro .intro-count span::after { animation-duration: 600ms; animation-delay: 140ms; }
+html.quick-intro #brread-intro .intro-melt { animation-duration: 600ms; animation-delay: 400ms; }
+html.quick-intro .scribble path { animation-delay: 1100ms; }
+
 /* ---------- About page (pages/about.blade.php + js/about.js) ---------- */
 .about-bar {
     position: fixed;
