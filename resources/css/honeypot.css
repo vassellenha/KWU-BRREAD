@@ -64,54 +64,62 @@ html, body {
     background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.72) 100%);
 }
 
-/* ---- the line itself ---- */
+/* ---- the line itself: the same terminal window as the floating ones, anchored bottom centre ---- */
 
-.hp-center {
-    position: absolute;
+.hp {
+    --disp: 'Bagel Fat One', 'Baloo 2', ui-rounded, 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+    --mono: 'Space Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, 'Liberation Mono', monospace;
+    --pink: #f7a3b6;
+    --dried: #a8364f;
+    --cream: #f7ecd4;
+    --teal: #9fc2c9;
+}
+
+.hp-win.hp-say {
     left: 0;
     right: 0;
-    bottom: 9vh;
-    padding: 0 5vw;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-}
-
-.hp-text {
-    position: relative;
-    margin: 0;
-    max-width: 34ch;
-    padding: 0.35em 0.6em 0.45em;
-    font-size: clamp(0.95rem, 2.2vw, 1.6rem);
+    top: auto;
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 6vh);
+    width: min(86vw, 780px);
+    margin: 0 auto;
+    background: rgba(8, 6, 8, 0.86);
+    border: 1px solid rgba(247, 163, 182, 0.6);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.85);
+    color: var(--cream);
     opacity: 0;
-    transition: opacity 600ms ease;
+    transform: none;
+    animation: none;
+    transition: opacity 300ms ease;
+    will-change: opacity, transform;
+}
+
+.hp-say.is-shown { opacity: 1; }
+.hp-say.is-pop { animation: hp-say-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.hp-say.is-glitching { animation: hp-glitch 240ms steps(2, end) both; }
+
+.hp-win.hp-say header { background: rgba(247, 163, 182, 0.14); color: var(--pink); font-family: var(--mono); font-weight: 700; font-size: clamp(9px, 2.4vw, 11px); }
+.hp-win.hp-say header i:nth-child(2) { background: #ffd36b; }
+.hp-win.hp-say header i:nth-child(3) { background: #6dffb0; }
+
+.hp-say-text {
+    margin: 0;
+    padding: 0.5em clamp(12px, 3vw, 20px) 0.65em;
+    font-family: var(--disp);
     font-weight: 800;
-    line-height: 1.12;
-    letter-spacing: 0.01em;
-    text-align: center;
-    text-transform: none;
-    color: #f4f4f4;
-    background: rgba(0, 0, 0, 0.62);
-    border: 2px solid rgba(255, 60, 90, 0.85);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9), 0 0 38px rgba(255, 30, 80, 0.45);
-    text-shadow: 2px 0 rgba(255, 40, 90, 0.75), -2px 0 rgba(0, 220, 255, 0.7);
-    transform: translateZ(0);
+    font-size: clamp(18px, 4.6vw, 30px);
+    line-height: 1.2;
+    color: var(--cream);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7);
+    overflow-wrap: break-word;
 }
 
-.hp-text.is-shown { opacity: 1; }
-
-.hp-text.is-typing::after {
-    content: '';
-    display: inline-block;
-    width: 0.5em;
-    height: 0.95em;
-    margin-left: 0.1em;
-    vertical-align: -0.12em;
-    background: #ff3c5a;
-    animation: hp-caret 900ms steps(1, end) infinite;
-}
-
-.hp-text.is-glitching { animation: hp-glitch 240ms steps(2, end) both; }
+.hp-say-line { display: block; }
+.hp-say-text .w { display: inline-block; white-space: nowrap; }
+.hp-say-text .c { opacity: 0; }
+.hp-say-text .c.on { opacity: 1; }
+.hp-say-text .hl { color: var(--pink); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7), 0 0 18px rgba(247, 163, 182, 0.6); }
+.hp-say-text .cur { position: relative; display: inline-block; width: 0; }
+.hp-say-text .cur::before { content: ''; position: absolute; left: 0.04em; top: 0.12em; width: 0.5em; height: 0.95em; background: var(--pink); animation: hp-caret 900ms steps(1, end) infinite; }
 
 /* ---- countdown: only the time left ---- */
 
@@ -247,22 +255,26 @@ html, body {
     50% { opacity: 0; }
 }
 
+@keyframes hp-say-pop {
+    from { transform: scale(0.92); }
+    to { transform: scale(1); }
+}
+
 /* Gentler on small screens and slow machines: fewer windows, no shaking. */
-.hp.is-lite .hp-win:nth-child(n+3) { display: none; }
+.hp.is-lite .hp-windows .hp-win:nth-child(n+3) { display: none; }
 .hp.is-lite.is-shaking { animation: none; }
 .hp.is-lite .hp-video { filter: none; }
 
 /* Reduced motion keeps the trap and the video, but nothing shakes, glitches or strobes, and everything moves slowly. */
-.hp.is-calm.is-shaking, .hp.is-calm .hp-text.is-glitching { animation: none; }
-.hp.is-calm .hp-text.is-shown { opacity: 1; }
-
-.hp-text.is-typing::after { animation-duration: 1600ms; }
+.hp.is-calm.is-shaking, .hp.is-calm .hp-say.is-glitching, .hp.is-calm .hp-say.is-pop { animation: none; }
+.hp.is-calm .hp-say.is-shown { opacity: 1; }
+.hp.is-calm .hp-say-text .cur::before { animation: none; }
 .hp.is-calm .hp-win { animation-duration: 60s; }
 .hp.is-calm .hp-stamp.is-on { animation-duration: 4200ms; }
 .hp.is-calm .hp-pop.is-on { animation-duration: 4200ms; }
 
 @media (prefers-reduced-motion: reduce) {
-    .hp.is-shaking, .hp-text.is-glitching { animation: none; }
+    .hp.is-shaking, .hp-say.is-glitching, .hp-say.is-pop { animation: none; }
     .hp-win { animation-duration: 60s; }
 }
 
@@ -276,12 +288,6 @@ html, body {
 .hp-kewer[hidden] { display: none; }
 
 .hz {
-    --disp: 'Bagel Fat One', 'Baloo 2', ui-rounded, 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
-    --mono: 'Space Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, 'Liberation Mono', monospace;
-    --pink: #f7a3b6;
-    --dried: #a8364f;
-    --cream: #f7ecd4;
-    --teal: #9fc2c9;
     --pw: max(100vw, 150vh);
     --ph: calc(var(--pw) / 1.5);
     position: absolute;
@@ -415,8 +421,8 @@ html, body {
 .cr-scan { inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.18) 3px, rgba(0, 0, 0, 0.18) 4px); }
 .cr-roll { left: 0; right: 0; top: 0; height: 16%; pointer-events: none; background: linear-gradient(to bottom, rgba(200, 230, 235, 0), rgba(200, 230, 235, 0.035), rgba(200, 230, 235, 0)); animation: cr-roll 8s linear infinite; will-change: transform; }
 .cr-tear { left: 0; right: 0; height: 3.6%; opacity: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255, 40, 90, 0.2), rgba(0, 230, 255, 0.16)); }
-.cr-tear-a { top: 31%; }
-.cr-tear-b { top: 64%; }
+.cr-tear-a { top: var(--tear-a, 31%); }
+.cr-tear-b { top: var(--tear-b, 64%); }
 .hz.is-tear .cr-tear-a { opacity: 1; transform: translateX(-26px); }
 .hz.is-tear .cr-tear-b { opacity: 1; transform: translateX(34px); }
 .hz.is-tear .cr-room { filter: drop-shadow(3px 0 0 rgba(255, 40, 90, 0.4)) drop-shadow(-3px 0 0 rgba(0, 230, 255, 0.34)); }
@@ -511,13 +517,19 @@ html, body {
 
 /* ---- the ending: the tube losing power ---- */
 
-.cr-nosig { left: 0; right: 0; top: 46%; text-align: center; font-family: var(--mono); font-size: clamp(11px, 3vw, 16px); letter-spacing: 0.3em; color: #cfe7ea; opacity: 0; pointer-events: none; }
+.cr-nosig { left: 0; right: 0; top: calc(max(14px, env(safe-area-inset-top)) + 34px); text-align: center; font-family: var(--mono); font-size: clamp(11px, 3vw, 16px); letter-spacing: 0.3em; color: #cfe7ea; opacity: 0; pointer-events: none; }
 .cr-nosig.sig { opacity: 0.55; }
 .cr-crtline { left: 0; right: 0; top: 50%; height: 3px; opacity: 0; pointer-events: none; z-index: 6; transform: translateY(-50%); background: linear-gradient(90deg, rgba(220, 240, 255, 0), rgba(220, 240, 255, 0.9) 18%, rgba(220, 240, 255, 0.9) 82%, rgba(220, 240, 255, 0)); box-shadow: 0 0 14px rgba(170, 214, 255, 0.45); border-radius: 50%; }
-.cr-dc { left: 0; right: 0; top: 48%; text-align: center; font-family: var(--mono); font-size: clamp(11px, 3vw, 15px); letter-spacing: 0.4em; color: #cfe7ea; opacity: 0; pointer-events: none; z-index: 7; }
+.cr-dc { left: 0; right: 0; top: calc(max(14px, env(safe-area-inset-top)) + 34px); display: flex; justify-content: center; opacity: 0; pointer-events: none; z-index: 7; }
+.cr-dc-box { display: grid; justify-items: center; gap: calc(var(--dcf, 46px) * 0.16); max-width: 94vw; padding: calc(var(--dcf, 46px) * 0.12) calc(var(--dcf, 46px) * 0.3) calc(var(--dcf, 46px) * 0.2); background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(207, 231, 234, 0.16); }
+.cr-dc-t { font-family: var(--disp); font-weight: 800; font-size: var(--dcf, 46px); line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; color: #fff; text-shadow: var(--dcs, 3px) 0 0 rgba(255, 40, 90, 0.95), calc(var(--dcs, 3px) * -1) 0 0 rgba(0, 230, 255, 0.85); }
+.cr-dc-s { font-family: var(--mono); font-size: clamp(9px, 2.3vw, 13px); letter-spacing: 0.2em; white-space: nowrap; text-transform: uppercase; color: #cfe7ea; }
 .hz.hud-off .cr-hudl { opacity: 0; }
 .hz:not(.is-calm).hud-off .cr-hudl { transition: none; }
-.hz.b-dead > *:not(.cr-keep) { visibility: hidden; }
+.hz.b-dead > *:not(.cr-keep):not(.cr-screen) { visibility: hidden; }
+.cr-avoid { visibility: hidden; }
+.cr-dlg.slot-top { bottom: auto; top: calc(max(14px, env(safe-area-inset-top)) + 46px); }
+.cr-dlg.slot-low { bottom: max(8px, env(safe-area-inset-bottom)); }
 
 @keyframes cr-roll { from { transform: translate3d(0, -110%, 0); } to { transform: translate3d(0, 700%, 0); } }
 @keyframes cr-fog { from { transform: translate3d(-4%, 0, 0); } to { transform: translate3d(5%, 0, 0); } }
@@ -538,3 +550,35 @@ html, body {
 
 /* a slow phone gets a plain blend for the cracked lens */
 .hz.is-lite .cr-crackwrap { mix-blend-mode: normal; }
+
+/* the tap card: only when the browser will not start sound by itself. Dark, scanlined, no way out hinted. */
+.cr-tap {
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    background: rgba(2, 4, 4, 0.9);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--mono);
+    color: #cfe7ea;
+    text-align: center;
+    transition: opacity 400ms ease-out;
+}
+.cr-tap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 3px);
+}
+.cr-tap.is-gone { opacity: 0; pointer-events: none; }
+.cr-tap-box { position: relative; display: grid; gap: 10px; justify-items: center; padding: 22px 26px; max-width: 86vw; }
+.cr-tap-box b { font-family: var(--disp); font-weight: 400; font-size: clamp(18px, 5.4vw, 30px); letter-spacing: 0.16em; color: var(--cream); }
+.cr-tap-box em { font-style: normal; font-size: clamp(10px, 3vw, 13px); letter-spacing: 0.3em; color: var(--pink); animation: cr-tap-blink 1.6s steps(2, jump-none) infinite; }
+.cr-tap-box small { font-size: 9px; letter-spacing: 0.22em; opacity: 0.55; }
+.cr-tap-rec { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 0.2em; color: #ff5470; }
+.cr-tap-rec i { width: 7px; height: 7px; border-radius: 50%; background: #ff3050; }
+@keyframes cr-tap-blink { 0% { opacity: 1; } 100% { opacity: 0.35; } }
+.hz.is-calm .cr-tap-box em { animation: none; }

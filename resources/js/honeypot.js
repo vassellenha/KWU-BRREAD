@@ -154,15 +154,88 @@ function finish() {
 
 /* ------------------------------------------------------------ the line, typed in */
 
-/** The line comes back as a short caption over the video, twice: near the start and around the middle. */
+/* The owner's line is a terminal window ("vassell@brread:~$ say", the same window as the floating ones) typed in at 28 ms a
+   letter with a block cursor, in two parts with a 500 ms pause. It pops in (scale .92 to 1, small overshoot), fades out, and
+   comes back twice: near the start and around the middle, retyped each time. */
+
+const SAY = [
+    [['Mana Mungkin Seorang "'], ['Vassell Enha', true], ['"']],
+    [['Memberikan Akses Panel Admin ke Amatiran Seperti Anda.']],
+];
+const SAY_RATE = 28;
+const SAY_PAUSE = 500;
+const SAY_HOLD = 6400;
+const sayBox = document.getElementById('hp-say');
+let sayRun = 0;
+
+function sayBuild() {
+    text.textContent = '';
+    const cur = el('i', 'cur');
+    const lines = SAY.map((segments) => {
+        const line = el('span', 'say-line hp-say-line');
+        const chars = [];
+        segments.forEach(([str, hl]) => {
+            const holder = hl ? el('span', 'hl') : line;
+            str.split(/(\s+)/).forEach((word) => {
+                if (!word) return;
+                if (/^\s+$/.test(word)) {
+                    holder.append(document.createTextNode(' '));
+                    return;
+                }
+                const w = el('span', 'w');
+                Array.from(word).forEach((ch) => {
+                    const c = el('span', 'c', ch);
+                    w.append(c);
+                    chars.push(c);
+                });
+                holder.append(w);
+            });
+            if (hl) line.append(holder);
+        });
+        text.append(line);
+        return chars;
+    });
+    sayBox.setAttribute('aria-label', SAY.map((segments) => segments.map(([str]) => str).join('')).join(' '));
+    return { cur, lines };
+}
+
+function sayType(run, built) {
+    const queue = [];
+    built.lines.forEach((chars) => chars.forEach((c, ci) => queue.push({ c, first: ci === 0 })));
+    let n = 0;
+    queue[0].c.before(built.cur);
+    const step = () => {
+        if (run !== sayRun || state.ended) return;
+        queue[n].c.classList.add('on');
+        n += 1;
+        const next = queue[n];
+        if (!next) {
+            built.cur.remove();
+            return;
+        }
+        // the block cursor sits in front of the letter about to be typed
+        next.c.before(built.cur);
+        later(step, next.first ? SAY_PAUSE : SAY_RATE);
+    };
+    later(step, SAY_RATE);
+}
+
 function caption() {
     const show = (ms) => {
         if (state.ended) return;
-        text.classList.add('is-shown');
-        later(() => text.classList.remove('is-shown'), ms);
+        sayRun += 1;
+        const run = sayRun;
+        const built = sayBuild();
+        sayBox.classList.remove('is-glitching');
+        sayBox.classList.add('is-shown', 'is-pop');
+        later(() => sayBox.classList.remove('is-pop'), 320);
+        sayType(run, built);
+        later(() => {
+            if (run === sayRun) sayBox.classList.remove('is-shown');
+        }, ms);
     };
-    later(() => show(6000), 800);
-    later(() => show(6000), Math.max(8000, (state.until - Date.now()) / 2));
+    later(() => show(SAY_HOLD), 800);
+    later(() => show(SAY_HOLD), Math.max(8000, (state.until - Date.now()) / 2));
 }
 
 function glitchLoop() {
@@ -170,9 +243,11 @@ function glitchLoop() {
 
     // One burst of 240 ms every few seconds: far below three a second.
     if (!document.hidden && state.phase === 'kewer') {
-        text.classList.remove('is-glitching');
-        void text.offsetWidth;
-        text.classList.add('is-glitching');
+        if (sayBox.classList.contains('is-shown')) {
+            sayBox.classList.remove('is-glitching', 'is-pop');
+            void sayBox.offsetWidth;
+            sayBox.classList.add('is-glitching');
+        }
         if (!lite) {
             root.classList.remove('is-shaking');
             void root.offsetWidth;
@@ -521,6 +596,12 @@ const horror = (() => {
     let lineEl = null;
     let dcEl = null;
     let nosig = null;
+    let dcBox = null;
+    let dcTitle = null;
+    let zone = { l: 0, t: 0, r: 0, b: 0 };
+    let guardDirty = true;
+    let guardAt = -1e9;
+    let hudParts = [];
     let chips = [];
     let sparks = [];
 
@@ -942,8 +1023,21 @@ const horror = (() => {
         key0: 24.2, // the key light ramps up on his face
         key1: 25.4,
         shot: 26.6, // silence before it: 26.2 to 26.6
-        black: 29.3,
+        glitch0: 26.8, // the picture breaks: tear, red/cyan split, CAM 3 NO SIGNAL (to dc0)
+        dc0: 27.6, // DISCONNECTED snaps in, with its zap, and holds still
+        crt0: 28.9, // the tube loses power: scaleY to a line, scaleX to a dot, DISCONNECTED shrinks with the screen
+        crt1: 29.4, // the dot is gone
+        black: 29.4, // black plus one low thud, then Kewer at the end of the 30 seconds
     };
+    // The barrel safe zone, as fractions of the aim plate: the slide and the muzzle (x .20 to .47, y .43 to .67) plus 20 percent.
+    // Nothing the viewer has to read may enter it while the pistol is on screen (ZONE_ON), and the plate is scaled up to 1.15
+    // about the muzzle by then, so the zone is grown by ZONE_SA and padded.
+    const ZONE = [0.146, 0.382, 0.524, 0.718];
+    const ZONE_SA = 1.16;
+    const ZONE_PAD = 12;
+    const ZONE_ON = T.rise0 - 0.2;
+    const DLG_FADE = 0.4; // the card's own fade
+    const DLG_GAP = 0.3; // dialogue is gone at least this long before the pistol rises
     // The gait. A stride is a run of steps, and every step is one phase from 0 to 1 between two heel strikes. That single
     // phase drives the bob (two peaks per two steps), the shoulder roll, the weight shift and the cloak. The stride itself
     // starts and stops on an in-out cubic, so he never moves at a constant speed. He stops once, in silence, around 13 s.
@@ -961,7 +1055,7 @@ const horror = (() => {
     const SETTLE_PX = 3;
     const REST = { p: 1, s: 0, sp: 0, bob: 0, roll: 0, shift: 0, settle: 0, heel: 0, over: 0, shakeX: 0, shakeY: 0 };
     const P1 = [16.1, 19.0];
-    const P2 = [19.8, 24.0];
+    const P2 = [19.8, Math.min(24.0, T.rise0 - DLG_GAP - DLG_FADE)];
 
     // [time, sound, argument]. The sound is scheduled on the audio clock just before the time, so it lands with the timeline.
     const EVENTS = [
@@ -985,9 +1079,9 @@ const horror = (() => {
         [T.rise1, 'click'],
         [T.shot, 'shot'],
         [T.shot + 0.06, 'glass'],
-        [27.15, 'zap'],
-        [28.1, 'crtoff'],
-        [29.55, 'thud'],
+        [T.dc0, 'zap'],
+        [T.crt0, 'crtoff'],
+        [T.crt1 + 0.05, 'thud'],
     ];
 
     const threatAt = (u) => {
@@ -1145,6 +1239,14 @@ const horror = (() => {
         const afx = W / 2 + (AIM_FACE[0] - 0.5) * aw;
         const afy = at + AIM_FACE[1] * ah;
         geo = { mx, my, afx, afy, aw, ah };
+        // the barrel safe zone, in screen pixels, grown for the push-in (scaled about the muzzle) and padded for the recoil
+        const zx = (f) => mx + (W / 2 + (f - 0.5) * aw - mx) * ZONE_SA;
+        zone = { l: zx(ZONE[0]) - ZONE_PAD, r: zx(ZONE[2]) + ZONE_PAD, t: my + (at + ZONE[1] * ah - my) * ZONE_SA - ZONE_PAD, b: my + (at + ZONE[3] * ah - my) * ZONE_SA + ZONE_PAD };
+        hz.dataset.zone = [zone.l, zone.t, zone.r, zone.b].map((v) => v.toFixed(0)).join(',');
+        // the two glitch bands stay either side of it
+        hz.style.setProperty('--tear-a', `${Math.max(0, zone.t - 0.036 * H - 6).toFixed(0)}px`);
+        hz.style.setProperty('--tear-b', `${Math.min(H * 0.96, zone.b + 6).toFixed(0)}px`);
+        guardDirty = true;
         aim.style.transformOrigin = `${mx.toFixed(1)}px ${my.toFixed(1)}px`;
         aim.style.setProperty('--fx', `${afx.toFixed(0)}px`);
         aim.style.setProperty('--fy', `${afy.toFixed(0)}px`);
@@ -1694,7 +1796,13 @@ const horror = (() => {
     };
     const dialogue = (u, late) => {
         let part = -1;
-        PARTS.forEach((p, i) => { if (u >= p.at && u < p.to) part = i; });
+        PARTS.forEach((p, i) => { if (u >= p.at && u < p.to && u < T.rise0 - DLG_GAP - DLG_FADE) part = i; });
+        // From DLG_GAP before the pistol rises to the end of the shot there is no text box in the bottom centre at all.
+        const hush = u >= T.rise0 - DLG_GAP;
+        if (hush !== cls.dlgGone) {
+            cls.dlgGone = hush;
+            dlg.style.visibility = hush ? 'hidden' : '';
+        }
         if (part !== shownPart) {
             shownPart = part;
             buildPart(part, late);
@@ -1732,11 +1840,18 @@ const horror = (() => {
             screen.insertBefore(node, document.getElementById('hz-canvas'));
             sparks.push({ node, a: r() * Math.PI * 2, sp: 220 + r() * 260 });
         }
-        lineEl = el('div', 'cr-crtline');
-        dcEl = el('div', 'cr-dc cr-keep', 'DISCONNECTED');
+        lineEl = el('div', 'cr-crtline cr-keep');
+        // DISCONNECTED lives inside the screen, so it shrinks with the tube; its slot is above the barrel safe zone (fitDc).
+        dcTitle = el('b', 'cr-dc-t', 'DISCONNECTED');
+        dcBox = el('div', 'cr-dc-box');
+        dcBox.append(dcTitle, el('small', 'cr-dc-s', 'CAM 3 / COLD ROOM 03 / SIGNAL LOST'));
+        dcEl = el('div', 'cr-dc');
+        dcEl.setAttribute('aria-hidden', 'true');
+        dcEl.append(dcBox);
         nosig = el('div', 'cr-nosig', 'CAM 3  NO SIGNAL');
-        screen.append(nosig);
-        hz.append(lineEl, dcEl);
+        screen.append(nosig, dcEl);
+        hz.append(lineEl);
+        hudParts = Array.from(hz.querySelectorAll('.cr-hud-top, .cr-side, .cr-alert, .cr-bl, .cr-map, .cr-br'));
     };
 
     // The muzzle flash: one event, 2 to 3 frames, low peak, local to the face and the haze. Reduced motion gets a soft ramp.
@@ -1747,8 +1862,9 @@ const horror = (() => {
         const v = x < 0.016 ? x / 0.016 : Math.exp(-(x - 0.016) / 0.05);
         return v < 0.02 ? 0 : v;
     };
-    const tearOn = (u) => !reduced && ((u >= 27.2 && u < 27.3) || (u >= 27.5 && u < 27.62) || (u >= 27.95 && u < 28.05));
-    const sigOn = (u) => (reduced ? u >= 27.4 && u < 28.1 : (u >= 27.35 && u < 27.5) || (u >= 27.75 && u < 27.95) || (u >= 28.05 && u < 28.1));
+    // The glitch beat (glitch0 to dc0, 800 ms): two tear bursts and a flickering CAM 3 NO SIGNAL, so at most 3 bright flashes a second.
+    const tearOn = (u) => !reduced && ((u >= T.glitch0 + 0.12 && u < T.glitch0 + 0.2) || (u >= T.glitch0 + 0.5 && u < T.glitch0 + 0.62));
+    const sigOn = (u) => (reduced ? u >= T.glitch0 + 0.1 && u < T.dc0 : (u >= T.glitch0 + 0.05 && u < T.glitch0 + 0.3) || (u >= T.glitch0 + 0.4 && u < T.glitch0 + 0.7) || (u >= T.glitch0 + 0.74 && u < T.dc0));
     let chipFlag = false;
 
     const shotAt = (u) => {
@@ -1791,7 +1907,7 @@ const horror = (() => {
             ch.node.style.opacity = ((1 - tt / 1.1) * 0.9).toFixed(2);
         });
         sparks.forEach((sp) => {
-            const tt = u - 27.15;
+            const tt = u - (T.glitch0 + 0.05);
             if (tt < 0 || tt > 0.45 || reduced) {
                 if (sp.on) { sp.on = false; sp.node.style.opacity = '0'; }
                 return;
@@ -1805,35 +1921,66 @@ const horror = (() => {
         });
 
         // ---- the signal: HUD dies first with a stutter, then NO SIGNAL flickers
-        flag('hud-off', u >= 27.15 && (u >= 27.45 || (Math.floor((u - 27.15) / 0.06) * 7) % 5 < 3));
+        flag('hud-off', u >= T.glitch0 && (u >= T.glitch0 + 0.3 || (Math.floor((u - T.glitch0) / 0.06) * 7) % 5 < 3));
         flag('sig', sigOn(u), nosig);
         flag('is-tear', tearOn(u));
 
-        // ---- picture slip: jitter, then one vertical roll, then a short freeze
+        // ---- picture slip: jitter, then one vertical roll, a little less than 1.4 s of unrest
         let sx = 0;
         let ry = 0;
         if (!reduced) {
-            if (u >= 27.2 && u < 27.7) sx = (((Math.floor(u * 28) * 37) % 23) - 11) * 1.6;
-            if (u >= 27.7 && u < 27.95) ry = H * 0.25 * Math.sin((Math.PI * (u - 27.7)) / 0.25);
+            if (u >= T.glitch0 + 0.05 && u < T.glitch0 + 0.45) sx = (((Math.floor(u * 28) * 37) % 23) - 11) * 1.6;
+            if (u >= T.glitch0 + 0.45 && u < T.glitch0 + 0.7) ry = H * 0.2 * Math.sin((Math.PI * (u - T.glitch0 - 0.45)) / 0.25);
         }
         // The camera takes the recoil a hair after the plate: up 6 px, then back on the same spring.
         const kick = !reduced && x > 0.02 && x < 0.7 ? -6 * spring(x - 0.02) : 0;
         const shift = `translate3d(${(sx + kick * 0.4).toFixed(1)}px, ${(ry + kick).toFixed(1)}px, 0)`;
 
-        // ---- the CRT power-off: scaleY to a line, scaleX to a dot, a soft glow, then nothing
-        if (u >= 28.1) {
-            const s1 = inOut((u - 28.1) / 0.3);
-            const s2 = inOut((u - 28.4) / 0.2);
+        // ---- DISCONNECTED: a 2 frame glitch snap, then dead still for the rest of the hold with a 1 px shake. Reduced motion
+        // fades it in over 200 ms and holds it.
+        const dx = u - T.dc0;
+        let dcOp = 0;
+        let dcX = 0;
+        let dcY = 0;
+        let dcSplit = 3;
+        let dcSkew = 0;
+        if (dx >= 0) {
+            if (reduced) {
+                dcOp = smooth(dx / 0.2);
+                dcSplit = 2;
+            } else if (dx < 0.0667) {
+                const f = Math.floor(dx / 0.0334);
+                dcOp = f ? 1 : 0.55;
+                dcX = f ? -5 : 10;
+                dcSkew = f ? 2 : -8;
+                dcSplit = f ? 6 : 9;
+            } else {
+                dcOp = 1;
+                dcX = Math.round(Math.sin(u * 71));
+                dcY = Math.round(Math.sin(u * 53 + 1));
+            }
+        }
+        dcEl.style.opacity = dcOp.toFixed(2);
+        dcBox.style.transform = dcOp ? `translate3d(${dcX}px, ${dcY}px, 0) skewX(${dcSkew}deg)` : '';
+        dcEl.style.setProperty('--dcs', `${dcSplit}px`);
+
+        // ---- the CRT power-off: scaleY to a line, scaleX to a dot, a soft glow, then nothing. DISCONNECTED is a child of the
+        // screen and goes with it. Reduced motion: a 300 ms fade to black instead.
+        const off = u - T.crt0;
+        if (off > 0 && !reduced) {
+            const s1 = inOut(off / 0.28);
+            const s2 = inOut((off - 0.24) / 0.26);
             screen.style.transform = `${shift} scale(${(1 - 0.99 * s2).toFixed(4)}, ${(1 - 0.994 * s1).toFixed(4)})`;
-            const lineOp = 0.8 * smooth((u - 28.25) / 0.12) * (1 - smooth((u - 28.55) / 0.3));
+            const lineOp = 0.85 * smooth((off - 0.12) / 0.1) * (1 - smooth((off - 0.36) / 0.14));
             lineEl.style.opacity = lineOp.toFixed(3);
             lineEl.style.transform = `translateY(-50%) scale(${(1 - 0.985 * s2).toFixed(4)}, ${(1 + 2.4 * s2).toFixed(3)})`;
+            screen.style.opacity = '1';
         } else {
             screen.style.transform = shift;
             lineEl.style.opacity = '0';
+            screen.style.opacity = reduced && off > 0 ? (1 - smooth(off / 0.3)).toFixed(3) : '1';
         }
-        dcEl.style.opacity = u >= 28.8 && u < 29.3 ? '0.5' : '0';
-        flag('b-dead', u >= 28.8);
+        flag('b-dead', u >= T.crt0);
     };
 
     /* ---- the Suno cue: decoded once, played once through the master bus, locked to the timeline.
@@ -2214,9 +2361,47 @@ const horror = (() => {
 
         const talking = dialogue(u, !waiting && now - startedAt < 600 && u > 12);
         shotAt(u);
+        guardUi(u, now);
         flag('b-black', u >= T.black);
         syncCue(now, waiting ? -1 : u, dt, talking);
         tapCheck(now);
+    };
+
+    /* ---- the barrel guard: while the pistol is on screen nothing may sit in the safe zone. Every few frames (and on every resize or
+       orientation change) the HUD pieces and the dialogue card are measured against it. A HUD piece that would touch it is hidden;
+       the dialogue card moves to the next slot that does not (bottom, top, very bottom). DISCONNECTED is fitted into the space above
+       it (its font shrinks until it clears), so none of them can ever cover the muzzle, the flash or the crack. ---- */
+
+    const SLOTS = ['', 'slot-top', 'slot-low'];
+    const inZone = (r) => r.width > 0 && r.height > 0 && r.right > zone.l && r.left < zone.r && r.bottom > zone.t && r.top < zone.b;
+    const fitDc = () => {
+        if (!dcBox) return;
+        const maxW = W * 0.94;
+        let f = clamp(W * 0.105, 22, 160);
+        for (let i = 0; i < 4; i += 1) {
+            dcEl.style.setProperty('--dcf', `${f.toFixed(1)}px`);
+            const w = dcBox.offsetWidth;
+            const room = zone.t - 8 - dcEl.offsetTop;
+            const h = dcBox.offsetHeight;
+            if (w <= maxW && h <= room) break;
+            f = Math.max(14, f * Math.min(maxW / Math.max(w, 1), room / Math.max(h, 1)) * 0.97);
+        }
+    };
+    const guardUi = (u, now) => {
+        if (!guardDirty && now - guardAt < 120) return;
+        guardDirty = false;
+        guardAt = now;
+        fitDc();
+        if (u < ZONE_ON) return;
+        hudParts.forEach((node) => node.classList.toggle('cr-avoid', inZone(node.getBoundingClientRect())));
+        if (dlg.style.visibility === 'hidden' || !dlg.classList.contains('on')) return;
+        let chosen = SLOTS.length - 1;
+        for (let i = 0; i < SLOTS.length; i += 1) {
+            SLOTS.forEach((c) => c && dlg.classList.toggle(c, c === SLOTS[i]));
+            if (!inZone(dlg.getBoundingClientRect())) { chosen = i; break; }
+        }
+        SLOTS.forEach((c) => c && dlg.classList.toggle(c, c === SLOTS[chosen]));
+        hz.dataset.slot = SLOTS[chosen] || 'bottom';
     };
 
     let sandLit = null;

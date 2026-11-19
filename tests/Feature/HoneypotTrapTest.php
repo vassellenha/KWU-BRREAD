@@ -100,6 +100,10 @@ class HoneypotTrapTest extends TestCase
         $this->assertStringNotContainsString('data-music', $html);
         $this->assertStringContainsString('BRREAD! COLD ROOM 03', $html);
         $this->assertStringContainsString('Mana Mungkin Seorang &quot;Vassell Enha&quot;', $html);
+        // The owner's line in phase B is the same terminal window as the floating ones, not a separate black box.
+        $this->assertStringContainsString('vassell@brread:~$ say', $html);
+        $this->assertStringContainsString('class="hp-win hp-say"', $html);
+        $this->assertStringNotContainsString('hp-center', $html);
     }
 
     public function test_the_lengths_come_from_config(): void

@@ -119,8 +119,10 @@
             <div id="hp-windows" class="hp-windows" aria-hidden="true"></div>
             <div id="hp-stamps" class="hp-stamps" aria-hidden="true"></div>
 
-            <div class="hp-center">
-                <p id="hp-text" class="hp-text">Mana Mungkin Seorang &quot;Vassell Enha&quot; Memberikan Akses Panel Admin ke Amatiran Seperti Anda.</p>
+            {{-- The owner's line: the same terminal window as the floating ones, typed in twice (JS builds the letters). --}}
+            <div id="hp-say" class="hp-win hp-say" role="status" aria-live="off">
+                <header><i></i><i></i><i></i><span>vassell@brread:~$ say</span></header>
+                <p id="hp-text" class="hp-say-text">Mana Mungkin Seorang &quot;Vassell Enha&quot; Memberikan Akses Panel Admin ke Amatiran Seperti Anda.</p>
             </div>
 
             <p id="hp-count" class="hp-count" role="timer" aria-live="off">00:{{ str_pad((string) min($remaining, $kewer), 2, '0', STR_PAD_LEFT) }}</p>
