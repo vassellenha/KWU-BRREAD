@@ -101,6 +101,7 @@
                             class="{{ $fieldClasses }} pr-12"
                         >
                         <button
+                            id="login-eye"
                             type="button"
                             x-on:click="showPassword = ! showPassword"
                             x-bind:aria-label="showPassword ? 'Hide password' : 'Show password'"
@@ -126,6 +127,7 @@
                                 >
                             </div>
                             <button
+                                id="login-refresh"
                                 type="button"
                                 x-on:click="refreshCaptcha(); $refs.captcha.focus()"
                                 aria-label="Show a new image"
@@ -150,7 +152,7 @@
                     </div>
                 @endif
                 <label class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface-variant">
-                    <input type="checkbox" name="remember" class="rounded border-outline-variant text-primary focus:ring-primary">
+                    <input id="login-remember" type="checkbox" name="remember" class="rounded border-outline-variant text-primary focus:ring-primary">
                     Keep me signed in
                 </label>
 
@@ -181,6 +183,17 @@
             </a>
         </p>
     </main>
+
+    @unless ($locked)
+        {{-- The "access granted" scene (prank.js) clones this folded sandwich: one slice of bread folded round a flat slab. --}}
+        <template id="granted-sandwich">
+            @include('partials.order-folded-sandwich', [
+                'creation' => ['art' => ['bread' => 'bread-white', 'ice' => 'ice-strawberry', 'toppings' => ['top-sprinkles']]],
+                'uid' => 'fsgrant',
+                'art' => fn (string $name): string => asset('img/cutout/'.$name.'.webp'),
+            ])
+        </template>
+    @endunless
 
     @include('partials.lockdown', ['name' => $lockName, 'open' => $locked, 'seconds' => $lockSeconds ?? 0, 'preview' => $preview ?? false, 'trace' => $trace ?? null])
     @if ($preview ?? false)

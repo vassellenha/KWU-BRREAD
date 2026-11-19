@@ -414,8 +414,11 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
     error: '',
     busy: false,
     captchaStamp: Date.now(),
+    _nav: null,
 
     init() {
+        this.setupKeyboard();
+
         // Fetch the scenes' photo and sounds once someone starts typing a password.
         const warm = () => import('./prank.js').then((prank) => prank.preload()).catch(() => {});
         this.$el.querySelector('#password')?.addEventListener('focus', warm, { once: true });
@@ -451,6 +454,103 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
         }
     },
 
+    destroy() {
+        this._nav?.abort();
+    },
+
+    // ArrowUp/ArrowDown walk the boxes, ArrowLeft/ArrowRight walk the buttons, and a ring slides to wherever focus lands.
+    // One delegated listener on the root (the back link sits outside the form); nothing here runs while the form is locked.
+    setupKeyboard() {
+        const root = this.$el;
+        this._nav = new AbortController();
+        const { signal } = this._nav;
+        const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const find = (selector) => root.querySelector(selector);
+        const usable = (node) => node && !node.disabled && node.getAttribute('aria-disabled') !== 'true'
+            && node.getAttribute('tabindex') !== '-1' && node.getClientRects().length > 0 && !node.closest('[hidden]');
+
+        // Locked by the lockdown, paused or taken over by a prank scene, or signing in: the arrows stay out of it.
+        const blocked = () => this.busy
+            || root.querySelector('fieldset:disabled')
+            || document.body.classList.contains('is-locked')
+            || document.body.classList.contains('is-glitching')
+            || root.dataset.prankSeconds > 0
+            || document.querySelector('.prank-tv, .prank-ok, .prank-doom, .prank-trace, #lockdown.is-open');
+
+        const all = () => ['#username', '#password', '#login-eye', '#login-refresh', '#captcha', '#login-remember', '#login-submit', '#login-back']
+            .map(find).filter(usable);
+        const rows = () => ['#username', '#password', '#captcha', '#login-remember', '#login-submit', '#login-back'].map(find).filter(usable);
+        const isText = (node) => node.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"])');
+
+        root.addEventListener('keydown', (event) => {
+            const key = event.key;
+            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
+            if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+            const from = event.target;
+            if (!(from instanceof Element) || blocked()) return;
+
+            let next = null;
+            if (key === 'ArrowDown' || key === 'ArrowUp') {
+                const list = rows();
+                // The eye belongs to the password row; the refresh button sits between password and captcha.
+                let at = list.indexOf(from);
+                if (at < 0) {
+                    const password = list.indexOf(find('#password'));
+                    if (from.id === 'login-eye') at = password;
+                    else if (from.id === 'login-refresh') at = password + 0.5;
+                    else return;
+                }
+                next = key === 'ArrowDown' ? list.find((_, i) => i > at) : [...list].reverse().find((_, i) => list.length - 1 - i < at);
+            } else {
+                if (isText(from)) return; // the caret keeps the left and right arrows
+                const list = all();
+                const at = list.indexOf(from);
+                if (at < 0) return;
+                next = list[at + (key === 'ArrowRight' ? 1 : -1)];
+            }
+
+            if (!next) return;
+            event.preventDefault();
+            next.focus();
+        }, { signal });
+
+        // The ring, and a small nudge on the box that gained focus.
+        const ring = document.createElement('i');
+        ring.className = 'login-ring';
+        ring.setAttribute('aria-hidden', 'true');
+        if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+        root.append(ring);
+        let travel = null;
+
+        root.addEventListener('focusin', (event) => {
+            const to = event.target;
+            const from = event.relatedTarget;
+            if (reduced() || !(to instanceof Element) || !(from instanceof Element) || !root.contains(from) || !root.contains(to) || to === ring) return;
+            try {
+                const base = root.getBoundingClientRect();
+                const a = from.getBoundingClientRect();
+                const b = to.getBoundingClientRect();
+                if (!a.width || !b.width || !base.width) return; // cannot be measured: the normal focus ring does the job
+                const frame = (r) => ({ transform: `translate(${r.left - base.left}px, ${r.top - base.top}px)`, width: `${r.width}px`, height: `${r.height}px` });
+
+                travel?.cancel();
+                ring.style.opacity = '1';
+                const mine = ring.animate([frame(a), frame(b)], { duration: 220, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'forwards' });
+                travel = mine;
+                // Only the latest trip may hide the ring (an older one was cancelled by this one).
+                mine.finished.then(() => {
+                    if (travel !== mine) return;
+                    mine.cancel();
+                    ring.style.opacity = '0';
+                }).catch(() => {});
+                to.animate([{ transform: 'scale(1.025)' }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+            } catch {
+                ring.style.opacity = '0';
+            }
+        }, { signal });
+        signal.addEventListener('abort', () => ring.remove());
+    },
+
     get captchaUrl() {
         return `${captchaBase}?v=${this.captchaStamp}`;
     },
@@ -466,6 +566,7 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
 
         const form = event.target;
         const context = primeAudio();
+        let navigating = false; // a successful sign-in keeps the button busy until the browser has moved on
         this.busy = true;
         this.error = '';
 
@@ -485,8 +586,30 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
                     await prank.success(data.redirect, { context, username: this.username });
                     return;
                 }
-                context?.close?.();
-                window.location.href = data.redirect;
+
+                // A normal sign-in gets the quick version of the same scene. The browser is sent on by whichever comes
+                // first: the scene ending or the 3s cap, never twice, and a prank.js that fails to load is a plain redirect.
+                navigating = true;
+                let sent = false;
+                const go = () => {
+                    if (sent) return;
+                    sent = true;
+                    context?.close?.();
+                    window.location.href = data.redirect;
+                };
+                const cap = window.setTimeout(go, 3000);
+                const warm = document.createElement('link');
+                warm.rel = 'prefetch';
+                warm.href = data.redirect;
+                document.head.append(warm);
+                try {
+                    const prank = await import('./prank.js');
+                    await prank.quickSuccess({ username: this.username });
+                } catch {
+                    // Plain redirect below.
+                }
+                window.clearTimeout(cap);
+                go();
                 return;
             }
 
@@ -521,7 +644,7 @@ Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
             context?.close?.();
             this.error = 'Could not reach the server. Check your connection and try again.';
         } finally {
-            this.busy = false;
+            if (!navigating) this.busy = false;
         }
     },
 }));

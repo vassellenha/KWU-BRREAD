@@ -3732,6 +3732,26 @@ body.is-healing .prank-junk {
     text-align: center;
 }
 
+.prank-ok {
+    --ink: #3b1f16;
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --snap: cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* The folded sandwich (partials/order-folded-sandwich) timed to land with the scene: the long scene (4th try) and the
+   quick one (a normal sign-in) shorten the partial's own build-up. */
+.prank-ok-fold { width: 100%; aspect-ratio: 306 / 196; filter: drop-shadow(0 10px 14px rgb(113 59 44 / 0.22)); }
+.prank-ok-fold .fs--anim .fs-part--lower { animation-delay: 0.05s; }
+.prank-ok-fold .fs--anim .fs-part--slab { animation-delay: 0.45s; }
+.prank-ok-fold .fs--anim .fs-part--fold,
+.prank-ok-fold .fs--anim .fs-part--upper { animation-delay: 0.85s; }
+.prank-ok-fold .fs--anim .fs-top { animation-delay: 1.5s; }
+.prank-ok-fold .fs--quick .fs-part--lower { animation-duration: 300ms; animation-delay: 0.05s; }
+.prank-ok-fold .fs--quick .fs-part--slab { animation-duration: 340ms; animation-delay: 0.2s; }
+.prank-ok-fold .fs--quick .fs-part--fold,
+.prank-ok-fold .fs--quick .fs-part--upper { animation-duration: 420ms; animation-delay: 0.45s; }
+.prank-ok-fold .fs--quick .fs-top { animation-duration: 260ms; animation-delay: 0.8s; }
+
 .prank-ok-stack {
     position: relative;
     width: min(62vw, 380px);
@@ -3789,7 +3809,8 @@ body.is-healing .prank-junk {
     margin: 14px 0 0;
     color: #a62d42;
     font-family: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-    font-size: clamp(34px, 8vw, 64px);
+    font-size: clamp(26px, 6.8vw, 64px);
+    white-space: nowrap;
     font-weight: 800;
     letter-spacing: 0.06em;
     line-height: 1;
@@ -3798,6 +3819,7 @@ body.is-healing .prank-junk {
 
 .prank-ok-title span {
     display: inline-block;
+    white-space: pre;
 }
 
 .prank-ok-hello {
@@ -4175,4 +4197,18 @@ body.is-broken .prank-ghost {
     .prank-trace-city {
         opacity: 1;
     }
+}
+
+/* Sign-in form keyboard travel (staffLogin in app.js): one ring slides from the control that lost focus to the one
+   that gained it, then hands over to the normal focus ring. */
+.login-ring {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 6;
+    border: 2px solid #c74659;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 3px rgb(247 163 182 / 0.35);
+    pointer-events: none;
+    opacity: 0;
 }

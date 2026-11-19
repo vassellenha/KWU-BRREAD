@@ -1916,6 +1916,139 @@ function meltSheet(seed = 1) {
 }
 
 /**
+ * The sandwich of the "access granted" scenes: the folded one (one slice of bread folded round a flat slab) cloned from the
+ * template the sign-in page carries (partials/order-folded-sandwich). Returns null where the template is missing, and
+ * the scene falls back to the three loose pieces.
+ */
+function foldedSandwich(quick) {
+    const template = document.getElementById('granted-sandwich');
+    const svg = template?.content.querySelector('svg')?.cloneNode(true);
+    if (!svg) return null;
+
+    svg.removeAttribute('width');
+    svg.classList.remove('fs--still');
+    if (S.reduced) {
+        svg.classList.remove('fs--anim');
+        svg.classList.add('fs--still');
+    } else {
+        svg.classList.add('fs--anim');
+        if (quick) svg.classList.add('fs--quick');
+    }
+    const holder = el('div', 'prank-ok-fold');
+    holder.append(svg);
+
+    return holder;
+}
+
+/** The cream screen shared by both versions. Nothing is animated here, the caller drives it. */
+function grantedScreen({ quick = false, bits = 26 } = {}) {
+    const ok = el('div', 'prank-ok doodle');
+    const stack = el('div', 'prank-ok-stack');
+    const fold = foldedSandwich(quick);
+    const pieces = [];
+
+    if (fold) {
+        stack.append(fold);
+    } else {
+        const bottom = el('img', 'prank-ok-piece prank-ok-bottom');
+        const ice = el('div', 'prank-ok-piece prank-ok-ice');
+        const cream = el('img');
+        const topping = el('img', 'prank-ok-topping');
+        const crown = el('img', 'prank-ok-piece prank-ok-top');
+        [[bottom, 'bread-white'], [cream, 'icecream-strawberry'], [topping, 'topping-sprinkles'], [crown, 'bread-white']].forEach(([image, name]) => {
+            image.src = `/img/intro/${name}.webp`;
+            image.alt = '';
+            image.width = 420;
+        });
+        ice.append(cream, topping);
+        stack.append(bottom, ice, crown);
+        pieces.push(bottom, ice, crown);
+    }
+
+    const colors = ['#f4a7b9', '#9cc9cf', '#f3c969', '#b7a6e0', '#ffffff', '#f58fa6'];
+    const sprinkles = [];
+    if (!S.reduced) {
+        for (let i = 0; i < bits; i++) {
+            const bit = el('span', 'prank-ok-bit');
+            bit.style.background = colors[i % colors.length];
+            stack.append(bit);
+            sprinkles.push(bit);
+        }
+    }
+
+    const title = el('h2', 'prank-ok-title');
+    [...'ACCESS GRANTED'].forEach((letter) => title.append(el('span', '', letter === ' ' ? ' ' : letter)));
+    const hello = el('p', 'prank-ok-hello');
+    const meter = el('div', 'prank-ok-bar');
+    const fill = el('i');
+    meter.append(fill);
+    const status = el('p', 'prank-ok-status', 'verifying session');
+    ok.append(stack, title, hello, meter, status);
+
+    return { ok, stack, fold, pieces, sprinkles, title, hello, fill, status };
+}
+
+function burstSprinkles(sprinkles, delay) {
+    sprinkles.forEach((bit, i) => {
+        const angle = (i / sprinkles.length) * Math.PI * 2 + Math.random() * 0.4;
+        const distance = 110 + Math.random() * 180;
+        bit.animate([
+            { transform: 'translate(-50%, -50%) rotate(0) scale(.4)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance * 0.8}px)) rotate(${Math.random() * 540}deg) scale(1)`, opacity: 0 },
+        ], { duration: 900 + Math.random() * 400, delay: delay + Math.random() * 120, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
+    });
+}
+
+/**
+ * A normal sign-in (the page never broke): the same "access granted" screen, short. No melting sheets, no fanfare and
+ * nothing that waits for audio; it resolves after about 1.9s (0.6s with reduced motion) and the caller redirects.
+ * Never rejects.
+ */
+export async function quickSuccess({ username = '' } = {}) {
+    try {
+        const root = stage();
+        root.classList.remove('is-dim');
+        root.classList.add('is-granting');
+
+        const { ok, stack, sprinkles, title, hello, fill, status } = grantedScreen({ quick: true, bits: 16 });
+        const name = username.trim().slice(0, 24);
+        root.append(ok);
+
+        if (S.reduced) {
+            // Just the same text, faded in.
+            hello.textContent = `welcome back${name ? `, ${name}` : ''}`;
+            fill.style.width = '100%';
+            status.textContent = 'opening the menu...';
+            ok.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, fill: 'both' });
+            await wait(600);
+            return;
+        }
+
+        ok.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, fill: 'both' });
+        title.querySelectorAll('span').forEach((letter, i) => {
+            letter.animate([
+                { opacity: 0, transform: 'translateY(18px) scale(1.4)' },
+                { opacity: 1, transform: 'translateY(-3px) scale(.97)', offset: 0.7 },
+                { opacity: 1, transform: 'none' },
+            ], { duration: 300, delay: 120 + i * 28, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'both' });
+        });
+        // The flap lands at about 0.9s: squash and sprinkles with it.
+        stack.animate([{ transform: 'scale(1.05, .92)' }, { transform: 'none' }], { duration: 360, delay: 880, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'both' });
+        burstSprinkles(sprinkles, 900);
+
+        fill.animate([{ width: '0%' }, { width: '100%' }], { duration: 1000, delay: 450, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'both' });
+        typeInto(hello, `welcome back${name ? `, ${name}` : ''}`, 12, null, 8);
+        await wait(450);
+        status.textContent = 'verifying session';
+        await wait(500);
+        status.textContent = 'opening the menu...';
+        await wait(950);
+    } catch {
+        // The redirect never depends on the scene.
+    }
+}
+
+/**
  * The right password on the last try. The broken page heals while the victory fanfare plays, then a
  * sheet of strawberry melts down over it and moves on, leaving a cream "access granted" screen:
  * a sandwich drops together, sprinkles pop, a loading bar fills, and a second sheet melts down to
@@ -1941,45 +2074,14 @@ export async function success(redirect, { context = null, username = '' } = {}) 
     await healing;
     uncurse();
 
-    // Behind the sheet: the cream screen, built while nobody can see it.
-    const ok = el('div', 'prank-ok doodle');
-    const stack = el('div', 'prank-ok-stack');
-    const bottom = el('img', 'prank-ok-piece prank-ok-bottom');
-    const ice = el('div', 'prank-ok-piece prank-ok-ice');
-    const cream = el('img');
-    const topping = el('img', 'prank-ok-topping');
-    const crown = el('img', 'prank-ok-piece prank-ok-top');
-    [[bottom, 'bread-white'], [cream, 'icecream-strawberry'], [topping, 'topping-sprinkles'], [crown, 'bread-white']].forEach(([image, name]) => {
-        image.src = `/img/intro/${name}.webp`;
-        image.alt = '';
-        image.width = 420;
-    });
-    ice.append(cream, topping);
-    stack.append(bottom, ice, crown);
-
-    const colors = ['#f4a7b9', '#9cc9cf', '#f3c969', '#b7a6e0', '#ffffff', '#f58fa6'];
-    const sprinkles = [];
-    if (!S.reduced) {
-        for (let i = 0; i < 26; i++) {
-            const bit = el('span', 'prank-ok-bit');
-            bit.style.background = colors[i % colors.length];
-            stack.append(bit);
-            sprinkles.push(bit);
-        }
-    }
-
-    const title = el('h2', 'prank-ok-title');
-    [...'ACCESS GRANTED'].forEach((letter) => title.append(el('span', '', letter === ' ' ? ' ' : letter)));
-    const hello = el('p', 'prank-ok-hello');
-    const meter = el('div', 'prank-ok-bar');
-    const fill = el('i');
-    meter.append(fill);
-    const status = el('p', 'prank-ok-status', 'verifying session');
-    ok.append(stack, title, hello, meter, status);
+    // Behind the sheet: the cream screen, built while nobody can see it (the sandwich is added once the sheet is gone).
+    const { ok, stack, fold, pieces, sprinkles, title, hello, fill, status } = grantedScreen();
+    const foldSvg = fold?.firstElementChild ?? null;
+    foldSvg?.remove();
     root.insertBefore(ok, first.sheet);
 
     if (!S.reduced) {
-        [bottom, ice, crown].forEach((piece, index) => piece.animate([
+        pieces.forEach((piece, index) => piece.animate([
             { opacity: 0, transform: 'translateY(-70vh) rotate(-8deg)' },
             { opacity: 1, offset: 0.6 },
             { opacity: 1, transform: 'none' },
@@ -1993,17 +2095,13 @@ export async function success(redirect, { context = null, username = '' } = {}) 
     await wait(S.reduced ? 1 : 180);
     await first.leave();
     first.sheet.remove();
+    // The folded sandwich builds itself now that the screen is in view; the squash and sprinkles come with its last fold.
+    if (foldSvg) fold.append(foldSvg);
+    const landed = foldSvg ? 1550 : 520;
 
     if (!S.reduced) {
-        stack.animate([{ transform: 'scale(1.05, .92)' }, { transform: 'none' }], { duration: 420, delay: 520, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'both' });
-        sprinkles.forEach((bit, i) => {
-            const angle = (i / sprinkles.length) * Math.PI * 2 + Math.random() * 0.4;
-            const distance = 110 + Math.random() * 180;
-            bit.animate([
-                { transform: 'translate(-50%, -50%) rotate(0) scale(.4)', opacity: 1 },
-                { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance * 0.8}px)) rotate(${Math.random() * 540}deg) scale(1)`, opacity: 0 },
-            ], { duration: 900 + Math.random() * 400, delay: 640 + Math.random() * 120, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
-        });
+        stack.animate([{ transform: 'scale(1.05, .92)' }, { transform: 'none' }], { duration: 420, delay: landed, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'both' });
+        burstSprinkles(sprinkles, landed + 120);
         [...title.children].forEach((letter, i) => {
             letter.animate([
                 { opacity: 0, transform: 'translateY(22px) scale(1.5)' },
