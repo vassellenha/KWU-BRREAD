@@ -367,7 +367,7 @@ html, body {
     top: var(--at, 0px);
     width: var(--aw, 100%);
     height: var(--ah, 100%);
-    margin-left: calc(var(--aw, 100%) / -2);
+    margin-left: calc(var(--aw, 100%) / -2 + var(--ax, 0px));
     display: block;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
@@ -623,8 +623,7 @@ html, body {
 .cr-dc-box { position: relative; display: grid; justify-items: center; gap: calc(var(--dcf, 46px) * 0.2); max-width: 94vw; padding: 0 calc(var(--dcf, 46px) * 0.2); }
 .cr-dc-rule { display: block; width: 100%; height: 1px; background: linear-gradient(90deg, rgba(200, 16, 46, 0), #c8102e 18%, #c8102e 82%, rgba(200, 16, 46, 0)); box-shadow: 0 0 10px rgba(255, 20, 50, 0.6); transform: scaleX(0); }
 .cr-dc-head { position: relative; display: grid; justify-items: center; }
-.cr-dc-t, .cr-dc-alt { grid-area: 1 / 1; font-family: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif; font-weight: 600; font-size: var(--dcf, 46px); line-height: 1.05; letter-spacing: 0.22em; margin-right: -0.22em; white-space: nowrap; }
+.cr-dc-t { grid-area: 1 / 1; font-family: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif; font-weight: 600; font-size: var(--dcf, 46px); line-height: 1.05; letter-spacing: 0.22em; margin-right: -0.22em; white-space: nowrap; }
 .cr-dc-t { color: #e9e2d6; text-shadow: var(--dcs, 2px) 0 0 rgba(200, 16, 46, 0.75), calc(var(--dcs, 2px) * -1) 0 0 rgba(120, 200, 220, 0.25), 0 0 24px rgba(0, 0, 0, 0.9); }
 .cr-dc-l { opacity: 0; }
-.cr-dc-alt { visibility: hidden; color: #e3142f; font-weight: 800; text-shadow: 0 0 18px rgba(255, 20, 50, 0.85), 0 0 2px #000; }
 .cr-dc-s { font-family: var(--mono); font-size: clamp(9px, 2.1vw, 12px); letter-spacing: 0.34em; margin-right: -0.34em; white-space: nowrap; text-transform: uppercase; color: rgba(233, 226, 214, 0.7); opacity: 0; }
