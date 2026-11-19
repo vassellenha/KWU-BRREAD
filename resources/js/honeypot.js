@@ -590,6 +590,7 @@ const horror = (() => {
     const aimKey = $('cr-aim-key');
     const aimWarm = $('cr-aim-warm');
     const aimEyes = $('cr-aim-eyes');
+    const aimImg = $('cr-aim-img');
     const gun = $('cr-aim-gun');
     const aimBg = $('cr-aim-bg');
     const gun2 = $('cr-aim-gun2');
@@ -613,6 +614,12 @@ const horror = (() => {
     let vhsFrame = -1;
     let vhsOn = false;
     let dcFrame = -1;
+    let dcLetters = [];
+    let dcAlt = null;
+    let dcRules = [];
+    let dcSub = null;
+    let dcKey = '';
+    let greyOn = false;
     let osdTop = null;
     let osdBot = null;
     let osdTxt = '';
@@ -952,6 +959,23 @@ const horror = (() => {
             node.stop(t + 0.3);
             osc(c, out, 'sawtooth', 50 * r, 50 * r, t, 0.1, 0.05, 0.004, 0.25); // mains buzz under the arc
         },
+        // A reversed breath: filtered noise that rises for half a second and stops dead on the card's swap.
+        swell: (c, t, o) => {
+            const out = voice(c, o);
+            const n = noise(c, 0.55);
+            const flt = c.createBiquadFilter();
+            flt.type = 'bandpass';
+            flt.Q.value = 0.9;
+            flt.frequency.setValueAtTime(500, t);
+            flt.frequency.exponentialRampToValueAtTime(3200, t + 0.5);
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.3, t + 0.49);
+            g.gain.linearRampToValueAtTime(0, t + 0.5);
+            n.connect(flt).connect(g).connect(out);
+            n.start(t);
+            osc(c, out, 'sine', 70, 140, t, 0.5, 0.05, 0.45, 0.06);
+        },
         // Dead tape: a bed of hiss that swells from the cut to the power-off, mains hum under it and one slow sagging tone (wow).
         tape: (c, t, o) => {
             const out = voice(c, o);
@@ -1027,6 +1051,7 @@ const horror = (() => {
         glass: { dist: 0.05, send: 0.3, bypass: true },
         zap: { dist: 0.2, send: 0.2 },
         tape: { dist: 0.1, send: 0.04 },
+        swell: { dist: 0.05, send: 0.25 },
         crtoff: { dist: 0.3, send: 0.15 },
         thud: { dist: 0.3, send: 0.3 },
     };
@@ -1073,13 +1098,13 @@ const horror = (() => {
         door1: 10.0, // the leaf has hit its stop and rests
         appear: 9.0, // the owner stands in the doorway, once the leaf is well past half open
         alert: 8.6,
-        reveal0: 24.0, // the crossfade to the aim plate starts, with a push-in and a rack focus
-        reveal1: 24.4, // the face is fully there
-        rise0: 25.7, // the pistol comes up from below the frame
-        rise1: 26.2, // and is held until the shot
-        key0: 24.2, // the key light ramps up on his face
-        key1: 25.4,
-        shot: 26.6, // silence before it: 26.2 to 26.6
+        reveal0: 22.4, // the match cut to the aim plate starts, with a push-in and a rack focus
+        reveal1: 22.8, // the face is fully there
+        rise0: 23.6, // the pistol comes up from below the frame
+        rise1: 24.1, // and is held on the lens: the second line is spoken over it, and the shot cuts it off
+        key0: 22.6, // the key light ramps up on his face
+        key1: 23.8,
+        shot: 26.6,
         glitch0: 26.8, // the picture breaks: tear, red/cyan split, CAM 3 NO SIGNAL (to dc0)
         dc0: 27.6, // DISCONNECTED snaps in, with its zap, and holds still
         crt0: 28.9, // the tube loses power: scaleY to a line, scaleX to a dot, DISCONNECTED shrinks with the screen
@@ -1093,8 +1118,9 @@ const horror = (() => {
     const ZONE_SA = 1.16;
     const ZONE_PAD = 12;
     const ZONE_ON = T.rise0 - 0.2;
-    const DLG_FADE = 0.4; // the card's own fade
-    const DLG_GAP = 0.3; // dialogue is gone at least this long before the pistol rises
+    const DC_SWAP = 0.78; // seconds after dc0 when the card says AKU MELIHATMU for 140 ms
+    const DC_ORDER = [5, 9, 1, 11, 3, 7, 0, 10, 4, 8, 2, 6]; // the order the letters of DISCONNECTED light up in
+    const CHAR_RATE = 0.028; // the text box types one letter every 28 ms
     // The gait. A stride is a run of steps, and every step is one phase from 0 to 1 between two heel strikes. That single
     // phase drives the bob (two peaks per two steps), the shoulder roll, the weight shift and the cloak. The stride itself
     // starts and stops on an in-out cubic, so he never moves at a constant speed. He stops once, in silence, around 13 s.
@@ -1115,8 +1141,8 @@ const horror = (() => {
     const BOB = 7;
     const SETTLE_PX = 3;
     const REST = { p: 1, s: 0, sp: 0, bob: 0, roll: 0, shift: 0, settle: 0, heel: 0, over: 0, shakeX: 0, shakeY: 0 };
-    const P1 = [16.1, 19.0];
-    const P2 = [19.8, Math.min(24.0, T.rise0 - DLG_GAP - DLG_FADE)];
+    const P1 = [16.1, 19.6];
+    const P2 = [T.rise1 + 0.1, T.shot]; // spoken with the pistol on the lens; the shot cuts the box off mid air
 
     // [time, sound, argument]. The sound is scheduled on the audio clock just before the time, so it lands with the timeline.
     const EVENTS = [
@@ -1138,13 +1164,15 @@ const horror = (() => {
         [16.7, 'sting', 0.55],
         [19.35, 'drip'],
         [21.15, 'sting', 1],
-        [24.05, 'boom', 0.6],
-        [25.72, 'rustle'],
+        [T.reveal0 + 0.05, 'boom', 0.6],
+        [T.rise0 + 0.02, 'rustle'],
         [T.rise1, 'click'],
         [T.shot, 'shot'],
         [T.shot + 0.06, 'glass'],
         [T.glitch0 + 0.3, 'tape'],
         [T.dc0, 'zap'],
+        [T.dc0 + DC_SWAP - 0.5, 'swell'],
+        [T.dc0 + DC_SWAP, 'thud', 0.8],
         [T.crt0, 'crtoff'],
         [T.crt1 + 0.05, 'thud'],
     ];
@@ -1153,9 +1181,9 @@ const horror = (() => {
         if (u < T.knock) return 0;
         if (u < T.alert) return lerp(0, 0.08, smooth((u - T.knock) / 1.5));
         if (u < 16) return lerp(0.08, 0.62, smooth((u - T.alert) / 7.4));
-        if (u < 19.8) return lerp(0.62, 0.74, smooth((u - 16) / 3.8));
-        if (u < 24) return lerp(0.74, 0.92, smooth((u - 19.8) / 4.2));
-        return lerp(0.92, 1, smooth((u - 24) / 1.2));
+        if (u < 19.0) return lerp(0.62, 0.74, smooth((u - 16) / 3.0));
+        if (u < T.reveal0) return lerp(0.74, 0.92, smooth((u - 19.0) / (T.reveal0 - 19.0)));
+        return lerp(0.92, 1, smooth((u - T.reveal0) / 1.2));
     };
 
     const gaitAt = (u) => {
@@ -1238,20 +1266,20 @@ const horror = (() => {
         { key: 'door', src: `${ART}door-atlas.webp`, from: 0, until: 10.5, bitmap: true }, // the leaf is drawn from this, so it is needed with the room
         { key: 'doorjson', src: `${ART}door-atlas.json`, from: 0, until: 10.5, json: true },
         { key: 'closed', src: `${ART}room-closed.webp`, from: 0, until: 10.5 },
-        { key: 'egg', src: `${ART}egg-sandwich.webp`, from: 2.2, until: 24.2 },
-        { key: 'eggLit', src: `${ART}egg-sandwich-lit.webp`, from: 2.2, until: 24.2 },
-        { key: 'fog', src: `${ART}fog.webp`, from: 2.2, until: 24.2 },
-        { key: 'pipes', src: `${ART}foreground-pipes.webp`, from: 2.2, until: 24.2 },
-        { key: 'opn', src: `${ART}room-open-nodoor.webp`, from: 6.6, until: 24.2 },
-        { key: 'spill', src: `${ART}light-spill.webp`, from: 6.6, until: 24.2 },
-        { key: 'char', src: hz.dataset.figure, from: 8.0, until: 24.2 },
+        { key: 'egg', src: `${ART}egg-sandwich.webp`, from: 2.2, until: 22.9 },
+        { key: 'eggLit', src: `${ART}egg-sandwich-lit.webp`, from: 2.2, until: 22.9 },
+        { key: 'fog', src: `${ART}fog.webp`, from: 2.2, until: 22.9 },
+        { key: 'pipes', src: `${ART}foreground-pipes.webp`, from: 2.2, until: 22.9 },
+        { key: 'opn', src: `${ART}room-open-nodoor.webp`, from: 6.6, until: 22.9 },
+        { key: 'spill', src: `${ART}light-spill.webp`, from: 6.6, until: 22.9 },
+        { key: 'char', src: hz.dataset.figure, from: 8.0, until: 22.9 },
         // optional: the scene never waits for these; without them the standing cutout and a plain door fade are used
         { key: 'dust', src: `${ART}dust-atlas.webp`, from: 4.0, until: 11, soft: true, bitmap: true },
-        { key: 'wlk', src: `${ART}walk-atlas.webp`, from: 4.0, until: 24.2, soft: true, bitmap: true },
-        { key: 'wlkjson', src: `${ART}walk-atlas.json`, from: 4.0, until: 24.2, soft: true, json: true },
-        { key: 'aim', src: `${ART}aim-pose.webp`, from: 23.6, until: 28.6 },
-        { key: 'aimclean', src: `${ART}aim-clean.webp`, from: 23.6, until: 28.6 },
-        { key: 'aimgun', src: `${ART}aim-gun.webp`, from: 23.6, until: 28.6 },
+        { key: 'wlk', src: `${ART}walk-atlas.webp`, from: 4.0, until: 22.9, soft: true, bitmap: true },
+        { key: 'wlkjson', src: `${ART}walk-atlas.json`, from: 4.0, until: 22.9, soft: true, json: true },
+        { key: 'aim', src: `${ART}aim-pose.webp`, from: 21.6, until: 28.6 },
+        { key: 'aimclean', src: `${ART}aim-clean.webp`, from: 21.6, until: 28.6 },
+        { key: 'aimgun', src: `${ART}aim-gun.webp`, from: 21.6, until: 28.6 },
         { key: 'flash', src: `${ART}muzzle-flash.webp`, from: 26.0, until: 27.4 },
         { key: 'crack', src: `${ART}glass-crack.webp`, from: 26.0, until: 28.6 },
     ];
@@ -1640,54 +1668,63 @@ const horror = (() => {
 
     /* ---- the dialogue: an "audio intercept" subtitle blended into the camera picture, revealed word by word on the clock ---- */
 
-    const WORD_RATE = 0.045; // seconds between two words
+    // A horror game text box: a name plate, the line typed letter by letter on the clock, a blinking arrow once it is done.
     const PARTS = [
         { at: P1[0], to: P1[1], words: [['Mana'], ['Mungkin'], ['Seorang'], ['"Vassell', true], ['Enha"', true]] },
-        { at: P2[0], to: P2[1], words: 'Memberikan Akses Panel Admin ke Amatiran Seperti Anda.'.split(' ').map((w) => [w]) },
+        { at: P2[0], to: P2[1], words: 'Membiarkan Amatiran Seperti Anda Memasuki Panel Admin.'.split(' ').map((w) => [w]) },
     ];
     let shownPart = -1;
-    let chars = []; // the word spans of the part on screen
+    let chars = []; // the letter spans of the part on screen
     let outAt = -1;
+    let typedNow = -1;
     const buildPart = (index, instant) => {
         dlgText.textContent = '';
         chars = [];
         outAt = -1;
-        dlg.classList.remove('out');
+        typedNow = -1;
+        dlg.classList.remove('out', 'done');
         dlg.classList.toggle('instant', instant);
         if (index < 0) return;
         PARTS[index].words.forEach(([word, hl], i) => {
             if (i > 0) dlgText.append(document.createTextNode(' '));
-            const node = el('span', hl ? 'cr-w hl' : 'cr-w', word);
-            dlgText.append(node);
-            chars.push(node);
+            const w = el('span', hl ? 'cr-w hl' : 'cr-w');
+            Array.from(word).forEach((ch) => {
+                const node = el('span', 'cr-c', ch);
+                w.append(node);
+                chars.push(node);
+            });
+            dlgText.append(w);
         });
     };
     const dialogue = (u, late) => {
         let part = -1;
-        PARTS.forEach((p, i) => { if (u >= p.at && u < p.to && u < T.rise0 - DLG_GAP - DLG_FADE) part = i; });
-        // From DLG_GAP before the pistol rises to the end of the shot there is no text box in the bottom centre at all.
-        const hush = u >= T.rise0 - DLG_GAP;
+        PARTS.forEach((p, i) => { if (u >= p.at && u < p.to) part = i; });
+        // The shot takes the box with it, with no fade: from the shot on there is no text box at all.
+        const hush = u >= T.shot;
         if (hush !== cls.dlgGone) {
             cls.dlgGone = hush;
             dlg.style.visibility = hush ? 'hidden' : '';
         }
         if (part !== shownPart) {
-            const leaving = shownPart >= 0 && part < 0 && !late;
+            const leaving = shownPart >= 0 && part < 0 && !late && !hush;
             shownPart = part;
             if (leaving) {
-                // the part ends: the words fade with a small glitch, then are cleared (the card itself fades in DLG_FADE)
                 outAt = u;
                 dlg.classList.add('out');
             } else {
-                buildPart(part, late);
+                buildPart(part, late || hush);
             }
         }
         if (outAt >= 0 && (part >= 0 || u > outAt + 0.5)) buildPart(part, late);
         flag('on', part >= 0, dlg);
         if (part < 0) return false;
         const p = PARTS[part];
-        const typed = Math.floor((u - p.at) / WORD_RATE) + 1;
-        chars.forEach((s, i) => s.classList.toggle('on', i < typed));
+        const typed = Math.min(chars.length, Math.floor((u - p.at) / CHAR_RATE) + 1);
+        if (typed !== typedNow) {
+            typedNow = typed;
+            chars.forEach((c, i) => c.classList.toggle('on', i < typed));
+            dlg.classList.toggle('done', typed >= chars.length);
+        }
         return typed < chars.length;
     };
 
@@ -1714,14 +1751,25 @@ const horror = (() => {
         }
         lineEl = el('div', 'cr-crtline cr-keep');
         // DISCONNECTED lives inside the screen, so it shrinks with the tube; its slot is above the barrel safe zone (fitDc).
-        dcTitle = el('b', 'cr-dc-t', 'DISCONNECTED');
+        // A thriller title card: two thin red rules that draw out from the centre, the word in a tall engraved serif whose letters
+        // light up out of order, and for a moment a second line in its place.
+        dcTitle = el('b', 'cr-dc-t');
+        dcLetters = Array.from('DISCONNECTED').map((ch) => {
+            const node = el('span', 'cr-dc-l', ch);
+            dcTitle.append(node);
+            return node;
+        });
+        dcAlt = el('b', 'cr-dc-alt', 'AKU MELIHATMU');
+        const head = el('div', 'cr-dc-head');
+        head.append(dcTitle, dcAlt);
+        dcRules = [el('i', 'cr-dc-rule'), el('i', 'cr-dc-rule')];
+        dcSub = el('small', 'cr-dc-s', 'CAM 3 / COLD ROOM 03 / SIGNAL LOST');
         dcBox = el('div', 'cr-dc-box');
-        dcBox.append(dcTitle, el('small', 'cr-dc-s', 'CAM 3 / COLD ROOM 03 / SIGNAL LOST'));
+        dcBox.append(dcRules[0], head, dcRules[1], dcSub);
         dcEl = el('div', 'cr-dc');
         dcEl.setAttribute('aria-hidden', 'true');
         dcEl.append(dcBox);
         nosig = el('div', 'cr-nosig', 'CAM 3  NO SIGNAL');
-        dcTitle.dataset.t = 'DISCONNECTED';
         // Analog horror: a low resolution canvas for the snow, the tracking band and the dropouts, and a tape OSD that outlives the HUD.
         vhs = el('canvas', 'cr-vhs');
         vhs.setAttribute('aria-hidden', 'true');
@@ -1768,13 +1816,14 @@ const horror = (() => {
         const rise = smooth((u - T.glitch0) / 0.3);
         const base = u < T.dc0 ? 0.16 + 0.14 * ((u - T.glitch0) / 0.8) : 0.36 + 0.08 * Math.sin(u * 3.1);
         const burst = tearOn(u) ? 0.3 : 0;
-        const swell = 0.25 * smooth((u - (T.crt0 - 0.3)) / 0.3);
+        const swell = 0.25 * smooth((u - (T.crt0 - 0.3)) / 0.3) + (u >= T.dc0 + DC_SWAP && u < T.dc0 + DC_SWAP + 0.14 ? 0.35 : 0);
         return clamp(rise * (base + burst) + swell) * (1 - smooth((u - T.crt0 - 0.05) / 0.3));
     };
     // The face loses the picture and finds it again: a hard cut every 300 ms (about 1.7 a second), never fully black so the pistol stays readable.
     const lockAt = (u) => {
         if (reduced || u < T.dc0 || u >= T.crt0) return 1;
         const w = Math.floor((u - T.dc0) / 0.3);
+        if (u >= T.dc0 + DC_SWAP && u < T.dc0 + DC_SWAP + 0.14) return 1; // he is there when the card speaks
         return [0.4, 0.95, 0.35, 1, 0.6][w] ?? 1;
     };
     const vhsDraw = (u, I) => {
@@ -1922,51 +1971,47 @@ const horror = (() => {
         const kick = !reduced && x > 0.02 && x < 0.7 ? -6 * spring(x - 0.02) : 0;
         const shift = `translate3d(${(sx + kick * 0.4).toFixed(1)}px, ${(ry + kick).toFixed(1)}px, 0)`;
 
-        // ---- DISCONNECTED: a 2 frame glitch snap, then dead still for the rest of the hold with a 1 px shake. Reduced motion
-        // fades it in over 200 ms and holds it.
+        // ---- DISCONNECTED, a thriller title card. The picture behind it freezes into a cold grey (only the red of his eyes
+        // survives), two red rules draw out from the centre, the letters light up out of order with one flicker each, then hold
+        // and now and then one dies for a frame. For 140 ms the card says AKU MELIHATMU instead, his eyes flare and the snow
+        // bursts. Reduced motion: the card fades in over 200 ms and holds, no swap, no flicker.
         const dx = u - T.dc0;
+        const swap = !reduced && dx >= DC_SWAP && dx < DC_SWAP + 0.14;
+        const grey = u >= T.dc0;
+        if (grey !== greyOn) {
+            greyOn = grey;
+            [aimImg, aimFull, gun].forEach((n) => { n.style.filter = grey ? 'grayscale(0.9) brightness(0.5) contrast(1.35)' : ''; });
+        }
         let dcOp = 0;
-        let dcX = 0;
-        let dcY = 0;
-        let dcSplit = 3;
-        let dcSkew = 0;
+        let key = 'off';
         if (dx >= 0) {
-            if (reduced) {
-                dcOp = smooth(dx / 0.2);
-                dcSplit = 2;
-            } else if (dx < 0.0667) {
-                const f = Math.floor(dx / 0.0334);
-                dcOp = f ? 1 : 0.55;
-                dcX = f ? -5 : 10;
-                dcSkew = f ? 2 : -8;
-                dcSplit = f ? 6 : 9;
-            } else {
-                dcOp = 1;
-                dcX = Math.round(Math.sin(u * 71));
-                dcY = Math.round(Math.sin(u * 53 + 1));
-            }
-        }
-        // after the snap the title tears in slices now and then, and its light sags a little, like a burn-in on a tired tube
-        if (!reduced && dx >= 0.0667) {
+            dcOp = reduced ? smooth(dx / 0.2) : 1;
             const f = Math.floor(u * 15);
-            if (f !== dcFrame) {
-                dcFrame = f;
-                const on = h2(f, 21, 5) < 0.3;
-                const t1 = 8 + h2(f, 22, 5) * 50;
-                const t2 = 20 + h2(f, 23, 5) * 55;
-                dcEl.style.setProperty('--dco', on ? '1' : '0');
-                dcEl.style.setProperty('--s1t', `${t1.toFixed(0)}%`);
-                dcEl.style.setProperty('--s1b', `${(100 - t1 - 14).toFixed(0)}%`);
-                dcEl.style.setProperty('--s1x', `${((h2(f, 24, 5) - 0.5) * 22).toFixed(0)}px`);
-                dcEl.style.setProperty('--s2t', `${t2.toFixed(0)}%`);
-                dcEl.style.setProperty('--s2b', `${(100 - t2 - 10).toFixed(0)}%`);
-                dcEl.style.setProperty('--s2x', `${((h2(f, 25, 5) - 0.5) * 30).toFixed(0)}px`);
-                dcEl.dataset.sag = h2(f, 26, 5) < 0.18 ? '1' : '';
+            const lit = dcLetters.map((n, i) => {
+                if (reduced) return 1;
+                const at = 0.03 + DC_ORDER[i] * 0.034;
+                if (dx < at) return 0;
+                if (dx < at + 0.06) return 1;
+                if (dx < at + 0.1) return 0.15;
+                if (dx > 0.6 && h2(f, i, 31) < 0.018) return 0.25; // a letter dies for a frame
+                return 1;
+            });
+            const draw = reduced ? 1 : outCubic(dx / 0.45);
+            key = `${lit.join(',')}|${swap ? 1 : 0}|${Math.round(draw * 20)}|${reduced ? 1 : Math.round(smooth((dx - 0.4) / 0.25) * 10)}`;
+            if (key !== dcKey) {
+                dcKey = key;
+                dcLetters.forEach((n, i) => { n.style.opacity = String(lit[i]); });
+                dcTitle.style.visibility = swap ? 'hidden' : '';
+                dcAlt.style.visibility = swap ? 'visible' : 'hidden';
+                dcRules.forEach((r) => { r.style.transform = `scaleX(${(Math.round(draw * 20) / 20).toFixed(2)})`; });
+                dcSub.style.opacity = reduced ? '1' : (Math.round(smooth((dx - 0.4) / 0.25) * 10) / 10).toFixed(1);
             }
         }
-        dcEl.style.opacity = (dcOp * (dcEl.dataset.sag && dx > 0.5 ? 0.8 : 1)).toFixed(2);
-        dcBox.style.transform = dcOp ? `translate3d(${dcX}px, ${dcY}px, 0) skewX(${dcSkew}deg)` : '';
-        dcEl.style.setProperty('--dcs', `${dcSplit}px`);
+        dcEl.style.opacity = dcOp.toFixed(2);
+        // a breath of drift after the letters are in: 1 px at most, so the card feels watched, not shaken
+        dcBox.style.transform = dcOp && !reduced && dx > 0.5 ? `translate3d(${Math.round(Math.sin(u * 3.1))}px, ${Math.round(Math.sin(u * 2.3 + 1))}px, 0)` : '';
+        dcEl.style.setProperty('--dcs', `${reduced ? 1 : 1.5 + Math.abs(Math.sin(u * 4.1))}px`);
+        flag('dc-swap', swap);
 
         // ---- the CRT power-off: scaleY to a line, scaleX to a dot, a soft glow, then nothing. DISCONNECTED is a child of the
         // screen and goes with it. Reduced motion: a 300 ms fade to black instead.
@@ -1996,7 +2041,7 @@ const horror = (() => {
        element plays the same file with the same envelope. ---- */
 
     const CUE = '/audio/honeypot-cue.mp3';
-    const CUE_PEAK = 25.0; // second of the file where the track peaks, landed on T.reveal0
+    const CUE_PEAK = 25.0; // second of the file where the track peaks, landed on T.reveal0 (so the file starts 2.6 s in)
     const CUE_GAIN = 0.55; // pre-bus gain at the climax: about -8 dBFS peak and -16 dBFS RMS after the bus
     const CUE_DUCK = dB(-4); // under dialogue and sound effects, only 4 dB
     const CUE_GAP = 0.3; // the one silence, right before the shot
@@ -2305,8 +2350,8 @@ const horror = (() => {
         // One slow dolly, built from two overlapping eases so it never stops: a gentle push over the room, then the long push
         // toward his face that is still moving when the crossfade starts, plus a little extra through the fade.
         const cam1 = inOut((u - 7.5) / 12.5);
-        const cam2 = clamp(inOut((u - 18) / 8) / 0.9375);
-        const S = Math.exp(Math.log(1.12) * cam1 + Math.log(2.7 / 1.12) * cam2 + Math.log(1.1) * smooth((u - 23.6) / 0.85));
+        const cam2 = clamp(inOut((u - 16.4) / 8) / 0.9375);
+        const S = Math.exp(Math.log(1.12) * cam1 + Math.log(2.7 / 1.12) * cam2 + Math.log(1.1) * smooth((u - 22.0) / 0.85));
 
         if (roomOn) {
             room.style.opacity = (bootOp * (1 - cut)).toFixed(3);
@@ -2420,7 +2465,7 @@ const horror = (() => {
             const s0 = clamp((0.123 * figH * S) / (0.59 * geo.ah), 0.2, 1);
             const grow = outCubic(rx / 0.55);
             const early = reduced ? 1 : Math.min(1, Math.exp(Math.log(s0) * (1 - grow)));
-            const sa = reduced ? 1 : early * (1 + 0.12 * grow + 0.03 * inOut((u - 25.0) / 1.6));
+            const sa = reduced ? 1 : early * (1 + 0.12 * grow + 0.03 * inOut((u - 23.4) / 3.2));
             const match = reduced ? 0 : 1 - Math.min(1, sa);
             const mtx = match * (geo.afx - W / 2);
             const mty = match * (geo.afy - H / 2);
@@ -2475,7 +2520,9 @@ const horror = (() => {
             }
             // the red light in the eyes ignites 150 ms before the face is fully there
             const eyes = smooth((u - (T.reveal1 - 0.15)) / 0.2) * (reduced ? 1 : 0.88 + 0.12 * Math.sin(u * 7.3));
-            aimEyes.style.opacity = eyes.toFixed(3);
+            const flare = !reduced && u >= T.dc0 + DC_SWAP && u < T.dc0 + DC_SWAP + 0.14 ? 1 : 0;
+            aimEyes.style.opacity = Math.min(1, eyes + flare).toFixed(3);
+            aimEyes.style.filter = flare ? 'brightness(1.8) saturate(1.4)' : '';
             const ks = smooth((u - T.key0) / (T.key1 - T.key0));
             const s = lerp(0.22, 1.9, ks) + 0.7 * smooth((u - T.key1) / 1.2);
             const fx = geo.mx + (geo.afx - geo.mx) * sa;
@@ -2503,10 +2550,10 @@ const horror = (() => {
         flag('b-alert', u >= T.alert);
         flag('a1', u >= T.alert);
         flag('a2', u >= 12);
-        flag('a3', u >= P2[0]);
+        flag('a3', u >= 19.0);
         threat.style.transform = `scaleX(${threatAt(u).toFixed(3)})`;
         const base = u < T.knock ? 0 : 0.1;
-        const want = clamp(base + 0.6 * pulse(u, T.knock, 0.1, 1.1) + 0.55 * walk.bob + 0.45 * smooth((u - P2[0]) / 2) * (u < T.reveal0 ? 1 : 0.5) + (u >= T.shot ? 1 : 0) * pulse(u, T.shot, 0.05, 0.8));
+        const want = clamp(base + 0.6 * pulse(u, T.knock, 0.1, 1.1) + 0.55 * walk.bob + 0.45 * smooth((u - 19.0) / 2) * (u < T.reveal0 ? 1 : 0.5) + (u >= T.shot ? 1 : 0) * pulse(u, T.shot, 0.05, 0.8));
         noiseV = want > noiseV ? want : Math.max(0, noiseV - dt * 1.4);
         const lit = Math.round(noiseV * noiseBars.length);
         noiseBars.forEach((b, i) => b.classList.toggle('on', i < lit));
@@ -2542,7 +2589,8 @@ const horror = (() => {
         let f = clamp(W * 0.105, 22, 160);
         for (let i = 0; i < 4; i += 1) {
             dcEl.style.setProperty('--dcf', `${f.toFixed(1)}px`);
-            const w = dcBox.offsetWidth;
+            // the box is capped at 94vw, so measure the words themselves (both lines), not the box
+            const w = Math.max(dcTitle.scrollWidth, dcAlt ? dcAlt.scrollWidth : 0) + 0.4 * f;
             const room = zone.t - 8 - dcEl.offsetTop;
             const h = dcBox.offsetHeight;
             if (w <= maxW && h <= room) break;
@@ -2580,11 +2628,11 @@ const horror = (() => {
             // The brand fonts must really be applied before the card is read; otherwise the fallback stack carries it.
             hz.dataset.fonts = 'pending';
             if (document.fonts && document.fonts.load) {
-                Promise.all([document.fonts.load('800 24px "Bagel Fat One"'), document.fonts.load('700 12px "Space Mono"'), document.fonts.load('600 24px "Oswald"'), document.fonts.load('700 12px "IBM Plex Mono"')])
+                Promise.all([document.fonts.load('800 24px "Bagel Fat One"'), document.fonts.load('700 12px "Space Mono"'), document.fonts.load('600 24px "Crimson Pro"'), document.fonts.load('italic 600 24px "Crimson Pro"'), document.fonts.load('600 24px "Cinzel"'), document.fonts.load('700 12px "IBM Plex Mono"')])
                     .then(() => document.fonts.ready)
                     .then(() => {
                         const loaded = (name) => Array.from(document.fonts).some((face) => face.family.replace(/"/g, '') === name && face.status === 'loaded');
-                        hz.dataset.fonts = ['Bagel Fat One', 'Space Mono', 'Oswald', 'IBM Plex Mono'].every(loaded) ? 'brand' : 'fallback';
+                        hz.dataset.fonts = ['Space Mono', 'Crimson Pro', 'Cinzel', 'IBM Plex Mono'].every(loaded) ? 'brand' : 'fallback';
                     })
                     .catch(() => { hz.dataset.fonts = 'fallback'; });
             } else {

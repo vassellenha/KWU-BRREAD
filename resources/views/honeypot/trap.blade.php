@@ -9,7 +9,7 @@
     <title>Brread!</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bagel+Fat+One&family=Space+Mono:wght@400;700&family=Oswald:wght@600&family=IBM+Plex+Mono:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bagel+Fat+One&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@700&family=Crimson+Pro:ital,wght@0,600;1,600&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
     <noscript>
         <meta http-equiv="refresh" content="{{ $remaining + 1 }};url=/admin?resume=1">
         <style>#hz { display: none !important; } #hp-kewer { display: block !important; }</style>
@@ -108,9 +108,9 @@
 
             {{-- The owner speaks: a dialogue card, no voice --}}
             <div class="cr-dlg" id="cr-dlg">
-                <div class="cr-dlg-tag"><i class="cr-dlg-rec"></i><span>AUDIO INTERCEPT / MIC 2 / V. ENHA</span></div>
+                <div class="cr-dlg-tag"><i class="cr-dlg-rec"></i><span>VASSELL ENHA</span></div>
                 <p class="cr-dlg-text" id="cr-dlg-text"></p>
-                <i class="cr-dlg-mk cr-dlg-mk-a"></i><i class="cr-dlg-mk cr-dlg-mk-b"></i>
+                <i class="cr-dlg-mk"></i>
             </div>
 
             <div class="cr-dark"></div>
