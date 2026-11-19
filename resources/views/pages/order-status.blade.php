@@ -197,18 +197,7 @@
                                     <span class="os-shadow" aria-hidden="true"></span>
                                     <div class="os-bob">
                                         <div class="os-stack">
-                                            <div class="os-piece os-piece--top">
-                                                <img src="{{ $art($creation['art']['bread']) }}" alt="" width="720" height="270">
-                                            </div>
-                                            <div class="os-piece os-piece--ice">
-                                                <img src="{{ $art($creation['art']['ice']) }}" alt="" width="720" height="250">
-                                                @foreach ($creation['art']['toppings'] as $topping)
-                                                    <img class="os-topping" src="{{ $art($topping) }}" alt="" width="720" height="290">
-                                                @endforeach
-                                            </div>
-                                            <div class="os-piece os-piece--bottom">
-                                                <img src="{{ $art($creation['art']['bread']) }}" alt="" width="720" height="270">
-                                            </div>
+                                            @include('partials.order-folded-sandwich', ['creation' => $creation, 'uid' => 'fs'.$idx, 'art' => $art])
                                         </div>
                                     </div>
                                     @if ($state !== 'cancelled')
@@ -479,11 +468,7 @@
                     <div class="os-sendbox">
                         <div class="os-send-anim" aria-hidden="true">
                             <div class="os-mini">
-                                <img class="os-mini__top" src="{{ $art($first['art']['bread'] ?? 'bread-white') }}" alt="">
-                                <div class="os-mini__ice-wrap">
-                                    <img src="{{ $art($first['art']['ice'] ?? 'ice-strawberry') }}" alt="">
-                                </div>
-                                <img class="os-mini__bottom" src="{{ $art($first['art']['bread'] ?? 'bread-white') }}" alt="">
+                                @include('partials.order-folded-sandwich', ['creation' => $first, 'uid' => 'fsmini', 'art' => $art, 'still' => true])
                             </div>
                             <i class="os-fly" style="--c: #f48fab; --x: -50px; --r: -60deg; --d: 0s"></i>
                             <i class="os-fly" style="--c: #ffd166; --x: 10px; --r: 40deg; --d: 0.35s"></i>

@@ -424,7 +424,7 @@
 @keyframes os-twinkle { 0%, 100% { transform: scale(0.45) rotate(0); } 50% { transform: scale(1) rotate(45deg); } }
 
 .os-sandwich { position: absolute; z-index: 2; inset: 0; display: flex; align-items: center; justify-content: center; }
-.os-bob { width: 68%; animation: os-bob 4.4s ease-in-out 2.1s infinite; }
+.os-bob { width: 78%; animation: os-bob 4.4s ease-in-out 2.1s infinite; }
 .os-hero--cancelled .os-bob { animation: none; }
 @keyframes os-bob {
     0%, 100% { transform: translateY(0) rotate(-1.5deg); }
@@ -436,7 +436,7 @@
     flex-direction: column;
     align-items: center;
     transform-origin: 50% 100%;
-    animation: os-squash 520ms var(--spring) 1.6s both;
+    animation: os-squash 520ms var(--spring) 2.2s both;
 }
 .os-stack.is-squash { animation: os-squash 520ms var(--spring) both; }
 @keyframes os-squash {
@@ -446,34 +446,22 @@
     100% { transform: scale(1, 1); }
 }
 
-/* Die-cut sticker outline: a white rim, then a thin chocolate line outside it. */
-.os-piece img {
-    display: block;
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(2.5px 0 0 #fff) drop-shadow(-2.5px 0 0 #fff) drop-shadow(0 2.5px 0 #fff) drop-shadow(0 -2.5px 0 #fff)
-        drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 1.5px 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink));
-}
-.os-piece { position: relative; width: 100%; animation: os-drop 820ms linear var(--at) both; }
-.os-piece--top { z-index: 3; --at: 1.05s; --rot: 6deg; }
-.os-piece--ice { z-index: 2; width: 88%; margin-top: -5%; --at: 0.62s; --rot: -8deg; }
-.os-piece--bottom { z-index: 1; margin-top: -5%; --at: 0.2s; --rot: 4deg; }
-@keyframes os-drop {
-    0% { opacity: 0; transform: translateY(-340px) rotate(var(--rot)); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5); }
-    48% { opacity: 1; transform: translateY(0) rotate(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
-    64% { transform: translateY(-24px); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5); }
-    80% { transform: translateY(0) scaleY(0.94); animation-timing-function: ease-out; }
-    100% { opacity: 1; transform: none; }
-}
-.os-topping {
-    position: absolute;
-    inset: 0;
-    height: 100%;
-    object-fit: contain;
-    filter: none !important;
-    animation: os-topping 560ms var(--spring) 1.5s both;
-}
-@keyframes os-topping { from { opacity: 0; transform: translateY(-18px) scale(0.85); } }
+/* The folded sandwich: one slice of bread folded round a flat slab of ice cream (partials/order-folded-sandwich).
+   Base styles are the final pose; the build-up only runs for the hero version (.fs--anim). */
+.fs { display: block; width: 100%; height: auto; overflow: visible; }
+.fs-ln { fill: none; stroke: var(--ink); stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; }
+.fs-drip { fill: #4a2316; }
+.fs-part { transform-box: view-box; }
+.fs--anim .fs-part--lower { transform-origin: 180px 250px; animation: fs-lower 560ms var(--spring) 0.2s both; }
+.fs--anim .fs-part--fold { animation: fs-fold 520ms var(--spring) 1.45s both; transform-origin: 64px 240px; }
+.fs--anim .fs-part--slab { animation: fs-slab 600ms var(--spring) 0.9s both; }
+.fs--anim .fs-part--upper { transform-origin: 62px 196px; animation: fs-upper 760ms var(--spring) 1.45s both; }
+.fs--anim .fs-top { animation: fs-top 480ms var(--spring) 2.1s both; }
+@keyframes fs-lower { 0% { opacity: 0; transform: scale(0.8, 0.3); } 30% { opacity: 1; } }
+@keyframes fs-slab { 0% { opacity: 0; transform: translateY(-120px); } 20% { opacity: 1; } }
+@keyframes fs-fold { 0% { opacity: 0; transform: scale(0.2, 1); } 40% { opacity: 1; } }
+@keyframes fs-upper { 0% { opacity: 0; transform: rotate(-95deg); } 12% { opacity: 1; } }
+@keyframes fs-top { from { opacity: 0; } }
 
 .os-shadow {
     position: absolute;
@@ -502,10 +490,11 @@
     background: var(--ink);
     transform-origin: 50% 0;
     opacity: 0;
-    animation: os-burst 520ms ease-out 1.5s both;
+    animation: os-burst 520ms ease-out 2.1s both;
 }
 @keyframes os-burst {
-    0% { opacity: 1; transform: rotate(var(--a)) translateY(118px) scaleY(0.2); }
+    0% { opacity: 0; transform: rotate(var(--a)) translateY(118px) scaleY(0.2); }
+    8% { opacity: 1; }
     60% { opacity: 1; }
     100% { opacity: 0; transform: rotate(var(--a)) translateY(160px) scaleY(1); }
 }
@@ -530,33 +519,33 @@
 @keyframes os-flip { 0%, 55% { transform: rotate(0); } 80%, 100% { transform: rotate(180deg); } }
 
 /* Cancelled: the sandwich slumps and a flat puddle spreads. */
-.os-hero--cancelled .os-stack { filter: grayscale(0.85) contrast(0.95); animation: os-slump 1.6s var(--snap) 1.6s both; }
+.os-hero--cancelled .os-stack { filter: grayscale(0.85) contrast(0.95); animation: os-slump 1.6s var(--snap) 2.3s both; }
 @keyframes os-slump { to { transform: translateY(5%) scale(1.05, 0.86); } }
 .os-puddle {
     position: absolute;
     left: 50%;
-    bottom: 7%;
+    bottom: 19%;
     z-index: 1;
-    width: 70%;
-    height: 9%;
-    margin-left: -35%;
+    width: 72%;
+    height: 8%;
+    margin-left: -36%;
     border: 3px solid var(--ink);
     border-radius: 50%;
     background: var(--rose);
-    animation: os-puddle 1.8s var(--snap) 1.7s both;
+    animation: os-puddle 1.8s var(--snap) 2.4s both;
 }
 @keyframes os-puddle { from { opacity: 0; transform: scale(0.1, 0.3); } }
 .os-melt-drop {
     position: absolute;
     left: var(--l);
-    top: 55%;
+    top: 58%;
     width: 11px;
     height: 15px;
     border: 2.5px solid var(--ink);
     border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
     background: var(--rose);
     opacity: 0;
-    animation: os-melt var(--d) ease-in 1.9s infinite;
+    animation: os-melt var(--d) ease-in 2.6s infinite;
 }
 @keyframes os-melt {
     0% { opacity: 0; transform: translateY(0) scale(0.6); }
@@ -950,7 +939,7 @@
 .os-pop__actions { display: grid; gap: 12px; margin-top: 20px; animation: os-rise 420ms var(--snap) 2.1s both; }
 
 .os-sendbox { padding: 6px 0 4px; }
-.os-send-anim { position: relative; width: 112px; margin: 0 auto 6px; animation: os-wobble 1s ease-in-out infinite; }
+.os-send-anim { position: relative; width: 150px; margin: 0 auto 6px; animation: os-wobble 1s ease-in-out infinite; }
 .os-send-anim .os-mini { width: 100%; }
 @keyframes os-wobble { 0%, 100% { transform: rotate(-5deg) translateY(0); } 50% { transform: rotate(5deg) translateY(-8px); } }
 .os-fly {
@@ -983,11 +972,6 @@
 
 /* Mini sandwich thumbnail (sending animation). */
 .os-mini { position: relative; flex: none; width: 76px; }
-.os-mini img { display: block; width: 100%; height: auto; }
-.os-mini .os-mini__ice-wrap { position: relative; z-index: 2; width: 88%; margin: -14% auto 0; }
-.os-mini .os-mini__bottom { position: relative; z-index: 1; margin-top: -14%; }
-.os-mini .os-mini__top { position: relative; z-index: 3; }
-.os-mini .os-mini__topping { position: absolute; inset: 0; height: 100%; object-fit: contain; }
 
 /* ==========================================================================
    Phones
