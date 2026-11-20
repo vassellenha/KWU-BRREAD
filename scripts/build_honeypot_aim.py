@@ -7,7 +7,7 @@ Writes  public/img/honeypot/aim-clean.webp  (the same plate without the pistol, 
 The pistol and the hand are cut out along a traced outline (a feathered edge, taken one pixel in so no wall colour comes
 along). What was behind them is rebuilt from the other half of the plate: the face is almost symmetrical about the line through
 the nose (x = AXIS), so the mirrored cheek, jaw and collar fill the gap, and the edge is blended with a gradient domain
-clone so the join cannot be seen. A gun layer laid over the clean plate gives the original plate again.
+clone (Poisson) that takes its colours from the border of the hole, so the lit cheek stays lit and the join cannot be seen. A gun layer laid over the clean plate gives the original plate again.
 
 Run from the project root:  python scripts/build_honeypot_aim.py     Needs: pillow, numpy, opencv-python-headless.
 """
@@ -21,7 +21,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public" / "img" / "honeypot"
 AXIS = 545.0
-CHEST0, CHEST_AXIS = 600, 612  # the chest fold: the source strip starts at x = 600; the fold line sits just right of the mask
+CHEST0, CHEST_AXIS = 600, 612
+PAD = 40  # reflected border, so the clone also works where the hole touches the edge of the plate  # the chest fold: the source strip starts at x = 600; the fold line sits just right of the mask
 OUTLINE = [(330, 664), (398, 668), (436, 722), (478, 782), (493, 860), (497, 984), (530, 998), (572, 1040), (590, 1110), (580, 1182),
            (554, 1242), (542, 1322), (526, 1402), (512, 1472), (508, 1536), (0, 1536), (0, 1162), (22, 1130), (62, 1090), (112, 1022),
            (168, 984), (190, 950), (196, 890), (212, 820), (244, 760), (282, 704)]
@@ -44,37 +45,24 @@ def main():
     wy = np.clip((yy - 930.0) / 90.0, 0, 1)
     wy = wy * wy * (3 - 2 * wy)
     fill = face * (1 - wy) + chest * wy
-    grow = cv2.dilate(m, np.ones((9, 9), np.uint8))
-    # The real left side of the face is lit warmer than the mirrored right cheek. Compare both along the ring just outside
-    # the outline (the face and the neck only, not the glove) and spread the ratio inwards, so the fill takes the light of its
-    # surroundings and no darker patch is left on the cheek.
-    # Only the skin just above the hole is trusted: the wall and the neck beside it differ between the two halves of the plate
-    # and would drag the cheek towards the wrong colour.
-    ys, xs = np.mgrid[0:h, 0:w]
-    ring = (cv2.dilate(m, np.ones((2 * 14 + 1, 2 * 14 + 1), np.uint8)) > 0) & (cv2.dilate(m, np.ones((7, 7), np.uint8)) == 0)
-    ring &= ((ys > 600) & (ys < 735) & (xs > 270) & (xs < 480)) | ((ys >= 735) & (ys < 985) & (xs > 440))
-    blur_o = cv2.GaussianBlur(rgb.astype(np.float32), (0, 0), 6)
-    blur_f = cv2.GaussianBlur(fill, (0, 0), 6)
-    ratio = (blur_o + 6.0) / (blur_f + 6.0)
-    ratio = np.clip(ratio, 0.8, 2.6)
-    gain_src = np.where(ring[..., None], ratio, 0).astype(np.float32)
-    known = ring.astype(np.float32)
-    # spread by normalised convolution at a few scales (a cheap harmonic fill)
-    gain = np.ones_like(gain_src)
-    acc = np.zeros_like(gain_src)
-    wacc = np.zeros((h, w), np.float32)
-    for sg in (6, 14, 30, 60, 120):
-        num = cv2.GaussianBlur(gain_src, (0, 0), sg)
-        den = cv2.GaussianBlur(known, (0, 0), sg)
-        est = num / np.maximum(den[..., None], 1e-4)
-        wgt = np.clip(den * 40.0, 0, 1)
-        acc += est * (wgt * (1 - wacc))[..., None]
-        wacc = wacc + wgt * (1 - wacc)
-    gain = acc + (1 - wacc)[..., None]
-    face_w = 1 - wy  # the correction fades out down the chest, where the fill already continues the armour
-    fill = fill * (1 + (gain - 1) * face_w)
-    soft = cv2.GaussianBlur(grow.astype(np.float32) / 255.0, (0, 0), 7.0)[..., None]
-    clean = (fill * soft + rgb.astype(np.float32) * (1 - soft)).clip(0, 255).astype(np.uint8)
+    # The mirrored right cheek is the unlit side of his face, so copied as it is it leaves a dark, smooth patch on the lit
+    # left cheek and a black smudge beside the jaw (the dark wall of the right side). Instead the fill only lends its detail:
+    # a Poisson clone (gradient domain) keeps the mirrored jaw, mouth and collar lines and takes every colour from the border
+    # of the hole, so the cheek picks up the red rim light of the ear and the sideburn, and the wall left of the jaw stays red.
+    grow = cv2.dilate(m, np.ones((15, 15), np.uint8))
+    fill8 = fill.clip(0, 255).astype(np.uint8)
+    pad = lambda a: cv2.copyMakeBorder(a, PAD, PAD, PAD, PAD, cv2.BORDER_REFLECT)
+    src, dst, mk = pad(fill8), pad(rgb), pad(grow)
+    mk[:PAD, :], mk[-PAD:, :], mk[:, :PAD], mk[:, -PAD:] = 0, 0, 0, 0
+    x, y, bw, bh = cv2.boundingRect(mk)
+    cloned = cv2.seamlessClone(np.ascontiguousarray(src[:, :, ::-1]), np.ascontiguousarray(dst[:, :, ::-1]), mk, (x + bw // 2, y + bh // 2),
+                               cv2.NORMAL_CLONE)[:, :, ::-1][PAD:-PAD, PAD:-PAD].astype(np.float32)
+    # Under the collar the folded chest is kept as it is (the clone would wash the armour out with the glow of the glove).
+    wb = np.clip((yy - 960.0) / 120.0, 0, 1)
+    wb = wb * wb * (3 - 2 * wb)
+    soft = cv2.GaussianBlur(grow.astype(np.float32) / 255.0, (0, 0), 6.0)[..., None]
+    folded = fill * soft + rgb.astype(np.float32) * (1 - soft)
+    clean = (cloned * (1 - wb) + folded * wb).clip(0, 255).astype(np.uint8)
     Image.fromarray(clean).save(OUT / "aim-clean.webp", quality=88, method=6)
 
 

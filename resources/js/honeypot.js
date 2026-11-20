@@ -31,6 +31,8 @@ const POPS = {
     leave: ['Mau kabur? Sayang sekali.', 'Pintunya dikunci. Sama Kewer.'],
 };
 
+// QA only (the server sets data-seek only outside production, with ?replay=1&seek=N): the cutscene is frozen at that second.
+const QA = root && root.dataset.seek !== undefined ? { seek: Number(root.dataset.seek) || 0 } : null;
 const state = { start: 0, until: 0, horrorMs: 22000, ip: root?.dataset.ip || '', phase: 'horror', tries: [], bsod: false, popAt: 0, raf: 0, ended: false };
 
 const el = (tag, className, content) => {
@@ -129,6 +131,7 @@ function secondsLeft() {
 }
 
 function tick() {
+    if (QA) return; // a frozen QA frame never moves on to Kewer or ends the hold
     const elapsed = Date.now() - state.start;
 
     if (state.phase === 'horror' && elapsed >= state.horrorMs) startKewer();
@@ -508,8 +511,7 @@ const horror = (() => {
     const aimImg = $('cr-aim-img');
     const gun = $('cr-aim-gun');
     const aimBg = $('cr-aim-bg');
-    const gun2 = $('cr-aim-gun2');
-    const gun3 = $('cr-aim-gun3');
+    const vig = $('cr-vig');
     const aimFull = $('cr-aim-full');
     const flashImg = $('cr-flash-img');
     const flashTwin = $('cr-flash-twin');
@@ -890,6 +892,13 @@ const horror = (() => {
             hiss(c, out, t + 0.52, 0.04, 'bandpass', 1400, 1.1, 0.2, 0.001, 0.03);
             osc(c, out, 'sine', 160 * r, 60 * r, t + 0.52, 0.06, 0.18, 0.001, 0.07);
         },
+        // Ringing ears after the shot: two close sines around 3.5 kHz (a slow beat between them), 1 s, falling away.
+        tinnitus: (c, t, o) => {
+            const out = voice(c, o);
+            const r = pitch();
+            osc(c, out, 'sine', 3520 * r, 3380 * r, t, 1.2, 0.035, 0.03, 1.1);
+            osc(c, out, 'sine', 3527 * r, 3387 * r, t, 1.2, 0.02, 0.05, 1.05);
+        },
         thud: (c, t, o) => {
             const out = voice(c, o);
             const r = pitch();
@@ -898,13 +907,18 @@ const horror = (() => {
         },
     };
 
-    // The shot ducks every other voice and the reverb return for 300 ms, then they come back.
+    // The shot ducks every other voice and the room reverb: the reverb comes back after 300 ms, the dry voices stay low for
+    // a second under the ringing in the ears (the shot's own long tail runs on its own reverb and is never ducked).
     const duckOthers = (c, t) => {
-        [bus.duck, bus.wetDuck].forEach((node) => {
+        [bus.duck, bus.wetDuck].forEach((node, i) => {
             node.gain.cancelScheduledValues(t);
             node.gain.setValueAtTime(1, t);
             node.gain.linearRampToValueAtTime(0.16, t + 0.012);
-            node.gain.linearRampToValueAtTime(1, t + 0.3);
+            if (i === 0) {
+                node.gain.linearRampToValueAtTime(0.3, t + 0.3);
+                node.gain.setValueAtTime(0.3, t + 0.9);
+            }
+            node.gain.linearRampToValueAtTime(1, t + (i === 0 ? 1.15 : 0.3));
         });
     };
 
@@ -950,6 +964,7 @@ const horror = (() => {
         tape: { dist: 0.1, send: 0.04 },
         crtoff: { dist: 0.3, send: 0.15 },
         thud: { dist: 0.3, send: 0.3 },
+        tinnitus: { dist: 0, send: 0.05, bypass: true },
     };
 
     /* ---- small maths: everything is a pure function of the clock ---- */
@@ -997,7 +1012,7 @@ const horror = (() => {
         reveal0: 22.4, // the match cut to the aim plate starts, with a push-in and a rack focus
         reveal1: 22.8, // the face is fully there
         rise0: 23.6, // the pistol comes up from below the frame
-        rise1: 24.1, // and is held on the lens: the second line is spoken over it, and the shot cuts it off
+        rise1: 24.35, // a slow, heavy lift (750 ms, a small overshoot), held on the lens: the second line is spoken over it, and the shot cuts it off
         key0: 22.6, // the key light ramps up on his face
         key1: 23.8,
         shot: 26.6,
@@ -1018,12 +1033,15 @@ const horror = (() => {
     const CHAR_RATE = 0.028; // the text box types one letter every 28 ms
     // The gait. A stride is a run of steps, and every step is one phase from 0 to 1 between two heel strikes. That single
     // phase drives the bob (two peaks per two steps), the shoulder roll, the weight shift and the cloak. The stride itself
-    // starts and stops on an in-out cubic, so he never moves at a constant speed. He stops once, in silence, around 13 s.
+    // starts and stops on an in-out cubic, so he never moves at a constant speed. Heavy and slow: about 1.1 s a step. He stops
+    // once in total stillness (1.5 s), takes two more steps, and then the light dies for 120 ms: when it comes back he is a
+    // whole step closer (JUMP), the one jump of the walk.
     const STRIDES = [
-        { a: 9.55, b: 12.0, w: 0.4, strikes: [10.3, 11.15, 12.0] },
-        { a: 13.6, b: 15.7, w: 0.6, strikes: [14.3, 15.05, 15.7] },
+        { a: 9.55, b: 12.85, w: 0.4, strikes: [10.65, 11.75, 12.85] },
+        { a: 14.35, b: 16.55, w: 0.45, strikes: [15.45, 16.55] },
     ];
-    const HEAVY = [0.3, 0.42, 0.52, 0.62, 0.78, 0.95]; // how hard each heel lands (the footsteps use the same numbers)
+    const JUMP = { at: 16.95, dark: 0.12, w: 0.15 }; // lights out at 16.95 for 120 ms (3 frames at 25 fps); he moves in the dark
+    const HEAVY = [0.45, 0.55, 0.62, 0.8, 1.0]; // how hard each heel lands (the footsteps use the same numbers)
     const STEPS = [];
     STRIDES.forEach((st) => st.strikes.forEach((hit, i) => STEPS.push({ a: i ? st.strikes[i - 1] : st.a, b: hit })));
     const STRIKES = STRIDES.flatMap((st) => st.strikes);
@@ -1048,15 +1066,15 @@ const horror = (() => {
         [7.3, 'creak'],
         [8.55, 'hinge'],
         [9.6, 'boom', 0.9],
-        [10.3, 'foot', 0.3],
-        [10.9, 'rustle'],
-        [11.15, 'foot', 0.42],
-        [12.0, 'foot', 0.52],
-        [14.3, 'foot', 0.62],
-        [15.05, 'foot', 0.78],
-        [15.7, 'foot', 0.95],
-        [16.35, 'rustle'],
-        [16.7, 'sting', 0.55],
+        [10.65, 'foot', 0.45],
+        [11.2, 'rustle'],
+        [11.75, 'foot', 0.55],
+        [12.85, 'foot', 0.62],
+        [15.45, 'foot', 0.8],
+        [16.55, 'foot', 1],
+        [16.57, 'thud', 0.7], // the last step lands with one heavy thud, out of 400 ms of silence
+        [JUMP.at, 'buzz'], // the light dies with a crackle of its ballast
+        [JUMP.at + JUMP.dark, 'sting', 0.55], // and comes back on him, a step closer
         [19.35, 'drip'],
         [21.15, 'sting', 1],
         [T.reveal0 + 0.05, 'boom', 0.6],
@@ -1064,6 +1082,7 @@ const horror = (() => {
         [T.rise1, 'click'],
         [T.shot, 'shot'],
         [T.shot + 0.06, 'glass'],
+        [T.shot + 0.08, 'tinnitus'],
         [T.glitch0 + 0.3, 'tape'],
         [T.dc0, 'zap'],
         [T.crt0, 'crtoff'],
@@ -1085,6 +1104,7 @@ const horror = (() => {
         let sp = 0;
         let settle = 0;
         let over = 0;
+        if (u >= JUMP.at + JUMP.dark / 2) p += JUMP.w; // in the middle of the dark
         STRIDES.forEach((st) => {
             const v = clamp((u - st.a) / (st.b - st.a));
             p += st.w * inOut(v);
@@ -1105,7 +1125,8 @@ const horror = (() => {
             if (u >= st.b) {
                 s = i + 1;
             } else {
-                if (u >= st.a) s = i + (u - st.a) / (st.b - st.a);
+                // a heavy, even tempo: mostly linear, with a little surge into each heel strike
+                if (u >= st.a) { const l = (u - st.a) / (st.b - st.a); s = i + 0.7 * l + 0.3 * inOut(l); }
                 break;
             }
         }
@@ -1118,6 +1139,13 @@ const horror = (() => {
             p += ((st.w / st.strikes.length) * 0.3 * env * Math.sin(2 * Math.PI * local)) / (2 * Math.PI);
             first += st.strikes.length;
         });
+        // With the planted foot table the path position follows the steps: step k ends exactly on its heel strike, and the floor
+        // each step covers is whatever keeps the planted boot still. The jump then takes him the rest of the way in the dark.
+        if (phase.table) {
+            const half = (wk.m.frames || WALK_CYCLE) / 2;
+            p = tableFind(phase.table, s * half);
+            if (u >= JUMP.at + JUMP.dark / 2) p = 1;
+        }
         let heel = 0;
         let shakeX = 0;
         let shakeY = 0;
@@ -1125,10 +1153,10 @@ const horror = (() => {
             const x = u - hit;
             if (x < 0) return;
             if (x < 0.45) heel += HEAVY[j] * Math.exp(-x / 0.09);
-            if (HEAVY[j] >= 0.5 && x < 0.09) {
-                // Four to six frames of micro-shake on the heavy steps, one fixed offset per 60 Hz frame.
+            if (x < 0.09) {
+                // Four to six frames of micro-shake on every heel strike (1.5 to 2.5 px on screen), one fixed offset per 60 Hz frame.
                 const n = Math.floor(x * 60) + j * 7;
-                const amp = HEAVY[j] * Math.exp(-x / 0.04);
+                const amp = (0.75 + 0.5 * HEAVY[j]) * Math.exp(-x / 0.04);
                 shakeX += (frac(Math.sin(n * 127.1) * 43758.5453) - 0.5) * 2 * amp;
                 shakeY += (frac(Math.sin(n * 311.7 + 1.7) * 43758.5453) - 0.5) * 2 * amp;
             }
@@ -1168,7 +1196,8 @@ const horror = (() => {
         { key: 'char', src: hz.dataset.figure, from: 8.0, until: 22.9 },
         // optional: the scene never waits for these; without them the standing cutout and a plain door fade are used
         { key: 'dust', src: `${ART}dust-atlas.webp`, from: 4.0, until: 11, soft: true, bitmap: true },
-        { key: 'wlk', src: `${ART}walk-atlas.webp`, from: 4.0, until: 22.9, soft: true, bitmap: true },
+        { key: 'wlk', src: `${ART}walk-atlas-dark.webp`, from: 4.0, until: 22.9, soft: true, bitmap: true }, // backlit: a silhouette
+        { key: 'wlkLit', src: `${ART}walk-atlas.webp`, from: 19.5, until: 22.9, soft: true, bitmap: true }, // his face, just before the reveal
         { key: 'wlkjson', src: `${ART}walk-atlas.json`, from: 4.0, until: 22.9, soft: true, json: true },
         { key: 'aim', src: `${ART}aim-pose.webp`, from: 21.6, until: 28.6 },
         { key: 'aimclean', src: `${ART}aim-clean.webp`, from: 21.6, until: 28.6 },
@@ -1178,7 +1207,7 @@ const horror = (() => {
     ];
     // The server caches images for 30 days and JSON not at all, so a rebuilt atlas could meet its new JSON in a browser
     // that still holds the old picture. Every plate carries the build version, so a new build is always a new URL.
-    const ART_V = '2611192';
+    const ART_V = '2611201';
     ASSETS.forEach((a) => { a.src += `?v=${ART_V}`; });
     const asset = (key) => ASSETS.find((a) => a.key === key);
     const needed = (a, u) => a.from <= u + 0.25 && a.until > u;
@@ -1336,8 +1365,8 @@ const horror = (() => {
         const data = fig.lit.getContext('2d').getImageData(0, 0, fig.w, fig.h);
         const px = data.data;
         for (let i = 0; i < px.length; i += 4) {
-            const rim = smooth((px[i] - 70) / 110);
-            const gain = 0.085 + 0.9 * rim;
+            const rim = smooth((px[i] - 150) / 90);
+            const gain = 0.03 + 0.5 * rim;
             px[i] *= gain;
             px[i + 1] *= gain;
             px[i + 2] *= gain;
@@ -1356,9 +1385,7 @@ const horror = (() => {
 
     const WALK_H = 0.62; // his height while walking, of the screen height; the aim plate takes over for the face
     const WALK_CYCLE = 30;
-    const WALK_STRIDE = 0.8; // one cycle (two steps) covers 0.8 of his own height on screen
-    const WALK_FAR = 1.6; // he walks toward the lens: growth in height counts as forward travel, 1.6 times over
-    const wk = { ok: false, failed: reduced, m: null, src: null, shown: -1, rawA: 1, rawB: 2 };
+    const wk = { ok: false, failed: false, m: null, src: null, lit: null, litCv: null, litCtx: null, shown: '', rawA: 1, rawB: 2 };
     const stats = { fig: 0, door: 0, dust: 0, t: 0 };
 
     // Where the path starts and ends, in plate pixels. Used by the geometry and by the step counter, so they always agree.
@@ -1371,29 +1398,119 @@ const horror = (() => {
         const h1 = (wk.ok ? WALK_H : 0.9) * H;
         return { x0, y0, h0, x1, y1, h1 };
     };
-    // Steps covered so far, in cycles, as a function of the path position p (screen distance over 0.8 of his height).
-    const walkRaw = (p) => {
-        const { x0, y0, h0, x1, y1, h1 } = pathNow();
-        const dh = h1 - h0;
-        return ((Math.hypot(x1 - x0, y1 - y0) + WALK_FAR * dh) / (WALK_STRIDE * dh)) * Math.log(lerp(h0, h1, clamp(p)) / h0);
+    // The walk is driven by the planted foot. The atlas says where each boot touches down in every frame (walk-atlas.json,
+    // feet), so for every path position p the frame is found that keeps the planted boot on the same spot of the floor while
+    // his body moves on (and grows toward the lens). When that boot has rolled through its whole stance, the other one lands
+    // and takes over. The table below is that solution, sampled once per layout; a frame is then a lookup, so a foot can
+    // never slide, at any screen size. Before the atlas is known, an even count of steps over the path stands in.
+    const PHASE_N = 480;
+    const phase = { table: null, pa: 0.4, pb: 0.85 };
+    // The boot's sole in the cell at q frames into its stance (0 = heel strike, 15 = toe off): its height, or (x) its column.
+    const footAt = (foot, q, x = false) => {
+        const f = wk.m.feet;
+        const n = wk.m.frames || WALK_CYCLE;
+        const i = Math.floor(q);
+        const t = q - i;
+        const at = (k) => f[((foot ? 15 : 0) + k) % n][foot * 2 + (x ? 1 : 0)];
+        return lerp(at(i), at(i + 1), t);
     };
-    // The two strides end on a foot contact: 1.5 cycles (three steps) each, so the stops land on frame 15 and frame 0.
-    const walkCycles = (p) => {
-        const a = STRIDES[0].w;
-        if (p <= a) return (1.5 * walkRaw(p)) / wk.rawA;
-        return 1.5 + (1.5 * (walkRaw(p) - wk.rawA)) / (wk.rawB - wk.rawA);
+    const solvePhase = (kf) => {
+        const { y0, h0, y1, h1 } = pathNow();
+        const A = wk.m.anchorY;
+        const half = (wk.m.frames || WALK_CYCLE) / 2;
+        const table = new Float32Array(PHASE_N + 1);
+        // and sideways: he grows about the planted boot, not about the middle of the sprite, so it does not slide out either
+        const side = new Float32Array(PHASE_N + 1);
+        const AX = wk.m.anchorX;
+        let foot = 0;
+        let base = 0;
+        let plant = y0 - (A - footAt(0, 0)) * (h0 / A);
+        let plantX = (footAt(0, 0, true) - AX) * (h0 / A);
+        let q = 0;
+        for (let i = 0; i <= PHASE_N; i += 1) {
+            const pp = i / PHASE_N;
+            const ya = lerp(y0, y1, pp);
+            const hh = lerp(h0, h1, pp);
+            // how far (cell px) the planted sole must have moved up the cell to stay where it touched down
+            const need = kf * (footAt(foot, 0) - (A - ((ya - plant) * A) / hh));
+            const span = footAt(foot, 0) - footAt(foot, half);
+            if (need >= span) {
+                // toe off: the other boot lands here and becomes the planted one
+                const sx = i ? side[i - 1] : 0;
+                base += half;
+                foot = 1 - foot;
+                plant = ya - (A - footAt(foot, 0)) * (hh / A);
+                plantX = sx + (footAt(foot, 0, true) - AX) * (hh / A);
+                q = 0;
+            } else {
+                while (q < half && footAt(foot, 0) - footAt(foot, q + 0.05) <= need) q += 0.05;
+            }
+            table[i] = base + q;
+            side[i] = plantX - (footAt(foot, q, true) - AX) * (hh / A);
+        }
+        table.side = side;
+        return table;
     };
-    const walkFrame = (p) => {
-        const f = Math.floor(walkCycles(p) * WALK_CYCLE + 1e-4);
+    const tableAt = (table, pp) => {
+        const x = clamp(pp) * PHASE_N;
+        const i = Math.min(PHASE_N - 1, Math.floor(x));
+        return lerp(table[i], table[i + 1], x - i);
+    };
+    const tableFind = (table, target) => {
+        for (let i = 0; i < PHASE_N; i += 1) {
+            if (table[i + 1] >= target) return (i + clamp((target - table[i]) / Math.max(1e-6, table[i + 1] - table[i]))) / PHASE_N;
+        }
+        return 1;
+    };
+    // Three steps, a stop, two steps, then the step in the dark. The planted foot fixes how far a step goes, so the floor the
+    // five steps cover depends on the screen; the jump takes whatever is left, ideally one step. A slight scale of the foot
+    // travel (kf, 0.8 to 1.3, so a slip of at most a few px per step) keeps that jump between half a step and two steps.
+    const buildPhase = () => {
+        if (!wk.ok || !wk.m.feet || !PW) return;
+        const frames = wk.m.frames || WALK_CYCLE;
+        const want = 3 * frames; // 1.5 cycles + 1 cycle walked, half a cycle in the dark
+        let lo = 0.8;
+        let hi = 1.3;
+        let table = solvePhase(1);
+        if (table[PHASE_N] < want - 0.5 * frames / 2 || table[PHASE_N] > want + frames / 2) {
+            for (let i = 0; i < 16; i += 1) {
+                const mid = (lo + hi) / 2;
+                table = solvePhase(mid);
+                if (table[PHASE_N] < want) lo = mid;
+                else hi = mid;
+            }
+        }
+        const pa = tableFind(table, 1.5 * frames);
+        const pb = Math.min(0.94, tableFind(table, 2.5 * frames));
+        phase.table = table;
+        phase.side = table.side;
+        phase.kf = lo === 0.8 && hi === 1.3 ? 1 : (lo + hi) / 2;
+        phase.pa = pa;
+        phase.pb = pb;
+        STRIDES[0].w = pa;
+        STRIDES[1].w = Math.max(0.02, pb - pa);
+        JUMP.w = Math.max(0, 1 - pa - STRIDES[1].w);
+    };
+    // The position in the cycle, in cycles. Every stop lands on a foot contact (1.5 cycles, 2.5 cycles, then 3 after the jump).
+    const walkCycles = (pp) => {
+        const frames = wk.m && wk.m.frames ? wk.m.frames : WALK_CYCLE;
+        if (!phase.table) return 3 * clamp(pp);
+        const pb = phase.pb;
+        if (pp <= pb) return Math.min(2.5, tableAt(phase.table, pp) / frames);
+        return 2.5 + (0.5 * (pp - pb)) / Math.max(1e-3, 1 - pb);
+    };
+    // The position in the cycle as a frame number with its fraction: the sprite crossfades frame i into frame i + 1 by it.
+    const walkPos = (pp) => {
+        const f = walkCycles(pp) * WALK_CYCLE + 1e-4;
         return ((f % WALK_CYCLE) + WALK_CYCLE) % WALK_CYCLE;
     };
-    // The middle heel strike of each stride follows the walk instead of a fixed time: find where the step counter reaches
-    // the contact, and move its footstep (and its micro shake) there, so the sound lands on the foot that lands.
+    // The heel strikes in the middle of each stride follow the walk instead of a fixed time: find where the planted foot
+    // changes, and move its footstep (and its micro shake) there, so the sound lands on the boot that lands.
     const FOOT_AT = EVENTS.map((e, i) => (e[1] === 'foot' ? i : -1)).filter((i) => i >= 0);
     const walkMarks = () => {
         if (reduced || !PW) return;
-        wk.rawA = Math.max(0.01, walkRaw(STRIDES[0].w));
-        wk.rawB = Math.max(wk.rawA + 0.01, walkRaw(1));
+        buildPhase();
+        if (phase.table) return; // the steps now land exactly on their beats (STRIKES), the floor follows the planted boot
         const when = (st, target) => {
             let lo = st.a;
             let hi = st.b;
@@ -1404,7 +1521,7 @@ const horror = (() => {
             }
             return (lo + hi) / 2;
         };
-        [[0, STRIDES[0], 0.5], [1, STRIDES[0], 1.0], [3, STRIDES[1], 2.0], [4, STRIDES[1], 2.5]].forEach(([n, st, target]) => {
+        [[0, STRIDES[0], 0.5], [1, STRIDES[0], 1.0], [3, STRIDES[1], 2.0]].forEach(([n, st, target]) => {
             const at = when(st, target);
             if (FOOT_AT[n] !== undefined && !fired.has(FOOT_AT[n])) EVENTS[FOOT_AT[n]][0] = at;
             STRIKES[n] = at;
@@ -1448,32 +1565,68 @@ const horror = (() => {
         fig.glints = [];
         wk.m = m;
         wk.src = src;
-        wk.shown = -1;
+        wk.shown = '';
         wk.ok = true;
         walkMarks();
     };
-
-    // The black copy for the cast shadow and the reflection comes from the same cell, on the same tick.
-    const castFrame = (sx, sy) => {
-        const m = wk.m;
-        [shadowEl, reflectEl].forEach((cv) => {
-            const c = cv.getContext('2d');
-            c.globalCompositeOperation = 'source-over';
-            c.clearRect(0, 0, cv.width, cv.height);
-            c.drawImage(wk.src, sx, sy, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
-            c.globalCompositeOperation = 'source-in';
-            c.fillStyle = '#000';
-            c.fillRect(0, 0, cv.width, cv.height);
-            c.globalCompositeOperation = 'source-over';
-        });
+    // The lit atlas (same grid) is only needed for the last 600 ms of the walk; until it is decoded he simply stays backlit.
+    const adoptLit = () => {
+        const a = asset('wlkLit');
+        if (wk.lit || !wk.ok || !a.ready) return;
+        const src = a.bmp || (a.img && a.img.naturalWidth ? a.img : null);
+        if (!src || (src.width || src.naturalWidth) !== wk.m.cellW * wk.m.cols) return;
+        wk.litCv = document.createElement('canvas');
+        wk.litCv.width = wk.m.cellW;
+        wk.litCv.height = wk.m.anchorY;
+        wk.litCtx = wk.litCv.getContext('2d');
+        wk.lit = src;
+        wk.shown = '';
     };
-    const drawAtlas = (idx) => {
+
+    // Draws one moment of the cycle into a context: frame i and frame i + 1 crossfaded by the fraction (premultiplied add, so
+    // the blend of two poses never goes thin), from the backlit atlas, with the lit atlas over it by `lit` (0 to 1).
+    const blendCells = (c, src, pos) => {
         const m = wk.m;
-        const sx = (idx % m.cols) * m.cellW;
-        const sy = Math.floor(idx / m.cols) * m.cellH;
-        fig.ctx.clearRect(0, 0, m.cellW, m.anchorY);
-        fig.ctx.drawImage(wk.src, sx, sy, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
-        castFrame(sx, sy);
+        const i = Math.floor(pos) % WALK_CYCLE;
+        const j = (i + 1) % WALK_CYCLE;
+        const f = pos - Math.floor(pos);
+        const cell = (n) => [(n % m.cols) * m.cellW, Math.floor(n / m.cols) * m.cellH];
+        const [ax, ay] = cell(i);
+        c.globalAlpha = 1 - f;
+        c.drawImage(src, ax, ay, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
+        if (f > 0.004) {
+            const [bx, by] = cell(j);
+            c.globalCompositeOperation = 'lighter';
+            c.globalAlpha = f;
+            c.drawImage(src, bx, by, m.cellW, m.anchorY, 0, 0, m.cellW, m.anchorY);
+        }
+        c.globalCompositeOperation = 'source-over';
+        c.globalAlpha = 1;
+    };
+    const drawAtlas = (pos, lit) => {
+        const m = wk.m;
+        const c = fig.ctx;
+        c.clearRect(0, 0, m.cellW, m.anchorY);
+        blendCells(c, wk.src, pos);
+        if (lit > 0.004 && wk.lit) {
+            // the lit pass is drawn on its own layer first, so the dark one shows through it in proportion
+            const lc = wk.litCtx;
+            lc.clearRect(0, 0, m.cellW, m.anchorY);
+            blendCells(lc, wk.lit, pos);
+            c.globalAlpha = lit;
+            c.drawImage(wk.litCv, 0, 0);
+            c.globalAlpha = 1;
+        }
+        // the black copy for the cast shadow and the reflection is the same blend, filled black
+        [shadowEl, reflectEl].forEach((cv) => {
+            const sc = cv.getContext('2d');
+            sc.clearRect(0, 0, cv.width, cv.height);
+            sc.drawImage(figCanvas, 0, 0);
+            sc.globalCompositeOperation = 'source-in';
+            sc.fillStyle = '#000';
+            sc.fillRect(0, 0, cv.width, cv.height);
+            sc.globalCompositeOperation = 'source-over';
+        });
         stats.fig += 1;
     };
 
@@ -1483,9 +1636,9 @@ const horror = (() => {
         const p = gait.p;
         const { x0, y0, h0, x1, y1, h1 } = pathNow();
         const hgt = lerp(h0, h1, p);
-        const near = hgt / h1;
+        const near = wk.ok ? 0 : hgt / h1; // the atlas has its own bob and sway, and anything added here would move the planted boot
         return {
-            x: lerp(x0, x1, p) + gait.shift * WS * near,
+            x: lerp(x0, x1, p) + gait.shift * WS * near + (phase.side && p < 0.999 ? tableAt(phase.side, Math.min(p, phase.pb)) * (p > phase.pb ? (1 - p) / Math.max(1e-3, 1 - phase.pb) : 1) : 0),
             y: lerp(y0, y1, p) - (gait.bob * BOB - gait.settle * SETTLE_PX) * near,
             sc: (hgt / (fig.h || 1180)) * (1 + 0.012 * gait.heel),
             p,
@@ -1516,10 +1669,13 @@ const horror = (() => {
     const drawFigure = (t, u, D, body, gait) => {
         if (!fig.ready) return;
         if (wk.ok) {
-            const idx = walkFrame(gait.p);
-            if (idx !== wk.shown) {
-                wk.shown = idx;
-                drawAtlas(idx);
+            // The lit atlas comes up over the backlit one only in the last 600 ms before the reveal (the key light of the aim plate).
+            const litA = wk.lit ? smooth((u - (T.reveal0 - 0.6)) / 0.6) : 0;
+            const pos = walkPos(gait.p);
+            const key = `${Math.round(pos * 32)}|${Math.round(litA * 24)}`;
+            if (key !== wk.shown) {
+                wk.shown = key;
+                drawAtlas(pos, litA);
             }
             return;
         }
@@ -1933,7 +2089,7 @@ const horror = (() => {
     const CUE_PEAK = 25.0; // second of the file where the track peaks, landed on T.reveal0 (so the file starts 2.6 s in)
     const CUE_GAIN = 0.55; // pre-bus gain at the climax: about -8 dBFS peak and -16 dBFS RMS after the bus
     const CUE_DUCK = dB(-4); // under dialogue and sound effects, only 4 dB
-    const CUE_GAP = 0.3; // the one silence, right before the shot
+    const CUE_GAP = 0.4; // the one silence, right before the shot: the held breath
     let cue = null; // the Audio element, only used when WebAudio cannot
     let cueBuf = null;
     let cueMode = 'loading'; // loading, buffer, element
@@ -2004,6 +2160,9 @@ const horror = (() => {
         }
         const gap = u >= T.shot - CUE_GAP;
         let want = gap ? 0 : cueEnv(u);
+        // 400 ms of silence before his last step lands (the thud then comes out of nothing)
+        const last = STRIDES[1].b;
+        if (u >= last - 0.4 && u < last + 0.25) want *= 0.12;
         if (!gap && (talking || now < duckUntil)) want *= CUE_DUCK;
         cueVol += (want - cueVol) * Math.min(1, dt * (gap ? 40 : 7));
         const fileAt = (u - T.reveal0) * k + CUE_PEAK;
@@ -2163,7 +2322,7 @@ const horror = (() => {
             stats.door = 0;
             stats.t = now;
         }
-        const t = (Date.now() - state.start) / 1000;
+        const t = QA ? QA.seek * k : (Date.now() - state.start) / 1000;
         const target = t / k;
         const dt = Math.min(0.1, (now - last) / 1000 || 0.016);
         last = now;
@@ -2184,7 +2343,9 @@ const horror = (() => {
         if (W !== hz.clientWidth || H !== hz.clientHeight) layout();
 
         // The visual clock follows the server's clock. It waits for the plates the next moment needs, then catches up a little faster.
-        if (Number.isNaN(vis)) {
+        if (QA) {
+            if (gate(target)) vis = target; // QA: exactly the asked second, once its plates are decoded
+        } else if (Number.isNaN(vis)) {
             if (gate(target)) vis = target;
         } else {
             const gap = target - vis;
@@ -2201,6 +2362,7 @@ const horror = (() => {
         const ut = u * k;
         if (!fig.ready) buildFigure();
         else if (!wk.ok && !wk.failed && u > 2.5) adoptAtlas();
+        else if (wk.ok && !wk.lit) adoptLit();
         adoptDoor();
         // The sprite tick: 15 per second, 10 on a weak device or with reduced motion. Nothing sprite related draws between ticks.
         const tick = Math.floor(now / (1000 / (lite || degraded || reduced ? 10 : 15)));
@@ -2243,7 +2405,11 @@ const horror = (() => {
         const S = Math.exp(Math.log(1.12) * cam1 + Math.log(2.7 / 1.12) * cam2 + Math.log(1.1) * smooth((u - 22.0) / 0.85));
 
         if (roomOn) {
-            room.style.opacity = (bootOp * (1 - cut)).toFixed(3);
+            // The cage bulb: it dips dark for a moment on every second step, and dies for 120 ms for the jump (dark, never a bright flash).
+            let dip = 0;
+            if (!reduced) [1, 3].forEach((n) => { dip = Math.max(dip, 0.5 * pulse(u, STRIKES[n] + 0.04, 0.03, 0.16)); });
+            const out = !reduced && u >= JUMP.at && u < JUMP.at + JUMP.dark ? 0.97 : 0;
+            room.style.opacity = (bootOp * (1 - cut) * (1 - Math.max(dip, out))).toFixed(3);
             // the closed plate has a hole where its leaf is: the leaf comes from the atlas for as long as it moves
             const holeOn = dr.ok && (reduced ? u >= T.door0 : pos > 0 || knocking);
             if (holeOn !== cls.hole) {
@@ -2276,6 +2442,7 @@ const horror = (() => {
             // ---- the owner
             const fOpacity = reduced ? smooth((u - 9) / 2.5) : smooth((u - T.appear) / 0.7);
             const g = figGeom(walk);
+            qaG = g;
             const cw = fig.cw || 724;
             const ch = fig.h || 1180;
             figEl.style.opacity = fOpacity.toFixed(3);
@@ -2286,9 +2453,10 @@ const horror = (() => {
                 const clip = through >= 1 ? '' : `inset(${(lerp(0.31, 0, through) * 100).toFixed(2)}% ${(lerp(0.43, 0, through) * 100).toFixed(2)}% 0% ${(lerp(0.41, 0, through) * 100).toFixed(2)}%)`;
                 figEl.style.clipPath = clip;
             }
-            // Shoulder roll: a turn of up to 1.2 degrees about his hips, alternating with each step.
-            const hips = -0.48 * ch;
-            figCanvas.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)}) translate(0px, ${hips.toFixed(1)}px) rotate(${(1.2 * walk.roll).toFixed(3)}deg) translate(0px, ${(-hips).toFixed(1)}px)`;
+            // Shoulder roll: a lean of about 1 degree toward the boot that lands, alternating with each step. With the atlas it turns
+            // about the planted boots (so they stay put); the standing cutout turns about its hips as before.
+            const hips = wk.ok ? 0 : -0.48 * ch;
+            figCanvas.style.transform = `translate3d(${(g.x - cw / 2).toFixed(1)}px, ${(g.y - ch).toFixed(1)}px, 0) scale(${g.sc.toFixed(4)}) translate(0px, ${hips.toFixed(1)}px) rotate(${((wk.ok ? 1 : 1.2) * walk.roll).toFixed(3)}deg) translate(0px, ${(-hips).toFixed(1)}px)`;
             // The cast shadow and the reflection come from the same position value as the body.
             const len = lerp(2.4, 1.0, p);
             const skew = ((g.x - 0.49 * PW) / PH) * -26;
@@ -2306,9 +2474,10 @@ const horror = (() => {
                 eggGlint.firstElementChild.style.transform = `translate3d(${lerp(-70, 70, gl).toFixed(1)}%, 0, 0)`;
             }
 
-            if (wk.ok ? ticked : now - fig.drawAt > fig.every) {
+            // The walk is drawn on every display frame (it is two small drawImage calls), at most 30 a second on a weak device.
+            if (wk.ok ? !(lite || degraded) || now - fig.drawAt >= 32 : now - fig.drawAt > fig.every) {
                 fig.drawAt = now;
-                drawFigure(ut, u, D, 0.05 + 0.1 * cam2, walk);
+                drawFigure(ut, u, D, smooth((u - (T.reveal0 - 0.6)) / 0.6), walk); // backlit until 600 ms before the reveal
             }
 
             // ---- camera: one move, handheld drift on top, parallax by layer
@@ -2358,8 +2527,8 @@ const horror = (() => {
             const match = reduced ? 0 : 1 - Math.min(1, sa);
             const mtx = match * (geo.afx - W / 2);
             const mty = match * (geo.afy - H / 2);
-            // recoil: the plate jumps up 10 px and settles back on a damped spring, with a hair of scale and tilt
-            const dyP = !reduced && x > 0 && x < 0.7 ? -10 * spring(x) : 0;
+            // recoil: the plate jumps up 6 px and settles back on a damped spring, with a hair of scale and tilt
+            const dyP = !reduced && x > 0 && x < 0.7 ? -6 * spring(x) : 0;
             const hit = !reduced && x > 0 && x < 0.6 ? Math.exp(-x / 0.07) : 0;
             // handheld: a slow drift and a breath on the whole plate, so the face is never a still picture
             const hh = reduced ? 0 : smooth(rx / 0.6);
@@ -2377,9 +2546,12 @@ const horror = (() => {
                 aim.style.filter = blur ? `blur(${blur}px)` : '';
             }
             // The pistol is its own layer: it comes up from below and to the right on an arc (a turn about the wrist and a growth
-            // in size as it nears the lens) on a damped spring with one small overshoot, with two fading trails while it is fast.
+            // in size as it nears the lens), slow and heavy: 750 ms on an in-out lift with one small overshoot (outBack). While
+            // it is fast it is blurred along its own path only (vertical SVG blur, three steps), never doubled by a dark copy.
             // Once it is still (150 ms after rise1) the whole plate takes over, which is the same picture.
             const rt = u - T.rise0;
+            const RISE = T.rise1 - T.rise0;
+            const lift = (x) => (x <= 0 ? 0 : outBack(inOut(x / RISE)));
             const home = reduced || u >= T.rise1 + 0.15;
             const showGun = !home && u >= T.rise0 - 0.05;
             const place = (el, p, shake) => {
@@ -2387,36 +2559,43 @@ const horror = (() => {
                 el.style.transform = `translate3d(${(q * 0.13 * geo.aw + shake[0]).toFixed(1)}px, ${(q * geo.drop + shake[1]).toFixed(1)}px, 0) rotate(${(q * 8).toFixed(2)}deg) scale(${(1 - 0.12 * q).toFixed(4)})`;
             };
             if (showGun) {
-                const pos = stepResp(rt);
-                const tremor = smooth((rt - 0.4) / 0.2);
+                const pos = lift(rt);
+                const tremor = smooth((rt - RISE + 0.1) / 0.2);
                 const sh = [tremor * (0.7 * Math.sin(u * 47) + 0.4 * Math.sin(u * 83)), tremor * 0.6 * Math.sin(u * 53)];
                 place(gun, pos, sh);
-                const p2 = stepResp(rt - 0.04);
-                const p3 = stepResp(rt - 0.08);
-                const speed = clamp((pos - p2) * 9);
-                gun2.style.opacity = (0.42 * speed).toFixed(3);
-                gun3.style.opacity = (0.22 * clamp((p2 - p3) * 9)).toFixed(3);
-                place(gun2, p2, sh);
-                place(gun3, p3, sh);
+                // px it travels in one 60 Hz frame: under 6 sharp, then 3, 7 or 12 px of blur along the rise
+                const step = Math.abs(pos - lift(rt - 1 / 60)) * geo.drop;
+                const mb = lite || degraded ? 0 : step < 6 ? 0 : step < 14 ? 1 : step < 24 ? 2 : 3;
+                if (mb !== cls.mb) {
+                    cls.mb = mb;
+                    gun.style.filter = mb ? `url(#cr-mb${mb})` : '';
+                }
             }
             if (showGun !== cls.gunOn) {
                 cls.gunOn = showGun;
-                [gun, gun2, gun3].forEach((el) => { el.style.visibility = showGun ? 'visible' : 'hidden'; });
+                gun.style.visibility = showGun ? 'visible' : 'hidden';
             }
             if (home !== cls.home) {
                 cls.home = home;
                 aimFull.style.visibility = home ? 'visible' : 'hidden';
             }
             // the red light in the eyes ignites 150 ms before the face is fully there
-            const eyes = smooth((u - (T.reveal1 - 0.15)) / 0.2) * (reduced ? 1 : 0.88 + 0.12 * Math.sin(u * 7.3));
+            // and swell to full 150 ms before the shot, while the key light closes in on the face
+            const pre = smooth((u - (T.shot - 0.15)) / 0.15) * (u < T.shot + 0.3 ? 1 : 0);
+            const eyes = smooth((u - (T.reveal1 - 0.15)) / 0.2) * (reduced ? 1 : lerp(0.66 + 0.1 * Math.sin(u * 7.3), 1, pre));
             aimEyes.style.opacity = eyes.toFixed(3);
             const ks = smooth((u - T.key0) / (T.key1 - T.key0));
-            const s = lerp(0.22, 1.9, ks) + 0.7 * smooth((u - T.key1) / 1.2);
+            const s = (lerp(0.22, 1.9, ks) + 0.7 * smooth((u - T.key1) / 1.2)) * (1 - 0.2 * pre);
             const fx = geo.mx + (geo.afx - geo.mx) * sa;
             const fy = geo.my + (geo.afy - geo.my) * sa + dyP;
             aimKey.style.transform = `translate3d(${(fx - W / 2).toFixed(1)}px, ${(fy - H / 2).toFixed(1)}px, 0) scale(${s.toFixed(3)})`;
             aimWarm.style.opacity = (F * 0.55).toFixed(3);
             flashImg.style.opacity = (F * 0.85).toFixed(3);
+            if ((F > 0) !== cls.flashOn) {
+                cls.flashOn = F > 0;
+                flashImg.style.visibility = F > 0 ? 'visible' : 'hidden';
+                flashTwin.style.visibility = F > 0 ? 'visible' : 'hidden';
+            }
             // One local flash on the muzzle (not the screen). The gun points at the lens, so it is a ring: the plate's fan and its mirror.
             const fs = (0.7 + 0.5 * F).toFixed(3);
             flashImg.style.transform = F > 0 ? `translate3d(0, ${dyP.toFixed(1)}px, 0) scale(${fs})` : '';
@@ -2425,7 +2604,14 @@ const horror = (() => {
         }
 
         // ---- grain rises with the push-in
-        const grainOp = u < 2 ? 0.9 - 0.2 * smooth(u / 2) : 0.5 + 0.32 * cam2;
+        const grainOp = u < 2 ? 0.9 - 0.2 * smooth(u / 2) : Math.min(0.9, 0.5 + 0.12 * p + 0.32 * cam2);
+        // the vignette closes in as he comes closer, and once more in the last 150 ms before the shot (in steps, so it repaints rarely)
+        const preShot = smooth((u - (T.shot - 0.15)) / 0.15) * (u < T.shot + 0.3 ? 1 : 0);
+        const vg = Math.round((u < T.reveal0 ? 0.55 * smooth(p) : 0.35 + 0.65 * preShot) * 10) / 10;
+        if (vg !== cls.vg) {
+            cls.vg = vg;
+            vig.style.setProperty('--vg', String(vg));
+        }
         const gq = Math.round(grainOp * 50) / 50;
         if (gq !== grainNow) {
             grainNow = gq;
@@ -2440,7 +2626,7 @@ const horror = (() => {
         flag('a3', u >= 19.0);
         threat.style.transform = `scaleX(${threatAt(u).toFixed(3)})`;
         const base = u < T.knock ? 0 : 0.1;
-        const want = clamp(base + 0.6 * pulse(u, T.knock, 0.1, 1.1) + 0.55 * walk.bob + 0.45 * smooth((u - 19.0) / 2) * (u < T.reveal0 ? 1 : 0.5) + (u >= T.shot ? 1 : 0) * pulse(u, T.shot, 0.05, 0.8));
+        const want = clamp(base + 0.6 * pulse(u, T.knock, 0.1, 1.1) + 0.55 * walk.bob + 0.5 * Math.min(1, walk.heel) + 0.45 * smooth((u - 19.0) / 2) * (u < T.reveal0 ? 1 : 0.5) + (u >= T.shot ? 1 : 0) * pulse(u, T.shot, 0.05, 0.8));
         noiseV = want > noiseV ? want : Math.max(0, noiseV - dt * 1.4);
         const lit = Math.round(noiseV * noiseBars.length);
         noiseBars.forEach((b, i) => b.classList.toggle('on', i < lit));
@@ -2500,6 +2686,71 @@ const horror = (() => {
         SLOTS.forEach((c) => c && dlg.classList.toggle(c, c === SLOTS[chosen]));
         hz.dataset.slot = SLOTS[chosen] || 'bottom';
     };
+
+    // QA only: freeze at another second, and read how bright the owner's own pixels are in a screen rectangle (the figure
+    // canvas is read back, so the result is what the sprite draws there, before grain and scanlines).
+    let qaG = null;
+    if (QA) {
+        window.__hp = {
+            seek(sec) { QA.seek = Number(sec) || 0; },
+            walk() { return { pa: phase.pa, pb: phase.pb, kf: phase.kf, frames: phase.table ? phase.table[PHASE_N] : null, strikes: STRIKES.slice() }; },
+            face() {
+                if (!qaG || !fig.ready) return null;
+                // read back through every transform (camera layers, push-in, shoulder roll) from the canvas box itself
+                const r = figCanvas.getBoundingClientRect();
+                const cx = r.left + ((fig.face[0] + PAD) / fig.cw) * r.width;
+                const cy = r.top + (fig.face[1] / fig.h) * r.height;
+                const half = (62 / fig.h) * r.height;
+                return { x: cx - 0.9 * half, y: cy - 0.7 * half, w: 1.8 * half, h: 2 * half };
+            },
+            // Both feet: the lowest opaque pixel of each half of the sprite, on screen and in plate pixels of the floor layer
+            // (the far layer carries the floor and the grate), so a planted foot can be checked against the floor itself.
+            feet() {
+                const r = figCanvas.getBoundingClientRect();
+                const fr = layers.far.getBoundingClientRect();
+                const mr = layers.mid.getBoundingClientRect();
+                const cv = figCanvas;
+                const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+                const half = (x0, x1) => {
+                    for (let y = cv.height - 1; y >= 0; y -= 1) {
+                        let sum = 0;
+                        let n = 0;
+                        for (let x = x0; x < x1; x += 1) if (d[(y * cv.width + x) * 4 + 3] > 128) { sum += x; n += 1; }
+                        if (n > 2) {
+                            const sx = r.left + ((sum / n) / cv.width) * r.width;
+                            const sy = r.top + ((y + 1) / cv.height) * r.height;
+                            return { sx, sy, px: ((sx - fr.left) / fr.width) * PW, py: ((sy - fr.top) / fr.height) * PH, mx: ((sx - mr.left) / mr.width) * PW, my: ((sy - mr.top) / mr.height) * PH };
+                        }
+                    }
+                    return null;
+                };
+                const mid = Math.round(cv.width / 2);
+                return { left: half(0, mid), right: half(mid, cv.width), shown: wk.shown };
+            },
+            sample(x, y, w, h) {
+                const r = figCanvas.getBoundingClientRect();
+                const op = Number(getComputedStyle(figEl).opacity) || 0;
+                if (!r.width || !r.height || !op) return { lum: 0, cover: 0 };
+                const sx = figCanvas.width / r.width;
+                const sy = figCanvas.height / r.height;
+                const px = Math.max(0, Math.floor((x - r.left) * sx));
+                const py = Math.max(0, Math.floor((y - r.top) * sy));
+                const pw = Math.min(figCanvas.width - px, Math.ceil(w * sx));
+                const ph = Math.min(figCanvas.height - py, Math.ceil(h * sy));
+                if (pw <= 0 || ph <= 0) return { lum: 0, cover: 0 };
+                const d = figCanvas.getContext('2d').getImageData(px, py, pw, ph).data;
+                let sum = 0;
+                let wsum = 0;
+                for (let i = 0; i < d.length; i += 4) {
+                    const a = d[i + 3] / 255;
+                    if (a < 0.5) continue;
+                    sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / a;
+                    wsum += 1;
+                }
+                return { lum: wsum ? (sum / wsum) * op : 0, cover: wsum / (d.length / 4) };
+            },
+        };
+    }
 
     return {
         start(elapsedMs = 0) {
@@ -2613,7 +2864,8 @@ function boot() {
     store();
     arm();
 
-    if (elapsed < horrorSeconds) horror.start(elapsed * 1000);
+    if (QA) horror.start(QA.seek * 1000);
+    else if (elapsed < horrorSeconds) horror.start(elapsed * 1000);
     else startKewer();
 
     tick();

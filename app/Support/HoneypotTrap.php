@@ -105,6 +105,21 @@ class HoneypotTrap
     }
 
     /**
+     * "?replay=1&seek=<second>" freezes the cutscene at that second so a frame can be checked exactly. Like replay it
+     * exists only outside production, and only together with replay, so the live site never hands it to a visitor.
+     */
+    public static function seek(Request $request): ?float
+    {
+        if (! self::replayAllowed($request) || ! is_numeric($request->query('seek'))) {
+            return null;
+        }
+
+        $second = (float) $request->query('seek');
+
+        return $second >= 0 && $second < self::horrorSeconds() ? $second : null;
+    }
+
+    /**
      * The real sound files that are actually present, as name => public URL. The page hands this list to the
      * browser so it never has to probe for a missing file (a probe would be sent to the trap while a hold runs).
      *

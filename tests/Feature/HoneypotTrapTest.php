@@ -291,6 +291,28 @@ class HoneypotTrapTest extends TestCase
         $this->get('/admin?replay=1')->assertOk()->assertSee('data-elapsed="12"', false);
     }
 
+    public function test_seek_freezes_a_replay_outside_production_only(): void
+    {
+        $this->get('/admin?replay=1&seek=25.9')->assertOk()->assertSee('data-seek="25.9"', false);
+
+        // not without replay, not past the cutscene, not with junk
+        Cache::flush();
+        $this->get('/admin?seek=12')->assertOk()->assertDontSee('data-seek', false);
+        Cache::flush();
+        $this->get('/admin?replay=1&seek=31')->assertOk()->assertDontSee('data-seek', false);
+        Cache::flush();
+        $this->get('/admin?replay=1&seek=abc')->assertOk()->assertDontSee('data-seek', false);
+    }
+
+    public function test_seek_is_ignored_in_production(): void
+    {
+        $this->app['env'] = 'production';
+
+        // without data-seek the browser never builds the QA hooks (window.__hp), so the live page cannot be frozen or sampled
+        $this->get('/admin?replay=1&seek=12')->assertOk()->assertDontSee('data-seek', false);
+        $this->get('/admin?seek=12')->assertOk()->assertDontSee('data-seek', false);
+    }
+
     public function test_the_page_lists_only_the_sound_files_that_exist(): void
     {
         // The page hands over exactly what is on disk (the real recordings are bundled), never a guess.

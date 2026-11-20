@@ -339,7 +339,7 @@ html, body {
     mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
 .cr-aim-gun { transform-origin: 30% 100%; will-change: transform; visibility: hidden; }
-.cr-aim-trail { opacity: 0; }
+.cr-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .cr-aim-full { visibility: hidden; }
 .cr-aim-eyes {
     inset: 0;
@@ -350,7 +350,7 @@ html, body {
 }
 .cr-aim-key { left: 50%; top: 50%; width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; opacity: 1; background: radial-gradient(circle, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 4%, rgba(0, 0, 0, 0.88) 8.5%, #000 12%); will-change: transform; }
 .cr-aim-warm { inset: 0; opacity: 0; background: radial-gradient(ellipse 36% 46% at var(--fx, 50%) var(--fy, 40%), rgba(255, 150, 100, 0.34), rgba(255, 110, 80, 0.1) 55%, rgba(255, 110, 80, 0) 80%); }
-.cr-flash-img { left: 0; top: 0; width: 10px; height: auto; opacity: 0; pointer-events: none; transform-origin: 47% 92%; z-index: 4; -webkit-mask-image: linear-gradient(180deg, #000 95%, transparent 100%); mask-image: linear-gradient(180deg, #000 95%, transparent 100%); will-change: transform, opacity; }
+.cr-flash-img { left: 0; top: 0; width: 10px; height: auto; opacity: 0; visibility: hidden; mix-blend-mode: screen; pointer-events: none; transform-origin: 47% 92%; z-index: 4; -webkit-mask-image: linear-gradient(180deg, #000 95%, transparent 100%); mask-image: linear-gradient(180deg, #000 95%, transparent 100%); will-change: transform, opacity; }
 .cr-crackwrap {
     inset: 0;
     opacity: 0;
@@ -390,7 +390,8 @@ html, body {
 .hz.is-tear .cr-tear-a { opacity: 1; transform: translateX(-26px); }
 .hz.is-tear .cr-tear-b { opacity: 1; transform: translateX(34px); }
 .hz.is-tear .cr-room { filter: drop-shadow(3px 0 0 rgba(255, 40, 90, 0.4)) drop-shadow(-3px 0 0 rgba(0, 230, 255, 0.34)); }
-.cr-vig { display: block; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.82) 100%); }
+/* --vg (0 to 1, set in steps by honeypot.js) tightens it as he comes closer and right before the shot */
+.cr-vig { display: block; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) calc(40% - 18% * var(--vg, 0)), rgba(0, 0, 0, calc(0.82 + 0.14 * var(--vg, 0))) 100%); }
 
 /* ---- HUD, dimmed so the scene leads ---- */
 

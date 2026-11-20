@@ -14,12 +14,18 @@ face stays sharp) and the gait is built from the cutout itself:
     the stance leg, the upper body rolls against them, the hands swing a little and the cape lags behind with a hem ripple.
 Frame 0 is the left heel strike and frame 15 the right one, the cycle loops with no seam (frame 29 runs into frame 0).
 
+The same run also writes the backlit variant used while he walks, public/img/honeypot/walk-atlas-dark.webp (see build_dark):
+the door behind him is the only light, so he is a black silhouette with a thin red rim on his outline and two dim red points
+for eyes; his face and glasses cannot be read. "python scripts/build_honeypot_walk.py --dark" rebuilds only that variant from
+the existing walk-atlas.webp.
+
 Run from the project root:  python scripts/build_honeypot_walk.py
 Needs: pillow, numpy, scipy, opencv-python-headless.
 """
 
 import json
 import math
+import sys
 from pathlib import Path
 
 import cv2
@@ -35,7 +41,10 @@ MARGIN_X, MARGIN_TOP, MARGIN_BOT = 22, 14, 44  # room for the sway, the cape rip
 CX, HIP_Y, SHOULDER_Y, FOOT_Y = 342.0, 590.0, 235.0, 1178.0
 
 # gait amplitudes, source px
-BOB, SWAY, LIFT, DEPTH = 9.0, 11.0, 74.0, 28.0
+# DEPTH and LEG_SCALE set how far the planted foot travels against the body in one step. He walks toward the lens, and in
+# the perspective of the room that is only a short way on screen, so the steps are short and heavy (a stalk, not a stride).
+BOB, SWAY, LIFT, DEPTH = 9.0, 11.0, 74.0, 14.0
+LEG_SCALE = 0.022
 ROLL_DEG, ARM_SWING, CAPE_SWAY, HEM_RIPPLE = 1.3, 14.0, 11.0, 9.0
 
 LEFT_LEG = [(215, 575), (CX, 575), (CX, 1100), (262, 1100), (258, 1180), (108, 1180), (120, 1120), (150, 1040), (158, 930),
@@ -96,7 +105,7 @@ def leg_pose(theta):
     s = math.cos(theta)  # +1 nearest to the camera (heel strike), -1 farthest (toe off)
     swing = max(0.0, -math.sin(theta))  # the foot is in the air from toe off to the next heel strike
     lift = swing ** 0.8 * (1 - 0.15 * s)
-    return dict(dx=0.0, dy=DEPTH * s - LIFT * lift, scale=1 + 0.04 * s, lift=lift)
+    return dict(dx=0.0, dy=DEPTH * s - LIFT * lift, scale=1 + LEG_SCALE * s, lift=lift)
 
 
 def remap(layer, field_x, field_y, out_w, out_h, ox, oy):
@@ -165,7 +174,60 @@ def to_cell(prem, cell_w, cell_h):
     return np.concatenate([np.clip(out_rgb, 0, 255), sa], -1).astype(np.uint8)
 
 
+# The backlit grade: body and face crushed to near black, only the outline catches the red light from the door.
+BODY_GAIN, HEAD_GAIN = 0.07, 0.03
+RIM_PX, RIM_RGB = 3, (255.0, 46.0, 58.0)
+EYE_DY, EYE_DX, EYE_R, EYE_RGB = 59, 16, 2.4, (190.0, 18.0, 28.0)  # cell px from the top of the head; a small, dim red point each
+
+
+def build_dark():
+    meta = json.loads((OUT / "walk-atlas.json").read_text())
+    cw, ch, cols, frames = meta["cellW"], meta["cellH"], meta["cols"], meta["frames"]
+    lit = np.asarray(Image.open(OUT / "walk-atlas.webp").convert("RGBA")).astype(np.float32)
+    out = np.zeros_like(lit)
+    for i in range(frames):
+        x0, y0 = (i % cols) * cw, (i // cols) * ch
+        cell = lit[y0:y0 + ch, x0:x0 + cw].copy()
+        # The legs are feathered into the cape, which leaves a thin, half transparent seam; on a black silhouette in front of
+        # the red door it would read as a lit line, so a small grey closing fills it (the outline itself does not move).
+        cell[..., 3] = np.maximum(cell[..., 3], cv2.morphologyEx(cell[..., 3], cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)))
+        a = cell[..., 3] / 255.0
+        rows = np.where(a.max(1) > 0.5)[0]
+        top, bot = int(rows[0]), int(rows[-1])
+        fig_h = bot - top
+        yy = np.arange(ch, dtype=np.float32)[:, None]
+        # head and neck (the top 18 percent) go darker still than the body, through a soft ramp
+        head = 1 - np.clip((yy - (top + 0.18 * fig_h)) / (0.08 * fig_h), 0, 1)
+        gain = BODY_GAIN + (HEAD_GAIN - BODY_GAIN) * head
+        rgb = np.minimum(cell[..., :3] * gain[..., None], 12.0)  # nothing on the body may catch light (the belt buckle did)
+        # the rim: a thin band just inside the outline, strongest at the top of the head and the shoulders, fading down the legs
+        # (measured from the empty space around him, so the seams where the legs overlap the cape never light up)
+        empty = (a < 0.1).astype(np.uint8)
+        near = cv2.dilate(empty, np.ones((2 * RIM_PX + 1, 2 * RIM_PX + 1), np.uint8))
+        band = cv2.GaussianBlur((near * (1 - empty)).astype(np.float32), (0, 0), 1.0) * a
+        reach = 1 - 0.75 * np.clip((yy - (top + 0.35 * fig_h)) / (0.5 * fig_h), 0, 1)
+        rim = np.clip(band * reach, 0, 1)[..., None]
+        rgb = rgb * (1 - rim) + np.array(RIM_RGB) * 0.78 * rim
+        # the eyes: two small dim red points where the lenses are, so he looks at the camera out of the dark
+        band_rows = a[top + EYE_DY - 20:top + EYE_DY + 20]
+        xs = np.where(band_rows.max(0) > 0.5)[0]
+        cx = (xs[0] + xs[-1]) / 2.0 if len(xs) else cw / 2.0
+        yy2, xx2 = np.mgrid[0:ch, 0:cw].astype(np.float32)
+        for ex in (cx - EYE_DX, cx + EYE_DX):
+            d = np.exp(-((xx2 - ex) ** 2 + (yy2 - (top + EYE_DY)) ** 2) / (2 * EYE_R ** 2))[..., None]
+            rgb = rgb * (1 - 0.8 * d) + np.array(EYE_RGB) * 0.8 * d
+        out[y0:y0 + ch, x0:x0 + cw, :3] = rgb
+        out[y0:y0 + ch, x0:x0 + cw, 3] = cell[..., 3]
+        out[y0:y0 + ch, x0:x0 + cw, :3] *= (cell[..., 3:4] > 0)
+    path = OUT / "walk-atlas-dark.webp"
+    Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGBA").save(path, quality=80, method=6, alpha_quality=90)
+    print(path.name, path.stat().st_size, "bytes")
+
+
 def main():
+    if "--dark" in sys.argv:
+        build_dark()
+        return
     im = load()
     base, left, right = split_layers(im)
     h, w, _ = base.shape
@@ -180,10 +242,25 @@ def main():
     atlas.save(OUT / "walk-atlas.webp", quality=84, method=6, alpha_quality=92)
     anchor_x = round((MARGIN_X + CX) * SCALE)
     anchor_y = round((MARGIN_TOP + FOOT_Y + DEPTH) * SCALE)
+    # Where each foot touches down in every frame (the lowest opaque row of each half of the cell), for the page: the walk is
+    # driven by the planted foot, so it can never slide on the floor.
+    arr = np.asarray(atlas)
+    feet = []
+    for i in range(FRAMES):
+        cell = arr[(i // ATLAS_COLS) * cell_h:(i // ATLAS_COLS + 1) * cell_h, (i % ATLAS_COLS) * cell_w:(i % ATLAS_COLS + 1) * cell_w, 3]
+        pair = []
+        for x0, x1 in ((0, anchor_x), (anchor_x, cell_w)):
+            rows = np.where((cell[:, x0:x1] > 128).sum(1) > 2)[0]
+            yb = int(rows[-1]) if len(rows) else cell_h - 1
+            cols = np.where(cell[max(0, yb - 6):yb + 1, x0:x1].max(0) > 128)[0]
+            pair += [yb + 1, round(x0 + float(cols.mean()), 1) if len(cols) else float(anchor_x)]
+        feet.append(pair)  # [left sole y, left x, right sole y, right x]
+    anchor_y = max(max(pair[0], pair[2]) for pair in feet)  # the floor line is where a planted boot really ends, so no sole is cut off
     meta = dict(cellW=cell_w, cellH=cell_h, anchorX=anchor_x, anchorY=anchor_y, cols=ATLAS_COLS, frames=FRAMES, scale=SCALE,
-                rig=dict(bob=BOB, sway=SWAY, lift=LIFT, depth=DEPTH))
+                rig=dict(bob=BOB, sway=SWAY, lift=LIFT, depth=DEPTH, legScale=LEG_SCALE), feet=feet)
     (OUT / "walk-atlas.json").write_text(json.dumps(meta))
     print(meta, (OUT / "walk-atlas.webp").stat().st_size, "bytes")
+    build_dark()
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ class HoneypotController extends Controller
             'kewer' => HoneypotTrap::kewerSeconds(),
             'remaining' => HoneypotTrap::total() - $elapsed,
             'samples' => HoneypotTrap::samples(),
+            'seek' => HoneypotTrap::seek($request),
         ]))->header('Cache-Control', 'no-store, max-age=0');
     }
 }

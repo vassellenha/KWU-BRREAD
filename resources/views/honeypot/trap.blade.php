@@ -17,7 +17,9 @@
     @vite(['resources/css/honeypot.css', 'resources/js/honeypot.js'])
 </head>
 <body>
-    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-samples="{{ json_encode($samples ?? [], JSON_UNESCAPED_SLASHES) }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3" data-bsod="/video/prank-bsod.mp4">
+    {{-- Vertical-only motion blur for the rising pistol (three steps, picked by its speed). --}}
+    <svg class="cr-defs" width="0" height="0" aria-hidden="true" focusable="false"><filter id="cr-mb1" x="0" y="-8%" width="100%" height="116%"><feGaussianBlur stdDeviation="0 3"/></filter><filter id="cr-mb2" x="0" y="-12%" width="100%" height="124%"><feGaussianBlur stdDeviation="0 7"/></filter><filter id="cr-mb3" x="0" y="-16%" width="100%" height="132%"><feGaussianBlur stdDeviation="0 12"/></filter></svg>
+    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-samples="{{ json_encode($samples ?? [], JSON_UNESCAPED_SLASHES) }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3" data-bsod="/video/prank-bsod.mp4"@if ($seek !== null) data-seek="{{ $seek }}"@endif>
 
         {{-- PHASE A: "BRREAD! COLD ROOM 03", a night security camera feed that goes wrong. Built and driven by honeypot.js. --}}
         <section id="hz" class="hz" aria-hidden="true" data-figure="/img/honeypot/character-fullbody.webp">
@@ -69,8 +71,6 @@
             <div class="cr-aim" id="cr-aim">
                 <img class="cr-aim-img" id="cr-aim-img" data-asset="aimclean" alt="" decoding="async">
                 {{-- The pistol comes up from below the frame as its own layer (the hand and the pistol cut out of the plate, with two fading trails for motion blur) over a clean plate, then the whole plate takes over. --}}
-                <img class="cr-aim-img cr-aim-gun cr-aim-trail" id="cr-aim-gun3" data-asset="aimgun" alt="" decoding="async">
-                <img class="cr-aim-img cr-aim-gun cr-aim-trail" id="cr-aim-gun2" data-asset="aimgun" alt="" decoding="async">
                 <img class="cr-aim-img cr-aim-gun" id="cr-aim-gun" data-asset="aimgun" alt="" decoding="async">
                 <img class="cr-aim-img cr-aim-full" id="cr-aim-full" data-asset="aim" alt="" decoding="async">
                 <i class="cr-aim-key" id="cr-aim-key"></i>
@@ -87,7 +87,7 @@
             <div class="cr-roll"></div>
             <div class="cr-tear cr-tear-a"></div>
             <div class="cr-tear cr-tear-b"></div>
-            <div class="cr-vig"></div>
+            <div class="cr-vig" id="cr-vig"></div>
             </div>
 
             {{-- Game HUD, dimmed so the scene leads --}}
