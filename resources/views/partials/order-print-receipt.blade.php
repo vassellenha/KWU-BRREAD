@@ -88,7 +88,7 @@
                 Simpan struk ini sebagai bukti pesanan.<br>
                 Dicetak {{ now()->format('d M Y, H:i') }} WIB
             </p>
-            <p class="rcpt__ig">&#64;{{ config('services.instagram.handle') }}</p>
+            <p class="rcpt__ig">&#64;{{ \App\Support\ContactInfo::get()['instagram'] }}</p>
             <p class="rcpt__cut" aria-hidden="true">- - - potong di sini - - -</p>
         </div>
     </div>

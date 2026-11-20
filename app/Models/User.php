@@ -46,6 +46,9 @@ class User extends Authenticatable
 
     public const MODULE_MENU = 'menu';
 
+    /** The public site's contact person and the customer photos shown on it. */
+    public const MODULE_SITE = 'site';
+
     /**
      * The single source of truth for RBAC: routes and the sidebar both read this map.
      *
@@ -59,6 +62,7 @@ class User extends Authenticatable
         self::MODULE_SALES => [self::ROLE_ADMIN],
         self::MODULE_SECURITY => [self::ROLE_ADMIN],
         self::MODULE_MENU => [self::ROLE_ADMIN],
+        self::MODULE_SITE => [self::ROLE_ADMIN],
     ];
 
     /**

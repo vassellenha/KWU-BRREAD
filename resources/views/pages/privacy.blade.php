@@ -18,7 +18,17 @@
                 <h2 class="font-title-md text-title-md text-on-surface">What we collect</h2>
                 <p class="font-body-md text-body-md text-on-surface-variant">
                     Your name and phone number at checkout, the items in your order, and, if you leave one,
-                    the rating and comment on your order page.
+                    the rating, comment and photo on your order page. A photo is scaled down and re-saved by us,
+                    so its location data and other details from your camera are removed.
+                </p>
+            </section>
+
+            <section class="space-y-space-xs">
+                <h2 class="font-title-md text-title-md text-on-surface">Reviews on the site</h2>
+                <p class="font-body-md text-body-md text-on-surface-variant">
+                    Your rating, comment and photo can appear on our Home, About and customer photos pages with
+                    your first name and the first letter of your last name only. Your phone number and order details
+                    never appear. Ask us on Instagram and we take a review or photo off the site.
                 </p>
             </section>
 

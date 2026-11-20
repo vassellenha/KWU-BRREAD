@@ -6,6 +6,21 @@
 
 @section('content')
 
+    @php
+        $cp = \App\Support\ContactInfo::get();
+        // The playable stack: the newest customer photos on top, the launch shots under them.
+        $stack = \App\Support\ReviewFeed::photos(5)
+            ->map(fn ($review) => ['src' => $review['photo'], 'caption' => $review['name'], 'alt' => 'Photo from '.$review['name'].' of their Brread! sandwich'])
+            ->concat([
+                ['src' => '/img/marketing/hero-held.jpg', 'caption' => 'fresh off the counter', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles'],
+                ['src' => '/img/marketing/product-chocolate.jpg', 'caption' => 'chocolate on wheat', 'alt' => 'Chocolate ice cream folded in whole wheat bread'],
+                ['src' => '/img/marketing/product-vanilla-wheat.jpg', 'caption' => 'the drizzle one', 'alt' => 'Vanilla ice cream on whole wheat bread with chocolate sauce'],
+                ['src' => '/img/marketing/product-vanilla.jpg', 'caption' => 'classic vanilla', 'alt' => 'Vanilla ice cream folded in white bread'],
+            ])
+            ->take(6)
+            ->values();
+    @endphp
+
     {{-- Opening hours live here once: the "open now" pill and the week strip both read them. --}}
     <div
         x-data="{
@@ -33,6 +48,10 @@
                 if (this.isOpen) return 'Open now, until 9:30 PM';
                 return this.minutes < this.opens ? 'Closed, opens at 11:00 AM' : 'Closed, opens tomorrow at 11:00 AM';
             },
+            get signSub() {
+                if (this.isOpen) return 'till 9:30 PM tonight';
+                return this.minutes < this.opens ? 'back at 11:00 AM' : 'back tomorrow, 11 AM';
+            },
             async copyAddress() {
                 try {
                     await navigator.clipboard.writeText('Telkom University Jakarta Kampus C, Jl. Minangkabau Barat No. 50, Pasar Manggis, Setiabudi, Jakarta Selatan');
@@ -57,10 +76,21 @@
                         </span>
                     </h1>
 
-                    <p class="mt-space-lg inline-flex items-center gap-2 rounded-full pl-3 pr-space-md py-2 font-label-lg text-label-lg border" :class="isOpen ? 'bg-[#e3f3e6] border-[#9fcfa8] text-[#1e5a2b]' : 'bg-surface-container-lowest border-outline-variant text-on-surface-variant'" role="status">
-                        <span class="w-2.5 h-2.5 rounded-full" :class="isOpen ? 'bg-[#2e9a47] animate-pulse' : 'bg-outline'"></span>
-                        <span x-text="status">Daily, 11:00 AM – 9:30 PM</span>
-                    </p>
+                    {{-- The shop sign on the door: it hangs from a nail, swings when you poke it, and flips to CLOSED after hours. --}}
+                    <div class="shop-sign mt-space-lg" :class="isOpen ? 'is-open' : 'is-closed'" x-data="{ swing: false }">
+                        <span class="shop-sign__nail" aria-hidden="true"></span>
+                        <button type="button" class="shop-sign__board" :class="swing ? 'is-swinging' : ''" @click="swing = false; $nextTick(() => swing = true)" @animationend="swing = false" :aria-label="status">
+                            <span class="shop-sign__face shop-sign__face--open" aria-hidden="true">
+                                <span class="shop-sign__word">Open</span>
+                                <span class="shop-sign__sub font-hand" x-text="isOpen ? signSub : 'till 9:30 PM'">till 9:30 PM tonight</span>
+                            </span>
+                            <span class="shop-sign__face shop-sign__face--closed" aria-hidden="true">
+                                <span class="shop-sign__word">Closed</span>
+                                <span class="shop-sign__sub font-hand" x-text="isOpen ? 'back at 11 AM' : signSub">back at 11:00 AM</span>
+                            </span>
+                        </button>
+                        <span class="sr-only" role="status" x-text="status">Daily, 11:00 AM to 9:30 PM</span>
+                    </div>
 
                     <div class="mt-space-xl space-y-space-lg">
                     <dl>
@@ -85,21 +115,27 @@
                             </button>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-lg">
                             <dl>
-                                <dt class="font-hand text-[24px] leading-none text-primary">call</dt>
-                                <dd class="mt-1"><a href="tel:+622172501234" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">+62 21 7250 1234</a></dd>
+                                <dt class="font-hand text-[24px] leading-none text-primary">call{{ $cp['name'] !== '' ? ' '.$cp['name'] : '' }}</dt>
+                                <dd class="mt-1"><a href="{{ $cp['phone_href'] }}" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ $cp['phone'] }}</a></dd>
                             </dl>
                             <dl>
                                 <dt class="font-hand text-[24px] leading-none text-primary">follow</dt>
-                                <dd class="mt-1"><a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ '@'.config('services.instagram.handle') }}</a></dd>
+                                <dd class="mt-1"><a href="{{ $cp['instagram_url'] }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ '@'.$cp['instagram'] }}</a></dd>
                             </dl>
+                            @if ($cp['whatsapp_url'])
+                                <dl>
+                                    <dt class="font-hand text-[24px] leading-none text-primary">chat</dt>
+                                    <dd class="mt-1"><a href="{{ $cp['whatsapp_url'] }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ $cp['whatsapp'] }}</a></dd>
+                                </dl>
+                            @endif
                         </div>
                     </div>
 
                     <div class="mt-space-xl flex flex-wrap gap-space-md">
-                        <a href="tel:+622172501234" class="btn-chunky inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-space-xl py-3 rounded-full font-label-lg text-label-lg">
-                            <span class="material-symbols-outlined text-[20px]">call</span>Call the counter
+                        <a href="{{ $cp['phone_href'] }}" class="btn-chunky inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-space-xl py-3 rounded-full font-label-lg text-label-lg">
+                            <span class="material-symbols-outlined text-[20px]">call</span>{{ $cp['name'] !== '' ? 'Call '.$cp['name'] : 'Call the counter' }}
                         </a>
-                        <a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border border-outline-variant px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #debfc0">
+                        <a href="{{ $cp['instagram_url'] }}" target="_blank" rel="noopener" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border border-outline-variant px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #debfc0">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor"/></svg>Message us on Instagram
                         </a>
                     </div>
@@ -114,10 +150,28 @@
                         <a href="{{ config('services.google_maps.place_url') }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">location_on</span>Open in Google Maps</a>
                         <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ urlencode(config('services.google_maps.query')) }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">directions</span>Get directions</a>
                     </div>
-                    <figure class="polaroid contact-polaroid" style="--tilt: 6deg; --tape: -5deg">
-                        <img src="/img/marketing/hero-held.jpg" alt="A hand holding a strawberry ice cream sandwich with sprinkles" loading="lazy">
-                        <figcaption class="font-hand text-[24px] leading-none text-on-surface mt-2 text-center">fresh off the counter</figcaption>
-                    </figure>
+                    {{-- A pile of polaroids to play with: drag the top one off (or tap it) and it goes to the back of the pile. --}}
+                    <div class="snap-pile" x-data="polaroidPile({{ $stack->count() }})" @keydown.right.prevent="next()" @keydown.left.prevent="previous()">
+                        @foreach ($stack as $i => $snap)
+                            <figure
+                                class="polaroid snap-pile__card"
+                                :class="cardClass({{ $i }})"
+                                :style="cardStyle({{ $i }})"
+                                @pointerdown="grab($event, {{ $i }})"
+                                @pointermove="drag($event)"
+                                @pointerup="drop($event)"
+                                @pointercancel="drop($event)"
+                                aria-hidden="true"
+                            >
+                                <img src="{{ $snap['src'] }}" alt="{{ $snap['alt'] }}" draggable="false" loading="lazy">
+                                <figcaption class="font-hand text-[24px] leading-none text-on-surface mt-2 text-center truncate">{{ $snap['caption'] }}</figcaption>
+                            </figure>
+                        @endforeach
+                        <button type="button" class="snap-pile__hint font-hand" @click="next()" aria-label="Show the next photo">
+                            <svg viewBox="0 0 40 24" aria-hidden="true" focusable="false"><path d="M2 18C10 6 24 4 34 10M28 4l7 6-8 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span>flick me</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>

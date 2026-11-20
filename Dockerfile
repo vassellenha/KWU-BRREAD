@@ -66,6 +66,10 @@ COPY --from=vendor /app/vendor /app/vendor
 # Copy compiled frontend assets from frontend build stage
 COPY --from=frontend /app/public/build /app/public/build
 
+# Review photos are scaled down in the browser first, but one that could not be (an old browser) arrives as is:
+# PHP's own 2 MB upload cap would refuse it before Laravel could answer, so allow up to 8 MB.
+RUN printf 'upload_max_filesize=8M\npost_max_size=10M\n' > /usr/local/etc/php/conf.d/uploads.ini
+
 RUN rm -f /etc/nginx/sites-enabled/default
 COPY docker/nginx.conf.template /etc/nginx/templates/app.conf.template
 COPY docker/supervisord.conf /etc/supervisor/conf.d/app.conf

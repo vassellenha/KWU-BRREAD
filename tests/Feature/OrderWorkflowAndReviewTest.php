@@ -100,6 +100,8 @@ class OrderWorkflowAndReviewTest extends TestCase
         $order = $this->createOrder();
         $this->actingAs($this->admin)->post("/staff/orders/{$order->id}/confirm");
         $order->refresh();
+        // the customer is not signed in (a signed-in staff account may only look at the page)
+        auth()->logout();
 
         $response = $this->post("/order/status/{$order->confirmation_token}/review", [
             'rating' => 5,
@@ -164,4 +166,3 @@ class OrderWorkflowAndReviewTest extends TestCase
         ]);
     }
 }
-

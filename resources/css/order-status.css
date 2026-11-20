@@ -1289,3 +1289,102 @@
 @keyframes os-ribbon { from { opacity: 0; transform: translateX(-120%) rotate(-3deg); } }
 .os-hero--cancelled .os-ribbon { background: var(--ink-soft); }
 @media (max-width: 819px) { .os-ribbon { top: 14px; } .os-tape { transform: rotate(-0.8deg); } }
+
+/* ---------- Review photo: a dashed drop slot, then a taped-on polaroid preview ---------- */
+
+.os-photo {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 20px 16px;
+    border: 3px dashed rgba(59, 31, 22, 0.45);
+    border-radius: 14px;
+    background: repeating-linear-gradient(-45deg, rgba(247, 163, 182, 0.12) 0 10px, transparent 10px 20px), var(--paper);
+    text-align: center;
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out, ease-out), border-color 160ms, box-shadow 160ms;
+}
+.os-photo .os-ico { font-size: 30px; color: var(--rasp); }
+.os-photo__title { font: 800 15px/1.2 var(--body); }
+.os-photo__hint { max-width: 34ch; font: 400 11px/1.45 var(--mono); color: var(--ink-soft); }
+@media (hover: hover) and (pointer: fine) {
+    .os-photo:hover { transform: translate(-2px, -2px); border-color: var(--ink); box-shadow: 5px 5px 0 var(--rasp); }
+}
+input.sr-only:focus-visible + .os-photo { outline: 3px dashed var(--rasp-d); outline-offset: 4px; }
+
+.os-photo-preview {
+    position: relative;
+    width: min(240px, 100%);
+    margin: 4px auto 0;
+    padding: 10px 10px 26px;
+    background: #fff;
+    border: var(--line);
+    border-radius: 6px;
+    box-shadow: 5px 5px 0 var(--ink);
+    transform: rotate(-2.5deg);
+    animation: os-photo-drop 380ms var(--spring) both;
+}
+.os-photo-preview::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    width: 84px;
+    height: 22px;
+    background: rgba(243, 201, 105, 0.75);
+    transform: translateX(-50%) rotate(3deg);
+}
+.os-photo-preview img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 2px; }
+.os-photo-preview__x {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: var(--line);
+    border-radius: 50%;
+    background: var(--rasp);
+    color: #fff;
+    box-shadow: 3px 3px 0 var(--ink);
+    cursor: pointer;
+}
+.os-photo-preview__x .os-ico { font-size: 16px; }
+.os-photo-preview__x:focus-visible { outline: 3px dashed var(--rasp-d); outline-offset: 3px; }
+@keyframes os-photo-drop { from { opacity: 0; transform: translateY(-14px) rotate(-8deg) scale(0.92); } to { opacity: 1; transform: rotate(-2.5deg); } }
+
+.os-need {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: var(--butter);
+    font: 700 12px/1.45 var(--mono);
+}
+
+.os-done__photo { margin: 16px 0 0; padding: 8px 8px 16px; background: #fff; border: var(--line); border-radius: 6px; box-shadow: 4px 4px 0 var(--ink); transform: rotate(-1.5deg); }
+.os-done__photo img { display: block; width: 100%; height: auto; border-radius: 2px; }
+
+/* ---------- Staff: the slip is shown, but locked ---------- */
+
+.os-viewonly {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-top: 6px;
+    padding: 18px;
+    border: var(--line);
+    border-radius: 16px;
+    background: repeating-linear-gradient(-45deg, rgba(59, 31, 22, 0.05) 0 12px, transparent 12px 24px), #fff;
+    box-shadow: 5px 5px 0 var(--ink);
+}
+.os-viewonly .os-ico { flex: none; font-size: 28px; color: var(--rasp); }
+.os-viewonly__title { margin: 0; font: 800 16px/1.2 var(--body); }
+.os-viewonly__text { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+    .os-photo-preview { animation: none; }
+    .os-photo, .os-photo:hover { transition: none; transform: none; }
+}

@@ -241,7 +241,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-xl items-center" data-reveal-group>
                     <div class="lg:col-span-6" data-reveal>
                         <div class="relative w-full h-[400px] rounded-lg overflow-hidden -rotate-1 shadow-[0_14px_30px_rgba(113,59,44,0.16)]">
-                            <img class="w-full h-full object-cover" alt="Friendly Singapore ice cream street cart vendor handing a rainbow bread ice cream sandwich to a smiling customer near Orchard Road" src="/img/marketing/heritage-cart.jpg" loading="lazy">
+                            <img class="w-full h-full object-cover object-[50%_40%]" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up" src="/img/marketing/heritage-uncle.jpg" loading="lazy">
                             <div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent flex items-end p-space-lg">
                                 <p class="font-title-md text-title-md text-surface-container-lowest">Orchard Road, Singapore</p>
                             </div>
@@ -283,35 +283,70 @@
                         <h2 class="font-headline-lg text-headline-lg text-on-surface">Made by our customers</h2>
                         @include('partials.squiggle')
                     </div>
-                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Tag <a href="{{ config('services.instagram.url') }}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline">{{ '@'.config('services.instagram.handle') }}</a> to be featured and win a monthly Rp 500.000 ice cream allowance.</p>
+                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Add a photo to your review on your order page to land here. Tag <a href="{{ \App\Support\ContactInfo::get()['instagram_url'] }}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline">{{ '@'.\App\Support\ContactInfo::get()['instagram'] }}</a> to win a monthly Rp 500.000 ice cream allowance.</p>
                 </div>
 
+                @php
+                    // The three newest reviews that came with a photo; until there are three, the launch photos fill the rest.
+                    $tilts = [['-2deg', '-4deg'], ['1.5deg', '3deg'], ['-1deg', '-2deg']];
+                    $launch = [
+                        ['photo' => '/img/marketing/community-mjordan.jpg', 'alt' => 'Man biting into a whole wheat bread and vanilla ice cream sandwich on a campus lawn', 'name' => 'M. Jordan', 'made' => 'Whole Wheat Vanilla', 'quote' => 'Whole wheat with vanilla is not too sweet, and the bread was still firm when I finished it.', 'rating' => 5, 'pos' => 'object-[50%_30%]'],
+                        ['photo' => '/img/marketing/community-rizky.jpg', 'alt' => 'Whole wheat bread ice cream sandwich with vanilla ice cream and chocolate sauce poured over the top', 'name' => 'Rizky S.', 'made' => 'Wheat Vanilla Drizzle', 'quote' => 'Arrived in SCBD in 18 minutes and was still frozen solid. The chocolate drizzle on wheat bread works.', 'rating' => 5, 'pos' => 'object-center'],
+                        ['photo' => '/img/marketing/community-targaryen.jpg', 'alt' => 'Man sitting by a sports car with an open box of assorted ice cream sandwiches on the hood', 'name' => 'J. Targaryen', 'made' => 'Double Choc Monster', 'quote' => 'Ordered 20 boxes for our agency Friday treats and the team finished them in minutes.', 'rating' => 5, 'pos' => 'object-[50%_35%]'],
+                    ];
+                    $fresh = \App\Support\ReviewFeed::photos(3)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich', 'pos' => 'object-center']);
+                    $polaroids = $fresh->concat(array_slice($launch, 0, max(0, 3 - $fresh->count())))->values();
+                    $words = \App\Support\ReviewFeed::words(6);
+                @endphp
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg md:gap-space-xl" data-reveal-group>
-                    @foreach ([
-                        ['img' => '/img/marketing/community-mjordan.jpg', 'alt' => 'Man biting into a whole wheat bread and vanilla ice cream sandwich on a campus lawn', 'name' => 'M. Jordan', 'made' => 'Whole Wheat Vanilla', 'quote' => 'Whole wheat with vanilla is not too sweet, and the bread was still firm when I finished it.', 'pos' => 'object-[50%_30%]', 'tilt' => '-2deg', 'tape' => '-4deg'],
-                        ['img' => '/img/marketing/community-rizky.jpg', 'alt' => 'Whole wheat bread ice cream sandwich with vanilla ice cream and chocolate sauce poured over the top', 'name' => 'Rizky S.', 'made' => 'Wheat Vanilla Drizzle', 'quote' => 'Arrived in SCBD in 18 minutes and was still frozen solid. The chocolate drizzle on wheat bread works.', 'pos' => 'object-center', 'tilt' => '1.5deg', 'tape' => '3deg'],
-                        ['img' => '/img/marketing/community-targaryen.jpg', 'alt' => 'Man sitting by a sports car with an open box of assorted ice cream sandwiches on the hood', 'name' => 'J. Targaryen', 'made' => 'Double Choc Monster', 'quote' => 'Ordered 20 boxes for our agency Friday treats and the team finished them in minutes.', 'pos' => 'object-[50%_35%]', 'tilt' => '-1deg', 'tape' => '-2deg'],
-                    ] as $review)
+                    @foreach ($polaroids as $i => $review)
                         <div data-reveal>
-                            <figure class="polaroid flex flex-col h-full" style="--tilt: {{ $review['tilt'] }}; --tape: {{ $review['tape'] }}">
+                            <figure class="polaroid flex flex-col h-full" style="--tilt: {{ $tilts[$i][0] }}; --tape: {{ $tilts[$i][1] }}">
                                 <div class="zoom-on-hover w-full aspect-[4/3] overflow-hidden mb-space-sm bg-surface-container">
-                                    <img class="w-full h-full object-cover {{ $review['pos'] }}" alt="{{ $review['alt'] }}" src="{{ $review['img'] }}" loading="lazy">
+                                    <img class="w-full h-full object-cover {{ $review['pos'] }}" alt="{{ $review['alt'] }}" src="{{ $review['photo'] }}" loading="lazy">
                                 </div>
                                 <figcaption class="mb-space-xs">
                                     <div class="flex items-center justify-between gap-space-sm">
-                                        <span class="font-hand text-[30px] leading-none text-on-surface">{{ $review['name'] }}</span>
-                                        <span class="flex text-primary" role="img" aria-label="5 out of 5 stars">
-                                            @for ($i = 0; $i < 5; $i++)
-                                                <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;" aria-hidden="true">star</span>
+                                        <span class="font-hand text-[30px] leading-none text-on-surface truncate">{{ $review['name'] }}</span>
+                                        <span class="flex shrink-0 text-primary" role="img" aria-label="{{ $review['rating'] }} out of 5 stars">
+                                            @for ($star = 1; $star <= 5; $star++)
+                                                <span class="material-symbols-outlined text-[16px] {{ $star <= $review['rating'] ? '' : 'opacity-25' }}" style="font-variation-settings: 'FILL' 1;" aria-hidden="true">star</span>
                                             @endfor
                                         </span>
                                     </div>
                                     <span class="font-body-sm text-body-sm text-on-surface-variant">Made: {{ $review['made'] }}</span>
                                 </figcaption>
-                                <blockquote class="font-body-md text-body-md text-on-surface-variant">“{{ $review['quote'] }}”</blockquote>
+                                <blockquote class="font-body-md text-body-md text-on-surface-variant [overflow-wrap:anywhere] line-clamp-5">“{{ $review['quote'] }}”</blockquote>
                             </figure>
                         </div>
                     @endforeach
+                </div>
+
+                {{-- Reviews that came with words only: newest first, as little order tickets under the photos. --}}
+                @if ($words->isNotEmpty())
+                    <div class="mt-space-xl" data-reveal>
+                        <p class="font-hand text-[26px] leading-none text-primary -rotate-1 mb-space-md">fresh from the order slips</p>
+                        <ul class="review-slips">
+                            @foreach ($words as $review)
+                                <li class="review-slip">
+                                    <span class="review-slip__stars" role="img" aria-label="{{ $review['rating'] }} out of 5 stars">
+                                        @for ($star = 1; $star <= 5; $star++)
+                                            <span class="material-symbols-outlined {{ $star <= $review['rating'] ? '' : 'opacity-25' }}" style="font-variation-settings: 'FILL' 1;" aria-hidden="true">star</span>
+                                        @endfor
+                                    </span>
+                                    <p class="review-slip__quote">“{{ $review['quote'] }}”</p>
+                                    <p class="review-slip__who"><span class="font-hand">{{ $review['name'] }}</span> · {{ $review['made'] }}</p>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <div class="mt-space-xl flex justify-center" data-reveal>
+                    <a href="{{ route('reviews') }}" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border-2 border-on-surface px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #352f29">
+                        <span class="material-symbols-outlined text-[20px]">photo_library</span>View more customer photos
+                    </a>
                 </div>
             </div>
         </section>

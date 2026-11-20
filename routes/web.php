@@ -11,6 +11,7 @@ use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Http\Controllers\Staff\SecurityController;
+use App\Http\Controllers\Staff\SiteController;
 use App\Models\User;
 use App\Support\HoneypotTrap;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +83,13 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::get('/', [SalesController::class, 'index'])->name('index');
     });
 
+    Route::middleware($rolesFor(User::MODULE_SITE))->prefix('site')->name('site.')->group(function () {
+        Route::get('/', [SiteController::class, 'index'])->name('index');
+        Route::put('/contact', [SiteController::class, 'updateContact'])->name('contact');
+        Route::delete('/photos/{photo}', [SiteController::class, 'removePhoto'])->name('photos.remove');
+        Route::post('/reviews/{order}/toggle', [SiteController::class, 'toggleReview'])->name('reviews.toggle');
+    });
+
     Route::middleware($rolesFor(User::MODULE_SECURITY))->prefix('security')->name('security.')->group(function () {
         Route::get('/', [SecurityController::class, 'index'])->name('index');
         Route::post('/blocks', [SecurityController::class, 'block'])->name('block');
@@ -115,7 +123,9 @@ Route::get('/privacy', function () {
 })->name('privacy');
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
-Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->name('order.review');
+Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
+Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
+Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');
 
 // Unknown addresses go through the web middleware too, so a held guest is trapped on them as well.
 Route::fallback(fn () => abort(404));

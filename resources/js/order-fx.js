@@ -344,11 +344,57 @@ export function registerOrderFx(Alpine) {
         sending: false,
         text: config.text ?? '',
         errors: {},
+        photo: null, // a preview URL of the picked photo
+        photoBlob: null, // the photo, downscaled in the browser before it is sent
         labels: ['', 'Kurang Memuaskan', 'Cukup Enak', 'Enak & Manis', 'Sangat Enak!', 'Luar Biasa Sempurna!'],
         _t: null,
 
         get shown() {
             return this.hover || this.rating;
+        },
+
+        // A photo never goes out alone: it needs at least ten characters of review with it.
+        get needsWords() {
+            return Boolean(this.photo) && this.text.trim().length < 10;
+        },
+
+        // Phone photos are big (and servers cap uploads), so the picture is scaled to 1600 px on its longest side and
+        // sent as a JPEG. Drawing it on a canvas also drops the EXIF data (location included) and keeps it upright.
+        async pickPhoto(event) {
+            const file = event.target.files?.[0];
+            this.errors = { ...this.errors, photo: undefined };
+            if (!file) return;
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+                this.errors = { ...this.errors, photo: 'File harus berupa foto (JPG, PNG atau WebP).' };
+                this.clearPhoto();
+                return;
+            }
+            try {
+                const bitmap = await createImageBitmap(file);
+                const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(bitmap.width * scale);
+                canvas.height = Math.round(bitmap.height * scale);
+                canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                bitmap.close?.();
+                this.photoBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+            } catch (error) {
+                this.photoBlob = file.size <= 6 * 1024 * 1024 ? file : null; // the browser could not decode it: let the server try
+            }
+            if (!this.photoBlob) {
+                this.errors = { ...this.errors, photo: 'Foto terlalu besar. Pilih foto di bawah 6 MB.' };
+                this.clearPhoto();
+                return;
+            }
+            if (this.photo) URL.revokeObjectURL(this.photo);
+            this.photo = URL.createObjectURL(this.photoBlob);
+        },
+
+        clearPhoto() {
+            if (this.photo) URL.revokeObjectURL(this.photo);
+            this.photo = null;
+            this.photoBlob = null;
+            if (this.$refs.photo) this.$refs.photo.value = '';
         },
 
         // Eight comic impact lines radiate from a freshly picked star.
@@ -373,17 +419,25 @@ export function registerOrderFx(Alpine) {
 
         async submit(event) {
             if (this.sending) return;
+            if (this.needsWords) {
+                this.errors = { review_text: 'Foto harus disertai ulasan minimal 10 karakter.' };
+                document.getElementById('review_text')?.focus();
+                return;
+            }
             this.sending = true;
             this.errors = {};
             window.dispatchEvent(new CustomEvent('review:sending'));
 
             const form = event.target;
+            const body = new FormData(form);
+            body.delete('photo');
+            if (this.photoBlob) body.append('photo', this.photoBlob, 'review.jpg');
             try {
                 const [response] = await Promise.all([
                     fetch(form.action, {
                         method: 'POST',
                         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                        body: new FormData(form),
+                        body,
                         credentials: 'same-origin',
                     }),
                     wait(1300), // let the sending animation play, even on a fast connection

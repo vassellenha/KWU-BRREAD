@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -32,6 +33,7 @@ class Order extends Model
         'rating',
         'review_text',
         'reviewed_at',
+        'review_hidden_at',
     ];
 
     protected $casts = [
@@ -39,12 +41,19 @@ class Order extends Model
         'confirmed_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
+        'review_hidden_at' => 'datetime',
         'rating' => 'integer',
     ];
 
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /** The photo the customer added to their review, if any. */
+    public function reviewPhoto(): HasOne
+    {
+        return $this->hasOne(ReviewPhoto::class);
     }
 
     public function isPending(): bool
@@ -92,7 +101,7 @@ class Order extends Model
             ."Kami ingin mengonfirmasi pesanan Anda:\n"
             ."• No. Pesanan: #{$this->order_number}\n"
             ."• Total: {$formattedTotal}\n\n"
-            ."Apakah pesanan ini sudah benar dan siap kami proses?";
+            .'Apakah pesanan ini sudah benar dan siap kami proses?';
 
         return 'https://wa.me/'.$rawPhone.'?text='.rawurlencode($message);
     }

@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\ReviewPhoto;
+use App\Support\ReviewFeed;
+use App\Support\ReviewImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class PublicOrderController extends Controller
 {
@@ -71,14 +77,25 @@ class PublicOrderController extends Controller
             ->values();
 
         return view('pages.order-status', [
-            'order' => $order,
+            'order' => $order->loadMissing('reviewPhoto:id,order_id,width,height,updated_at'),
             'creations' => $creations,
+            // Staff and the superadmin can open a customer's status page, but only to look: a review must come from the customer.
+            'viewOnly' => auth()->check(),
         ]);
     }
 
     public function submitReview(Request $request, string $token): RedirectResponse|JsonResponse
     {
         $order = Order::where('confirmation_token', $token)->firstOrFail();
+
+        // A signed-in account is staff or the superadmin: they may look at the page, never rate the order.
+        if ($request->user()) {
+            $message = 'Akun staf hanya bisa melihat. Ulasan hanya bisa dikirim oleh pelanggan.';
+
+            return $request->wantsJson()
+                ? response()->json(['message' => $message], 403)
+                : back()->with('error', $message);
+        }
 
         if ($order->isCancelled()) {
             $message = 'Pesanan yang dibatalkan tidak dapat diulas.';
@@ -97,20 +114,47 @@ class PublicOrderController extends Controller
                 : back()->with('error', $message);
         }
 
+        // A photo always needs a few words with it: a picture alone says nothing about the sandwich.
         $validated = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
-            'review_text' => ['nullable', 'string', 'max:1000'],
+            'review_text' => ['nullable', 'string', 'max:1000', 'required_with:photo', 'min:'.($request->hasFile('photo') ? 10 : 0)],
+            'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
         ], [
             'rating.required' => 'Silakan pilih rating bintang 1 hingga 5.',
             'rating.between' => 'Rating bintang harus antara 1 sampai 5.',
             'review_text.max' => 'Ulasan maksimal 1.000 karakter.',
+            'review_text.required_with' => 'Foto harus disertai ulasan. Tulis sedikit tentang sandwich-nya ya.',
+            'review_text.min' => 'Ulasan untuk foto minimal 10 karakter.',
+            'photo.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
+            'photo.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
+            'photo.max' => 'Foto maksimal 6 MB.',
+            'photo.dimensions' => 'Foto terlalu kecil atau terlalu besar (minimal 200 px per sisi).',
+            'photo.uploaded' => 'Foto gagal diunggah. Coba foto yang lebih kecil.',
         ]);
 
-        $order->update([
-            'rating' => $validated['rating'],
-            'review_text' => ! empty($validated['review_text']) ? trim($validated['review_text']) : null,
-            'reviewed_at' => now(),
-        ]);
+        $picture = null;
+        if ($request->hasFile('photo')) {
+            try {
+                $picture = ReviewImage::fromUpload($request->file('photo'));
+            } catch (Throwable) {
+                $message = 'Foto tidak bisa dibaca. Coba foto lain ya.';
+
+                return $request->wantsJson()
+                    ? response()->json(['message' => $message, 'errors' => ['photo' => [$message]]], 422)
+                    : back()->withErrors(['photo' => $message])->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($order, $validated, $picture) {
+            $order->update([
+                'rating' => $validated['rating'],
+                'review_text' => ! empty($validated['review_text']) ? trim($validated['review_text']) : null,
+                'reviewed_at' => now(),
+            ]);
+            if ($picture) {
+                $order->reviewPhoto()->create($picture);
+            }
+        });
 
         $thanks = 'Terima kasih atas ulasan manis Anda! Masukan Anda sangat berharga bagi kami.';
 
@@ -120,10 +164,30 @@ class PublicOrderController extends Controller
                 'message' => $thanks,
                 'rating' => $order->rating,
                 'review_text' => $order->review_text,
+                'photo' => $order->reviewPhoto?->url(),
             ]);
         }
 
         return back()->with('success', $thanks);
     }
-}
 
+    /** A review photo, straight from the database. Its address carries a version, so it is cached for a year. */
+    public function photo(ReviewPhoto $photo): Response
+    {
+        return response(base64_decode($photo->data), 200, [
+            'Content-Type' => $photo->mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => 'inline',
+        ]);
+    }
+
+    /** Every customer photo (the thirty newest) and the newest words-only reviews. */
+    public function reviews(): View
+    {
+        return view('pages.reviews', [
+            'photos' => ReviewFeed::photos(ReviewFeed::WALL_MAX),
+            'words' => ReviewFeed::words(ReviewFeed::WALL_MAX),
+        ]);
+    }
+}

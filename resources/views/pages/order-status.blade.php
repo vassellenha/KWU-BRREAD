@@ -41,6 +41,8 @@
                 <symbol id="osi-info" viewBox="0 0 24 24"><path d="M12 11v6M12 7.2v.1"/><circle cx="12" cy="12" r="9"/></symbol>
                 <symbol id="osi-bag" viewBox="0 0 24 24"><path d="M4 9l1.2-4.5h13.6L20 9M4 9h16v11H4zM9 13v1a3 3 0 006 0v-1"/></symbol>
                 <symbol id="osi-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+                <symbol id="osi-camera" viewBox="0 0 24 24"><path d="M3.5 8.5a2 2 0 012-2h2.2L9.3 4h5.4l1.6 2.5h2.2a2 2 0 012 2V18a2 2 0 01-2 2h-13a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="3.6"/></symbol>
+                <symbol id="osi-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
             </defs>
         </svg>
 
@@ -354,15 +356,30 @@
                                 @if ($order->review_text)
                                     <p class="os-done__quote">“{{ $order->review_text }}”</p>
                                 @endif
+                                @if ($order->reviewPhoto)
+                                    <figure class="os-done__photo">
+                                        <img src="{{ $order->reviewPhoto->url() }}" width="{{ $order->reviewPhoto->width }}" height="{{ $order->reviewPhoto->height }}" alt="Foto dari pelanggan untuk pesanan ini" loading="lazy">
+                                    </figure>
+                                @endif
                                 <p class="os-done__ok">
                                     <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
                                     <span>Ulasan Anda telah tersimpan dan membantu kami terus berkembang!</span>
                                 </p>
                             </div>
+                        @elseif ($viewOnly)
+                            {{-- STAFF: look, never rate --}}
+                            <div class="os-viewonly" role="note">
+                                <svg class="os-ico" aria-hidden="true"><use href="#osi-eye"/></svg>
+                                <div>
+                                    <p class="os-viewonly__title">Mode lihat saja</p>
+                                    <p class="os-viewonly__text">Anda masuk sebagai {{ auth()->user()->name ?? 'staf' }}. Rating dan ulasan hanya bisa diisi oleh pelanggan lewat link ini, supaya tidak ada yang bisa merekayasa ulasan.</p>
+                                </div>
+                            </div>
                         @else
                             {{-- REVIEW FORM --}}
                             <form
                                 method="POST"
+                                enctype="multipart/form-data"
                                 action="{{ route('order.review', ['token' => $order->confirmation_token]) }}"
                                 x-data="reviewForm({{ \Illuminate\Support\Js::from(['rating' => (int) old('rating', 5), 'text' => old('review_text', '')]) }})"
                                 @submit.prevent="submit($event)"
@@ -401,7 +418,7 @@
 
                                 <div class="os-field">
                                     <label for="review_text" class="os-label">
-                                        <span>Ulasan / Komentar <small>(Opsional)</small></span>
+                                        <span>Ulasan / Komentar <small x-text="photo ? '(wajib untuk foto)' : '(Opsional)'">(Opsional)</small></span>
                                         <small><span x-text="text.length">0</span>/1000</small>
                                     </label>
                                     <textarea
@@ -419,8 +436,33 @@
                                     <p x-show="errors.review_text" x-text="errors.review_text" x-cloak class="os-error"></p>
                                 </div>
 
+                                {{-- The photo: optional, but it never goes out without a few words (see needsWords). --}}
+                                <div class="os-field">
+                                    <span class="os-label">
+                                        <span>Foto Sandwich <small>(Opsional)</small></span>
+                                        <small>JPG, PNG, WebP</small>
+                                    </span>
+                                    <input x-ref="photo" id="review_photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="pickPhoto($event)">
+                                    <label for="review_photo" class="os-photo" :class="{ 'has-photo': photo }" x-show="!photo">
+                                        <svg class="os-ico" aria-hidden="true"><use href="#osi-camera"/></svg>
+                                        <span class="os-photo__title">Tambah foto sandwich-mu</span>
+                                        <span class="os-photo__hint">Foto terbaik masuk ke "Made by our customers" di halaman depan. Wajib ditemani ulasan.</span>
+                                    </label>
+                                    <figure class="os-photo-preview" x-show="photo" x-cloak>
+                                        <img :src="photo" alt="Pratinjau foto ulasan">
+                                        <button type="button" class="os-photo-preview__x" @click="clearPhoto()" aria-label="Hapus foto">
+                                            <svg class="os-ico" aria-hidden="true"><use href="#osi-x"/></svg>
+                                        </button>
+                                    </figure>
+                                    @error('photo')
+                                        <p class="os-error">{{ $message }}</p>
+                                    @enderror
+                                    <p x-show="errors.photo" x-text="errors.photo" x-cloak class="os-error"></p>
+                                    <p x-show="needsWords" x-cloak class="os-need" role="status">Foto harus disertai ulasan minimal 10 karakter. Tulis sedikit tentang sandwich-nya dulu ya.</p>
+                                </div>
+
                                 <div class="os-slip__actions">
-                                    <button type="submit" :disabled="sending" class="os-btn os-send">
+                                    <button type="submit" :disabled="sending || needsWords" :aria-disabled="needsWords" class="os-btn os-send">
                                         <svg class="os-ico" aria-hidden="true"><use href="#osi-send"/></svg>
                                         <span>Kirim Ulasan</span>
                                     </button>

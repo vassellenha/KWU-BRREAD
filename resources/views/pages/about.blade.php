@@ -47,7 +47,7 @@
             <div class="about-sticky about-origin">
                 <p class="about-origin-note font-hand">where it comes from</p>
                 <figure class="about-origin-frame">
-                    <img src="/img/marketing/heritage-cart.jpg" alt="An ice cream cart vendor on Orchard Road handing a rainbow bread ice cream sandwich to a customer">
+                    <img src="/img/marketing/heritage-uncle.jpg" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up">
                     <span class="about-origin-shade" aria-hidden="true"></span>
                     <figcaption class="about-origin-tag font-hand">Orchard Road, Singapore</figcaption>
                 </figure>
@@ -167,17 +167,23 @@
             @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 0])
             <p class="font-hand text-[30px] leading-none text-[#f7a3b6] -rotate-2 text-center mb-space-lg">out in the wild</p>
             @php
-                $wall = [
-                    [['community-mjordan.jpg', '-2deg'], ['product-strawberry.jpg', '1.5deg'], ['community-targaryen.jpg', '-1deg'], ['hero-held.jpg', '2deg'], ['product-chocolate.jpg', '-1.5deg']],
-                    [['product-vanilla-wheat.jpg', '1.5deg'], ['step-packaged.jpg', '-2deg'], ['community-rizky.jpg', '1deg'], ['product-vanilla.jpg', '-1deg'], ['step-icecream.jpg', '2deg']],
-                ];
+                // The wall keeps itself current: the newest customer review photos go up first, and the launch shots fill
+                // whatever is left of the ten frames.
+                $tilts = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg', '1.5deg', '-2deg', '1deg', '-1deg', '2deg'];
+                $launch = ['community-mjordan.jpg', 'product-strawberry.jpg', 'community-targaryen.jpg', 'hero-held.jpg', 'product-chocolate.jpg', 'product-vanilla-wheat.jpg', 'step-packaged.jpg', 'community-rizky.jpg', 'product-vanilla.jpg', 'step-icecream.jpg'];
+                $frames = \App\Support\ReviewFeed::photos(10)->pluck('photo')
+                    ->concat(array_map(fn ($file) => '/img/marketing/'.$file, $launch))
+                    ->take(10)
+                    ->values()
+                    ->map(fn ($src, $i) => [$src, $tilts[$i]]);
+                $wall = [$frames->slice(0, 5)->values()->all(), $frames->slice(5, 5)->values()->all()];
             @endphp
             @foreach ($wall as $row => $photos)
                 <div class="about-wall" aria-hidden="true">
                     <div data-marquee="{{ $row === 0 ? '0.38' : '-0.3' }}" class="about-wall-row">
                         @for ($i = 0; $i < 2; $i++)
                             @foreach ($photos as [$photo, $tilt])
-                                <span class="about-wall-photo" style="--tilt: {{ $tilt }}"><img src="/img/marketing/{{ $photo }}" alt="" loading="lazy"></span>
+                                <span class="about-wall-photo" style="--tilt: {{ $tilt }}"><img src="{{ $photo }}" alt="" loading="lazy"></span>
                             @endforeach
                         @endfor
                     </div>

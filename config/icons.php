@@ -73,6 +73,7 @@ return [
         'person_add',
         'person_off',
         'photo_camera',
+        'photo_library',
         'print',
         'public',
         'receipt',

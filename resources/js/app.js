@@ -1409,6 +1409,90 @@ Alpine.data('signatureMenu', (products) => ({
 window.Alpine = Alpine;
 registerOrderFx(Alpine);
 
+// The pile of polaroids on the Contact page. Drag the top one off and let go (or tap it, or press the right arrow)
+// and it sails off, then tucks in at the back of the pile; the left arrow brings the last one back on top.
+Alpine.data('polaroidPile', (count) => ({
+    order: Array.from({ length: count }, (_, i) => i),
+    tilts: [6, -5, 3, -7, 4, -3],
+    hold: null, // { i, x0, y0, dx, dy, t, vx }
+    flying: -1,
+    flyDir: 1,
+    reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+
+    depth(i) {
+        return this.order.indexOf(i);
+    },
+
+    cardClass(i) {
+        return {
+            'is-top': this.depth(i) === 0,
+            'is-held': this.hold?.i === i,
+            'is-flying': this.flying === i,
+        };
+    },
+
+    cardStyle(i) {
+        const d = this.depth(i);
+        const tilt = this.tilts[i % this.tilts.length];
+        let x = d * 7;
+        let y = d * -5;
+        let rot = tilt * (d === 0 ? 1 : 0.8);
+        let scale = 1 - Math.min(d, 4) * 0.025;
+        if (this.hold?.i === i) {
+            x += this.hold.dx;
+            y += this.hold.dy;
+            rot += this.hold.dx * 0.07;
+            scale = 1.04;
+        } else if (this.flying === i) {
+            x = this.flyDir * 420;
+            y = -60;
+            rot = tilt + this.flyDir * 28;
+        }
+        return `z-index:${count - d + (this.flying === i ? count : 0)};transform:translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${scale.toFixed(3)});opacity:${d > 4 ? 0 : 1}`;
+    },
+
+    grab(event, i) {
+        if (this.depth(i) !== 0 || this.flying !== -1 || event.button > 0) return;
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        this.hold = { i, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, t: performance.now(), vx: 0, id: event.pointerId };
+    },
+
+    drag(event) {
+        if (!this.hold || event.pointerId !== this.hold.id) return;
+        const now = performance.now();
+        const dx = event.clientX - this.hold.x0;
+        const dy = event.clientY - this.hold.y0;
+        this.hold.vx = (dx - this.hold.dx) / Math.max(8, now - this.hold.t);
+        this.hold.t = now;
+        this.hold.dx = dx;
+        this.hold.dy = dy;
+    },
+
+    drop(event) {
+        if (!this.hold || event.pointerId !== this.hold.id) return;
+        const { dx, dy, vx } = this.hold;
+        this.hold = null;
+        const moved = Math.hypot(dx, dy);
+        // a tap, a long drag or a quick flick sends it off; a short nudge springs back
+        if (moved < 6 || Math.abs(dx) > 90 || Math.abs(vx) > 0.6) this.next(moved < 6 ? 1 : Math.sign(dx || vx) || 1);
+    },
+
+    next(dir = 1) {
+        if (this.flying !== -1 || count < 2) return;
+        this.flyDir = dir;
+        this.flying = this.order[0];
+        setTimeout(() => {
+            this.order.push(this.order.shift());
+            this.flying = -1;
+        }, this.reduced ? 0 : 260);
+    },
+
+    previous() {
+        if (this.flying !== -1 || count < 2) return;
+        this.order.unshift(this.order.pop());
+    },
+}));
+
 Alpine.start();
 
 // Entrance reveals: fade + rise once an element scrolls into view, staggered within each group.

@@ -11,6 +11,7 @@
         ['module' => User::MODULE_HR, 'route' => 'staff.hr.index', 'active' => 'staff.hr.*', 'icon' => 'groups', 'label' => 'HR'],
         ['module' => User::MODULE_ACCOUNTING, 'route' => 'staff.accounting.index', 'active' => 'staff.accounting.*', 'icon' => 'account_balance', 'label' => 'Accounting'],
         ['module' => User::MODULE_SALES, 'route' => 'staff.sales.index', 'active' => 'staff.sales.*', 'icon' => 'monitoring', 'label' => 'Sales'],
+        ['module' => User::MODULE_SITE, 'route' => 'staff.site.index', 'active' => 'staff.site.*', 'icon' => 'storefront', 'label' => 'Website'],
         ['module' => User::MODULE_SECURITY, 'route' => 'staff.security.index', 'active' => 'staff.security.*', 'icon' => 'shield', 'label' => 'Security'],
     ])->filter(fn (array $link) => $currentUser->canAccessModule($link['module']));
 
