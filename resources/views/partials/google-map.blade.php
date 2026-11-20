@@ -1,7 +1,7 @@
 @php
     $maps = config('services.google_maps');
     $key = $maps['key'] ?? null;
-    $query = $maps['query'];
+    $query = \App\Support\ShopSettings::get()['maps_query'];
     $zoom = $maps['zoom'];
 
     // With a key: the official Maps Embed API. Without: the keyless embed, same map, no API quota.
@@ -11,7 +11,7 @@
 @endphp
 <iframe
     src="{{ $src }}"
-    title="Google Map showing the Brread! counter at Telkom University Jakarta, Kampus C Minangkabau"
+    title="Google Map showing the Brread! counter at {{ \App\Support\ShopSettings::get()['address_short'] }}"
     class="contact-map-frame"
     loading="lazy"
     referrerpolicy="strict-origin-when-cross-origin"

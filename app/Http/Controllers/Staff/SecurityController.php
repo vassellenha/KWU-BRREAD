@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\IpBlock;
 use App\Models\SecurityEvent;
+use App\Models\SignIn;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,6 +15,9 @@ class SecurityController extends Controller
 {
     public function index(Request $request): View
     {
+        $tab = $request->query('tab') === 'sign-ins' ? 'sign-ins' : 'lockdowns';
+        $role = $request->query('role');
+        $role = is_string($role) && array_key_exists($role, User::ROLES) ? $role : null;
         $reason = $request->query('reason');
         $reason = is_string($reason) && array_key_exists($reason, SecurityEvent::REASONS) ? $reason : null;
 
@@ -33,6 +38,15 @@ class SecurityController extends Controller
             ->first();
 
         return view('staff.security.index', [
+            'tab' => $tab,
+            'role' => $role,
+            // Every successful sign-in to /staff or /superadmin, newest first.
+            'signIns' => SignIn::query()
+                ->when($role, fn ($query) => $query->where('role', $role))
+                ->latest('id')
+                ->paginate(25, ['*'], 'sign_ins_page')
+                ->withQueryString(),
+            'signInWeek' => SignIn::where('created_at', '>=', now()->subDays(7))->count(),
             'events' => $events,
             'reason' => $reason,
             'stats' => [

@@ -107,8 +107,8 @@
                             ['n' => '1', 'img' => '/img/marketing/step-bread.jpg', 'alt' => 'Stacks of plain white and whole wheat sandwich bread', 'title' => 'It starts with a loaf', 'text' => 'Soft white sandwich bread, or whole wheat for people who want it less sweet. Sliced, never toasted.', 'tilt' => '-2deg'],
                             ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Vanilla, strawberry and chocolate ice cream blocks cut into slabs', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. Vanilla, strawberry or chocolate.', 'tilt' => '1.5deg'],
                             ['n' => '3', 'img' => '/img/marketing/product-vanilla-wheat.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => 'Chocolate sauce, rainbow sprinkles, both, or neither. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
-                            ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'An ice cream sandwich packed in an insulated pouch', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for an hour.', 'tilt' => '2deg'],
-                            ['n' => '5', 'img' => '/img/marketing/hero-held.jpg', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles', 'title' => 'And into your hands', 'text' => 'Around twenty minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
+                            ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'An ice cream sandwich packed in an insulated pouch', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
+                            ['n' => '5', 'img' => '/img/marketing/hero-held.jpg', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles', 'title' => 'And into your hands', 'text' => 'Around '.\App\Support\ShopSettings::get()['delivery_minutes'].' minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
                         ] as $step)
                             <article class="about-panel">
                                 <div class="relative">
@@ -194,8 +194,8 @@
                 <dl class="grid grid-cols-2 lg:grid-cols-4 gap-x-space-lg gap-y-space-xl">
                     @foreach ([
                         ['count' => '24', 'unit' => '', 'label' => 'ways to build one'],
-                        ['count' => '20', 'unit' => 'min', 'label' => 'typical delivery in Jakarta'],
-                        ['count' => '60', 'unit' => 'min', 'label' => 'it stays frozen in the box'],
+                        ['count' => (string) \App\Support\ShopSettings::get()['delivery_minutes'], 'unit' => 'min', 'label' => 'typical delivery in Jakarta'],
+                        ['count' => (string) \App\Support\ShopSettings::get()['frozen_minutes'], 'unit' => 'min', 'label' => 'it stays frozen in the box'],
                         ['count' => '4.2', 'unit' => 'cm', 'label' => 'of ice cream in every slab'],
                     ] as $stat)
                         <div data-in class="border-t border-[#fbeee4]/25 pt-space-md">
@@ -249,7 +249,7 @@
                     <a href="{{ route('build') }}" class="btn-chunky bg-primary text-on-primary px-space-xl py-4 rounded-full font-label-lg text-[16px]" style="--chunk: #40000e">Open the Studio</a>
                     <a href="{{ route('contact') }}" class="btn-chunky bg-surface-container-lowest text-on-surface px-space-xl py-4 rounded-full font-label-lg text-[16px]" style="--chunk: #c9728a">Visit the counter</a>
                 </div>
-                <p class="mt-space-lg font-body-lg text-body-lg text-[#40000e]/80">Minangkabau, Tel-U, Jakarta Selatan &middot; Daily, 11:00 AM – 9:30 PM</p>
+                <p class="mt-space-lg font-body-lg text-body-lg text-[#40000e]/80">{{ \App\Support\ShopSettings::get()['address_short'] }} &middot; {{ \App\Support\ShopSettings::get()['hours_label'] }}</p>
             </div>
         </section>
     </div>

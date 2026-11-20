@@ -86,6 +86,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
     Route::middleware($rolesFor(User::MODULE_SITE))->prefix('site')->name('site.')->group(function () {
         Route::get('/', [SiteController::class, 'index'])->name('index');
         Route::put('/contact', [SiteController::class, 'updateContact'])->name('contact');
+        Route::put('/shop/{section}', [SiteController::class, 'updateShop'])->whereIn('section', ['location', 'hours', 'orders', 'promises'])->name('shop');
         Route::delete('/photos/{photo}', [SiteController::class, 'removePhoto'])->name('photos.remove');
         Route::post('/reviews/{order}/toggle', [SiteController::class, 'toggleReview'])->name('reviews.toggle');
     });

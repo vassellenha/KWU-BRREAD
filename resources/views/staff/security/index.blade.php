@@ -26,7 +26,7 @@
     @endphp
 
     <x-staff.page-header icon="shield" title="Security">
-        Every address that triggered the sign-in lockdown: where it came from, what it ran, and what it tried.
+        Every address that triggered the sign-in lockdown, and everyone who actually signed in. Only the superadmin can open this page.
     </x-staff.page-header>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-space-sm mb-space-lg">
@@ -94,6 +94,107 @@
         @endif
     </section>
 
+    {{-- Two lists: addresses that set off the lockdown, and everyone who signed in for real. --}}
+    <nav aria-label="Security lists" class="flex flex-wrap gap-space-xs mb-space-md border-b border-outline-variant/30">
+        @foreach (['lockdowns' => ['Lockdowns', 'gpp_maybe'], 'sign-ins' => ['Sign-ins', 'login']] as $key => [$label, $icon])
+            <a href="{{ route('staff.security.index', $key === 'lockdowns' ? [] : ['tab' => $key]) }}" @class([
+                'press-scale -mb-px inline-flex items-center gap-1.5 px-space-md py-space-sm font-label-lg text-label-lg border-b-2 transition-colors duration-200',
+                'border-primary text-primary' => $tab === $key,
+                'border-transparent text-on-surface-variant hover:text-on-surface' => $tab !== $key,
+            ]) @if ($tab === $key) aria-current="page" @endif>
+                <span class="material-symbols-outlined text-[18px]">{{ $icon }}</span>{{ $label }}
+                @if ($key === 'sign-ins')
+                    <span class="rounded-full bg-surface-container px-2 py-0.5 font-label-md text-label-md text-on-surface-variant tabular-nums" title="Sign-ins in the last 7 days">{{ $signInWeek }}</span>
+                @endif
+            </a>
+        @endforeach
+    </nav>
+
+    @if ($tab === 'sign-ins')
+        <div class="flex flex-wrap items-center justify-between gap-space-sm mb-space-md">
+            <nav aria-label="Filter by role" class="flex flex-wrap gap-space-xs">
+                @foreach (['' => 'All'] + \App\Models\User::ROLES as $key => $label)
+                    <a href="{{ route('staff.security.index', array_filter(['tab' => 'sign-ins', 'role' => $key])) }}" @class([
+                        'press-scale inline-flex items-center px-space-md py-space-xs rounded-full font-label-md text-label-md transition-colors duration-200',
+                        'bg-primary text-on-primary' => ($role ?? '') === $key,
+                        'bg-surface-container text-on-surface-variant hover:text-on-surface' => ($role ?? '') !== $key,
+                    ])>{{ $key === 'admin' ? 'Superadmin' : $label }}</a>
+                @endforeach
+            </nav>
+            <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xl">
+                Every successful sign-in to /staff and /superadmin. Someone you do not know here means a password leaked: change it under HR and block the address.
+            </p>
+        </div>
+
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-x-auto">
+            <table class="w-full min-w-[980px] text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant/30 bg-surface-container/50">
+                        @foreach (['Time', 'Account', 'Role', 'Address', 'Location', 'Browser / system', 'Device'] as $heading)
+                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide whitespace-nowrap">{{ $heading }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($signIns as $signIn)
+                        <tr class="border-b border-outline-variant/20 last:border-0 align-top">
+                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap">
+                                {{ $signIn->created_at->format('d M Y, H:i') }}
+                                <span class="block text-on-surface-variant/70">{{ $signIn->created_at->diffForHumans() }}</span>
+                            </td>
+                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface min-w-[160px]">
+                                {{ $signIn->name ?: 'Deleted account' }}
+                                <span class="block font-mono text-[12px] text-on-surface-variant">{{ '@'.$signIn->username }}</span>
+                            </td>
+                            <td class="px-space-md py-space-sm">
+                                <span @class([
+                                    'inline-flex items-center px-2 py-0.5 rounded-full font-label-md text-label-md whitespace-nowrap',
+                                    'bg-primary-container text-on-primary-container' => $signIn->portal === 'superadmin',
+                                    'bg-surface-container text-on-surface-variant' => $signIn->portal !== 'superadmin',
+                                ])>{{ $signIn->role === 'admin' ? 'Superadmin' : (\App\Models\User::ROLES[$signIn->role] ?? $signIn->role) }}</span>
+                            </td>
+                            <td class="px-space-md py-space-sm font-mono text-[13px] text-on-surface whitespace-nowrap">
+                                {{ $signIn->ip }}
+                                @if ($blockedIps->has($signIn->ip))
+                                    <span class="mt-1 flex w-fit items-center gap-1 rounded-full bg-error-container px-2 py-0.5 font-label-md text-label-md text-on-error-container">
+                                        <span class="material-symbols-outlined text-[14px]">block</span>Blocked
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface min-w-[180px]">
+                                @if ($signIn->place())
+                                    <span>{{ trim($flag($signIn->country_code).' '.$signIn->place()) }}</span>
+                                @else
+                                    <span class="text-on-surface-variant">Unknown</span>
+                                @endif
+                                @if ($signIn->isp)
+                                    <span class="block text-on-surface-variant">{{ $signIn->isp }}</span>
+                                @endif
+                            </td>
+                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface min-w-[170px]">
+                                {{ $signIn->browser ?? 'Unknown' }}
+                                <span class="block text-on-surface-variant">{{ $signIn->os ?? 'Unknown OS' }}</span>
+                            </td>
+                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant">{{ $signIn->device ?? 'Unknown' }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-space-md py-space-xl text-center">
+                                <div class="flex flex-col items-center gap-space-xs">
+                                    <span class="material-symbols-outlined text-[40px] text-on-surface-variant/40">login</span>
+                                    <p class="font-title-md text-title-md text-on-surface-variant">No sign-ins recorded yet</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-space-md">
+            {{ $signIns->links() }}
+        </div>
+    @else
     <div class="flex flex-wrap items-center justify-between gap-space-sm mb-space-md">
         <nav aria-label="Filter by reason" class="flex flex-wrap gap-space-xs">
             @foreach (['' => 'All'] + \App\Models\SecurityEvent::REASONS as $key => $label)
@@ -218,5 +319,6 @@
     <div class="mt-space-md">
         {{ $events->links() }}
     </div>
+    @endif
 
 @endsection

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\StockMovement;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
+use App\Support\ShopSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -19,6 +20,12 @@ class OrderController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        // The superadmin can pause checkout under Website in the panel; the cart shows the same message.
+        $shop = ShopSettings::get();
+        if (! $shop['orders_open']) {
+            return response()->json(['message' => $shop['orders_paused_message']], 503);
+        }
+
         $validated = $request->validate([
             'customer_name' => ['required', 'string', 'max:255', new PersonName],
             'customer_phone' => ['required', 'string', 'max:30', new PhoneNumber],

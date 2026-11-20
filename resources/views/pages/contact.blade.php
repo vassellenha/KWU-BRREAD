@@ -8,6 +8,7 @@
 
     @php
         $cp = \App\Support\ContactInfo::get();
+        $shop = \App\Support\ShopSettings::get();
         // The playable stack: the newest customer photos on top, the launch shots under them.
         $stack = \App\Support\ReviewFeed::photos(5)
             ->map(fn ($review) => ['src' => $review['photo'], 'caption' => $review['name'], 'alt' => 'Photo from '.$review['name'].' of their Brread! sandwich'])
@@ -24,8 +25,12 @@
     {{-- Opening hours live here once: the "open now" pill and the week strip both read them. --}}
     <div
         x-data="{
-            opens: 11 * 60,
-            closes: 21 * 60 + 30,
+            opens: {{ $shop['open_minutes'] }},
+            closes: {{ $shop['close_minutes'] }},
+            shut: @js($shop['counter_closed']),
+            openLabel: @js($shop['open_label']),
+            closeLabel: @js($shop['close_label']),
+            note: @js($shop['counter_closed_note']),
             days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
             today: 0,
             minutes: 0,
@@ -42,19 +47,21 @@
                 this.minutes = (Number(get('hour')) % 24) * 60 + Number(get('minute'));
             },
             get isOpen() {
-                return this.minutes >= this.opens && this.minutes < this.closes;
+                return !this.shut && this.minutes >= this.opens && this.minutes < this.closes;
             },
             get status() {
-                if (this.isOpen) return 'Open now, until 9:30 PM';
-                return this.minutes < this.opens ? 'Closed, opens at 11:00 AM' : 'Closed, opens tomorrow at 11:00 AM';
+                if (this.shut) return 'Closed for now, ' + this.note;
+                if (this.isOpen) return 'Open now, until ' + this.closeLabel;
+                return this.minutes < this.opens ? 'Closed, opens at ' + this.openLabel : 'Closed, opens tomorrow at ' + this.openLabel;
             },
             get signSub() {
-                if (this.isOpen) return 'till 9:30 PM tonight';
-                return this.minutes < this.opens ? 'back at 11:00 AM' : 'back tomorrow, 11 AM';
+                if (this.shut) return this.note;
+                if (this.isOpen) return 'till ' + this.closeLabel + ' tonight';
+                return this.minutes < this.opens ? 'back at ' + this.openLabel : 'back tomorrow, ' + this.openLabel;
             },
             async copyAddress() {
                 try {
-                    await navigator.clipboard.writeText('Telkom University Jakarta Kampus C, Jl. Minangkabau Barat No. 50, Pasar Manggis, Setiabudi, Jakarta Selatan');
+                    await navigator.clipboard.writeText(@js($shop['address_one_line']));
                     this.copied = true;
                     setTimeout(() => (this.copied = false), 2000);
                 } catch (e) {}
@@ -82,14 +89,14 @@
                         <button type="button" class="shop-sign__board" :class="swing ? 'is-swinging' : ''" @click="swing = false; $nextTick(() => swing = true)" @animationend="swing = false" :aria-label="status">
                             <span class="shop-sign__face shop-sign__face--open" aria-hidden="true">
                                 <span class="shop-sign__word">Open</span>
-                                <span class="shop-sign__sub font-hand" x-text="isOpen ? signSub : 'till 9:30 PM'">till 9:30 PM tonight</span>
+                                <span class="shop-sign__sub font-hand" x-text="isOpen ? signSub : 'till ' + closeLabel">till {{ $shop['close_label'] }} tonight</span>
                             </span>
                             <span class="shop-sign__face shop-sign__face--closed" aria-hidden="true">
                                 <span class="shop-sign__word">Closed</span>
-                                <span class="shop-sign__sub font-hand" x-text="isOpen ? 'back at 11 AM' : signSub">back at 11:00 AM</span>
+                                <span class="shop-sign__sub font-hand" x-text="isOpen ? 'back at ' + openLabel : signSub">back at {{ $shop['open_label'] }}</span>
                             </span>
                         </button>
-                        <span class="sr-only" role="status" x-text="status">Daily, 11:00 AM to 9:30 PM</span>
+                        <span class="sr-only" role="status" x-text="status">{{ $shop['hours_label'] }}</span>
                     </div>
 
                     <div class="mt-space-xl space-y-space-lg">
@@ -101,11 +108,11 @@
                                     <span class="flex w-9 h-9 items-center justify-center rounded-full bg-[#f6a21e] text-white"><span class="material-symbols-outlined text-[22px]">location_on</span></span>
                                     <span class="flex flex-col leading-tight">
                                         <span class="text-[10px] font-extrabold tracking-[0.14em] text-on-surface-variant">LOKASI</span>
-                                        <span class="font-label-lg text-[17px] font-extrabold text-on-surface">Minangkabau, Tel-U</span>
+                                        <span class="font-label-lg text-[17px] font-extrabold text-on-surface">{{ $shop['address_short'] }}</span>
                                     </span>
                                     <span class="rounded-full bg-primary text-on-primary text-[11px] font-extrabold tracking-wide px-2.5 py-1">+ BISA ONLINE</span>
                                 </p>
-                                <p class="mt-space-md font-headline-md text-[clamp(1.3rem,2.6vw,1.8rem)] leading-[1.2] font-bold text-on-surface">Telkom University, Kampus C<br>Jl. Minangkabau Barat No. 50<br>Setiabudi, Jakarta Selatan</p>
+                                <p class="mt-space-md font-headline-md text-[clamp(1.3rem,2.6vw,1.8rem)] leading-[1.2] font-bold text-on-surface">{!! collect($shop['address_lines'])->map(fn ($line) => e($line))->implode('<br>') !!}</p>
                             </dd>
                         </div>
                     </dl>
@@ -147,8 +154,8 @@
                         @include('partials.google-map')
                     </div>
                     <div class="mt-space-md flex flex-wrap gap-x-space-lg gap-y-2 justify-end font-label-lg text-label-lg">
-                        <a href="{{ config('services.google_maps.place_url') }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">location_on</span>Open in Google Maps</a>
-                        <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ urlencode(config('services.google_maps.query')) }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">directions</span>Get directions</a>
+                        <a href="{{ $shop['maps_place_url'] }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">location_on</span>Open in Google Maps</a>
+                        <a href="{{ $shop['maps_directions_url'] }}" target="_blank" rel="noopener" class="text-primary underline underline-offset-4 decoration-dotted inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">directions</span>Get directions</a>
                     </div>
                     {{-- A pile of polaroids to play with: drag the top one off (or tap it) and it goes to the back of the pile. --}}
                     <div class="snap-pile" x-data="polaroidPile({{ $stack->count() }})" @keydown.right.prevent="next()" @keydown.left.prevent="previous()">
@@ -191,12 +198,12 @@
                     <template x-for="(day, index) in days" :key="day">
                         <li class="contact-day" :class="index === today ? 'is-today' : ''" :aria-current="index === today ? 'date' : null">
                             <span class="contact-day-name" x-text="day"></span>
-                            <span class="contact-day-hours">11:00<br>21:30</span>
+                            <span class="contact-day-hours">{{ $shop['hours_open'] }}<br>{{ $shop['hours_close'] }}</span>
                             <span x-show="index === today" x-cloak class="contact-day-flag font-hand">today</span>
                         </li>
                     </template>
                 </ol>
-                <p class="mt-space-lg font-body-lg text-body-lg text-on-surface-variant">Can't make it over? <a href="{{ route('build') }}" class="text-primary font-bold underline underline-offset-4 hover:no-underline">Build one in the Studio</a> and we deliver across Jakarta in about twenty minutes.</p>
+                <p class="mt-space-lg font-body-lg text-body-lg text-on-surface-variant">Can't make it over? <a href="{{ route('build') }}" class="text-primary font-bold underline underline-offset-4 hover:no-underline">Build one in the Studio</a> and we deliver across Jakarta in about {{ $shop['delivery_minutes'] }} minutes.</p>
             </div>
         </section>
     </div>

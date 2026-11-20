@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Models\SignIn;
 use App\Models\User;
 use App\Support\Lockdown;
 use App\Support\LoginCaptcha;
@@ -175,6 +176,8 @@ class AuthController extends Controller
     private function enterPortal(Request $request, User $user): RedirectResponse|JsonResponse
     {
         $request->session()->regenerate();
+
+        SignIn::record($request, $user, $user->isAdmin() ? 'superadmin' : 'staff');
 
         // A saved deep link may point at a module this role cannot open, which would
         // greet a correct login with a 403, so every sign-in starts at the role's home.

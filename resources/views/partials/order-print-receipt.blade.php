@@ -9,7 +9,7 @@
             <div class="rcpt__brand">
                 <img class="rcpt__logo" src="{{ asset('logo.png') }}" alt="">
                 <p class="rcpt__tag">Singapore Ice Cream Sandwich</p>
-                <p class="rcpt__addr">Telkom University, Kampus C Minangkabau</p>
+                <p class="rcpt__addr">{{ \App\Support\ShopSettings::get()['address_lines'][0] ?? \App\Support\ShopSettings::get()['address_short'] }}</p>
             </div>
 
             <span class="rcpt__stamp rcpt__stamp--{{ $stampClass }}">{{ $stampText }}</span>

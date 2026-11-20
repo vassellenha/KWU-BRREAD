@@ -48,6 +48,7 @@ return [
         'event_repeat',
         'event_upcoming',
         'forum',
+        'gpp_maybe',
         'grade',
         'groups',
         'history',

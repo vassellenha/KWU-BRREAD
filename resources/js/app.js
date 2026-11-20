@@ -794,6 +794,7 @@ Alpine.data('cartDrawer', () => ({
             const errors = e.response?.data?.errors ?? {};
             this.errorMessage =
                 Object.values(errors)[0]?.[0] ??
+                (e.response?.status === 503 ? e.response?.data?.message : null) ??
                 (e.response?.status === 429 ? 'Too many orders in a row. Wait a minute and try again.' : null) ??
                 'Something went wrong. Please try again.';
         } finally {

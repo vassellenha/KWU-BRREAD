@@ -121,11 +121,11 @@
                     </div>
                     <div class="sm:px-space-lg">
                         <dt class="font-body-sm text-body-sm text-on-surface-variant">Delivery</dt>
-                        <dd class="font-headline-sm text-headline-sm text-on-surface"><span tabindex="0" data-tip="Typical time from order to your door inside Jakarta" class="underline decoration-dotted decoration-outline underline-offset-4 cursor-help">About 20 minutes</span></dd>
+                        <dd class="font-headline-sm text-headline-sm text-on-surface"><span tabindex="0" data-tip="Typical time from order to your door inside Jakarta" class="underline decoration-dotted decoration-outline underline-offset-4 cursor-help">About {{ \App\Support\ShopSettings::get()['delivery_minutes'] }} minutes</span></dd>
                     </div>
                     <div class="sm:px-space-lg">
                         <dt class="font-body-sm text-body-sm text-on-surface-variant">Stays frozen</dt>
-                        <dd class="font-headline-sm text-headline-sm text-on-surface"><span tabindex="0" data-tip="The insulated box keeps your order frozen for an hour after it leaves us" class="underline decoration-dotted decoration-outline underline-offset-4 cursor-help">60 minutes in the box</span></dd>
+                        <dd class="font-headline-sm text-headline-sm text-on-surface"><span tabindex="0" data-tip="The insulated box keeps your order frozen for {{ \App\Support\ShopSettings::get()['frozen_minutes'] }} minutes after it leaves us" class="underline decoration-dotted decoration-outline underline-offset-4 cursor-help">{{ \App\Support\ShopSettings::get()['frozen_minutes'] }} minutes in the box</span></dd>
                     </div>
                 </dl>
             </div>
@@ -283,7 +283,7 @@
                         <h2 class="font-headline-lg text-headline-lg text-on-surface">Made by our customers</h2>
                         @include('partials.squiggle')
                     </div>
-                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Add a photo to your review on your order page to land here. Tag <a href="{{ \App\Support\ContactInfo::get()['instagram_url'] }}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline">{{ '@'.\App\Support\ContactInfo::get()['instagram'] }}</a> to win a monthly Rp 500.000 ice cream allowance.</p>
+                    <p class="font-body-md text-body-md text-on-surface-variant max-w-sm">Add a photo to your review on your order page to land here. Tag <a href="{{ \App\Support\ContactInfo::get()['instagram_url'] }}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline">{{ '@'.\App\Support\ContactInfo::get()['instagram'] }}</a> {{ \App\Support\ShopSettings::get()['promo_text'] }}</p>
                 </div>
 
                 @php

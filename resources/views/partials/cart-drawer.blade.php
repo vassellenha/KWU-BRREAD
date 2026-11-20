@@ -139,10 +139,19 @@
                 We use your name and number only to prepare and deliver this order.
                 <a href="{{ route('privacy') }}" target="_blank" rel="noopener" class="underline hover:text-primary">Privacy</a>
             </p>
+            @php($shopNow = \App\Support\ShopSettings::get())
+            @unless ($shopNow['orders_open'])
+                {{-- Orders paused from the panel (Website): the cart stays, checkout waits. --}}
+                <p role="status" class="flex items-start gap-space-xs rounded-2xl border-2 border-on-surface bg-[#ffd166] px-space-md py-space-sm font-body-sm text-body-sm font-semibold text-on-surface">
+                    <span class="material-symbols-outlined text-[20px] shrink-0">storefront</span>
+                    <span>{{ $shopNow['orders_paused_message'] }}</span>
+                </p>
+            @endunless
             <p x-show="errorMessage" role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
             <button
                 type="submit"
-                :disabled="submitting || $store.cart.hasProblem"
+                @disabled(! $shopNow['orders_open'])
+                :disabled="{{ $shopNow['orders_open'] ? 'false' : 'true' }} || submitting || $store.cart.hasProblem"
                 class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <span x-show="!submitting" class="flex items-center gap-space-xs">
