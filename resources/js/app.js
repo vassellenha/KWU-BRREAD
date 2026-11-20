@@ -38,16 +38,6 @@ let studio3d = null;
 const MAX_PER_CREATION = 20;
 const MAX_CART_LINES = 20;
 
-const SIGNATURE_PRESETS = [
-    { name: 'Classic Vanilla Slab', bread: 'Plain White Bread', flavor: 'Vanilla', toppings: [] },
-    { name: 'Strawberry Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Strawberry', toppings: ['Rainbow Sprinkles'] },
-    { name: 'Wholegrain Choco Crunch', bread: 'Whole Wheat Bread', flavor: 'Chocolate', toppings: [] },
-    { name: 'Wheat Vanilla Drizzle', bread: 'Whole Wheat Bread', flavor: 'Vanilla', toppings: ['Chocolate Sauce'] },
-    { name: 'Neapolitan Trio Slab', bread: 'Plain White Bread', flavor: 'Neapolitan', toppings: [] },
-    { name: 'Musang King Wheat Slab', bread: 'Whole Wheat Bread', flavor: 'Durian Musang King', toppings: [] },
-    { name: 'Es Teler Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Es Teler', toppings: ['Rainbow Sprinkles'] },
-];
-
 // Runs in the capture phase so x-model on the same input reads the cleaned value.
 const INPUT_FILTERS = {
     name: (value) => value.replace(/[^\p{L}\s.'-]/gu, ''),
@@ -173,6 +163,8 @@ function creationComponents({ bread, flavor, toppings }) {
 // page sees the same numbers and can refresh them after a checkout changes stock.
 Alpine.store('catalog', {
     components: { bread: [], ice_cream: [], topping: [] },
+    // The one-click combos the admin manages in Staff > Menu: { name, bread, flavor, toppings: [names] }.
+    signatures: [],
     loaded: false,
     failed: false,
     pendingLoad: null,
@@ -181,7 +173,9 @@ Alpine.store('catalog', {
         this.pendingLoad ??= axios
             .get('/api/components')
             .then((response) => {
-                this.components = response.data;
+                const { signatures = [], ...components } = response.data;
+                this.components = components;
+                this.signatures = signatures;
                 this.loaded = true;
                 this.failed = false;
                 window.dispatchEvent(new CustomEvent('catalog-updated'));
@@ -201,6 +195,8 @@ Alpine.store('catalog', {
     },
 
     creationFromPreset(preset) {
+        if (!preset) return null;
+
         const bread = this.components.bread.find((c) => c.name === preset.bread);
         const flavor = this.components.ice_cream.find((c) => c.name === preset.flavor);
         const toppings = preset.toppings.map((name) => this.components.topping.find((c) => c.name === name));
@@ -209,7 +205,7 @@ Alpine.store('catalog', {
     },
 
     presetNamed(name) {
-        return SIGNATURE_PRESETS.find((preset) => preset.name === name);
+        return this.signatures.find((preset) => preset.name === name);
     },
 });
 
@@ -836,7 +832,9 @@ Alpine.data('brreadBuilder', () => ({
     // The one step the phone-width stepper shows. Desktop shows all four instead.
     mobileStep: 'bread',
 
-    presets: SIGNATURE_PRESETS,
+    get presets() {
+        return Alpine.store('catalog').signatures;
+    },
 
     get components() {
         return Alpine.store('catalog').components;

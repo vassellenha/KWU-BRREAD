@@ -99,6 +99,8 @@
         </div>
     </div>
 
+    @include('staff.menu.combos')
+
     {{-- ONE TABLE PER KIND --}}
     @foreach ($groups as $category => $group)
         <div x-data="{ openId: {{ old('_row') ? (int) old('_row') : 'null' }} }" class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden mb-space-lg">
@@ -139,7 +141,7 @@
                                         <div class="min-w-0">
                                             <p class="font-label-lg text-label-lg text-on-surface">{{ $component->name }}</p>
                                             @if (in_array($component->name, $signature, true))
-                                                <p class="font-label-md text-label-md text-on-surface-variant">Used by a signature creation</p>
+                                                <p class="font-label-md text-label-md text-on-surface-variant">Used by a signature combo</p>
                                             @endif
                                         </div>
                                     </div>
@@ -221,7 +223,7 @@
                                     </form>
                                     <p class="font-body-sm text-body-sm text-on-surface-variant/70 mt-space-xs">
                                         @if (in_array($component->name, $signature, true))
-                                            The signature creations find this item by its name. If you rename or hide it, those creations show as unavailable.
+                                            This item is part of a signature combo. If you hide it, that combo shows as unavailable in the builder.
                                         @endif
                                         @if ($component->order_items_count > 0)
                                             Ordered in {{ $component->order_items_count }} {{ $component->order_items_count === 1 ? 'line' : 'lines' }} so far, so it can be hidden but not deleted.

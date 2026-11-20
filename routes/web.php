@@ -11,6 +11,7 @@ use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Http\Controllers\Staff\SecurityController;
+use App\Http\Controllers\Staff\SignatureComboController;
 use App\Http\Controllers\Staff\SiteController;
 use App\Models\User;
 use App\Support\HoneypotTrap;
@@ -64,6 +65,14 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::patch('/{component}/price', [MenuController::class, 'updatePrice'])->name('price');
         Route::post('/{component}/toggle', [MenuController::class, 'toggleActive'])->name('toggle');
         Route::delete('/{component}', [MenuController::class, 'destroy'])->name('destroy');
+
+        Route::prefix('combos')->name('combos.')->group(function () {
+            Route::post('/', [SignatureComboController::class, 'store'])->name('store');
+            Route::put('/{combo}', [SignatureComboController::class, 'update'])->name('update');
+            Route::post('/{combo}/toggle', [SignatureComboController::class, 'toggleActive'])->name('toggle');
+            Route::post('/{combo}/move', [SignatureComboController::class, 'move'])->name('move');
+            Route::delete('/{combo}', [SignatureComboController::class, 'destroy'])->name('destroy');
+        });
     });
 
     Route::middleware($rolesFor(User::MODULE_HR))->prefix('hr')->name('hr.')->group(function () {

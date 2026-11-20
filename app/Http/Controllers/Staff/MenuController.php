@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Component;
+use App\Models\SignatureCombo;
 use App\Models\StockMovement;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -26,34 +27,28 @@ class MenuController extends Controller
 
     private const MAX_PRICE = 999999;
 
-    /**
-     * The signature creations on the site (see SIGNATURE_PRESETS in resources/js/app.js) find their
-     * ingredients by name, so these names are flagged on the page.
-     */
-    private const SIGNATURE_INGREDIENTS = [
-        'Plain White Bread',
-        'Whole Wheat Bread',
-        'Vanilla',
-        'Strawberry',
-        'Chocolate',
-        'Neapolitan',
-        'Durian Musang King',
-        'Es Teler',
-        'Chocolate Sauce',
-        'Rainbow Sprinkles',
-    ];
-
     public function index(): View
     {
         $all = Component::withCount('orderItems')->orderBy('name')->get();
         $byCategory = $all->groupBy('category');
+        $combos = SignatureCombo::with(['bread', 'flavor', 'toppings'])->orderBy('sort_order')->orderBy('id')->get();
 
         return view('staff.menu.index', [
             'groups' => collect(self::CATEGORIES)->map(fn (string $label, string $category) => [
                 'label' => $label,
                 'items' => $byCategory->get($category, collect()),
             ]),
-            'signature' => self::SIGNATURE_INGREDIENTS,
+            'combos' => $combos,
+            'comboChoices' => [
+                'bread' => $byCategory->get('bread', collect())->where('is_active', true)->values(),
+                'ice_cream' => $byCategory->get('ice_cream', collect())->where('is_active', true)->values(),
+                'topping' => $byCategory->get('topping', collect())->where('is_active', true)->values(),
+            ],
+            'signature' => $combos->flatMap(fn (SignatureCombo $combo) => [
+                $combo->bread->name,
+                $combo->flavor->name,
+                ...$combo->toppings->pluck('name'),
+            ])->unique()->values()->all(),
             'stats' => [
                 'total' => $all->count(),
                 'active' => $all->where('is_active', true)->count(),
@@ -147,6 +142,16 @@ class MenuController extends Controller
         // Deleting a component would also delete its order lines (the foreign key cascades) and rewrite
         // the sales history, so anything that was ever ordered can only be switched off.
         $ordered = $component->orderItems()->count();
+        $inCombos = SignatureCombo::where('bread_id', $component->id)
+            ->orWhere('flavor_id', $component->id)
+            ->orWhereHas('toppings', fn ($query) => $query->whereKey($component->id))
+            ->count();
+
+        if ($inCombos > 0) {
+            return back()->withErrors([
+                'delete' => "{$component->name} is part of {$inCombos} signature ".($inCombos === 1 ? 'combo' : 'combos').'. Change or delete the combo first, or hide the item instead.',
+            ]);
+        }
 
         if ($ordered > 0) {
             return back()->withErrors([
