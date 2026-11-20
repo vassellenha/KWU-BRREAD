@@ -88,6 +88,10 @@ RUN composer dump-autoload --optimize --no-dev \
 
 ENV PORT=8080
 
+# Errors go to the container log, which Railway shows, instead of a file inside the container.
+# A LOG_CHANNEL variable set on the host still wins over this default.
+ENV LOG_CHANNEL=stderr
+
 EXPOSE 8080
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

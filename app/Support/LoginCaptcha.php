@@ -35,7 +35,7 @@ class LoginCaptcha
 
         $request->session()->put(self::KEY, $code);
 
-        return self::render($code);
+        return self::render($code, resource_path('fonts/DejaVuSans-Bold.ttf'));
     }
 
     /**
@@ -50,11 +50,16 @@ class LoginCaptcha
             && hash_equals($expected, strtoupper(preg_replace('/\s+/', '', $answer)));
     }
 
-    private static function render(string $code): string
+    /**
+     * Draws the letters with the bundled TrueType font. A server whose GD has no FreeType support, or
+     * whose copy of the font is missing, falls back to GD's built-in bitmap letters scaled up, so the
+     * sign-in form never ends up with a broken image.
+     */
+    private static function render(string $code, string $font): string
     {
         $width = 300;
         $height = 84;
-        $font = resource_path('fonts/DejaVuSans-Bold.ttf');
+        $useFont = function_exists('imagettftext') && is_readable($font);
 
         $text = imagecreatetruecolor($width, $height);
         $white = imagecolorallocate($text, 255, 255, 255);
@@ -71,6 +76,12 @@ class LoginCaptcha
         $ink = imagecolorallocate($text, 24, 24, 28);
         $slot = $width / self::LENGTH;
         foreach (str_split($code) as $i => $letter) {
+            if (! $useFont) {
+                self::drawBitmapLetter($text, $letter, $slot * $i, $slot, $height);
+
+                continue;
+            }
+
             $size = 32;
             $angle = random_int(-12, 12);
             $box = imagettfbbox($size, $angle, $font, $letter);
@@ -107,5 +118,35 @@ class LoginCaptcha
         $png = (string) ob_get_clean();
 
         return $png;
+    }
+
+    /**
+     * One letter from GD's built-in 9x15 font, scaled to about the size of the TrueType letters and tilted.
+     */
+    private static function drawBitmapLetter(\GdImage $canvas, string $letter, float $slotLeft, float $slotWidth, int $height): void
+    {
+        $glyph = imagecreatetruecolor(9, 15);
+        imagefill($glyph, 0, 0, imagecolorallocate($glyph, 255, 255, 255));
+        imagechar($glyph, 5, 0, 0, $letter, imagecolorallocate($glyph, 24, 24, 28));
+
+        $big = imagecreatetruecolor(36, 60);
+        imagecopyresampled($big, $glyph, 0, 0, 0, 0, 36, 60, 9, 15);
+
+        if (function_exists('imagerotate')) {
+            $big = imagerotate($big, random_int(-12, 12), imagecolorallocate($big, 255, 255, 255)) ?: $big;
+        }
+
+        $glyphWidth = imagesx($big);
+        $glyphHeight = imagesy($big);
+        imagecopy(
+            $canvas,
+            $big,
+            (int) round($slotLeft + ($slotWidth - $glyphWidth) / 2),
+            (int) round(($height - $glyphHeight) / 2) + random_int(-3, 3),
+            0,
+            0,
+            $glyphWidth,
+            $glyphHeight,
+        );
     }
 }
