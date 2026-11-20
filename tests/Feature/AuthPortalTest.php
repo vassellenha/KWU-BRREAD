@@ -209,8 +209,9 @@ class AuthPortalTest extends TestCase
 
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertStringStartsWith("\x89PNG", $response->getContent());
-        $this->assertMatchesRegularExpression('/^[A-Z2-9]{5}$/', session('login_captcha_answer'));
-        $this->assertStringNotContainsString(session('login_captcha_answer'), $response->getContent());
+        $code = last(session('login_captcha_answer'));
+        $this->assertMatchesRegularExpression('/^[A-Z2-9]{5}$/', $code);
+        $this->assertStringNotContainsString($code, $response->getContent());
     }
 
     public function test_a_login_without_the_captcha_text_is_refused(): void
@@ -242,7 +243,7 @@ class AuthPortalTest extends TestCase
         config(['auth.login_captcha' => true]);
 
         $this->get('/captcha');
-        $answer = session('login_captcha_answer');
+        $answer = last(session('login_captcha_answer'));
 
         // The first attempt uses the code up, even though the password is wrong.
         $this->from('/staff')->post('/staff', ['username' => 'staffmrp', 'password' => 'wrong', 'captcha' => $answer])
@@ -260,12 +261,50 @@ class AuthPortalTest extends TestCase
         config(['auth.login_captcha' => true]);
 
         $this->get('/captcha');
-        $answer = strtolower(session('login_captcha_answer'));
+        $answer = strtolower(last(session('login_captcha_answer')));
 
         $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => ' '.$answer.' '])
             ->assertRedirect('/staff/orders');
 
         $this->assertAuthenticated();
+    }
+
+    public function test_a_code_from_an_image_loaded_just_before_the_last_one_still_works(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        // The page's own image and a second load (another tab, a quick refresh) race each other.
+        $this->get('/captcha');
+        $first = session('login_captcha_answer')[0];
+        $this->get('/captcha');
+
+        $this->post('/staff', ['username' => 'staffmrp', 'password' => '12345678', 'captcha' => $first])
+            ->assertRedirect('/staff/orders');
+
+        $this->assertAuthenticated();
+    }
+
+    public function test_only_the_last_three_codes_are_kept(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        foreach (range(1, 5) as $load) {
+            $this->get('/captcha');
+        }
+
+        $this->assertCount(3, session('login_captcha_answer'));
+    }
+
+    public function test_the_login_page_image_and_its_refresh_binding_share_one_url(): void
+    {
+        config(['auth.login_captcha' => true]);
+
+        $html = $this->get('/staff')->assertOk()->getContent();
+
+        // Alpine binds :src from the stamp passed to staffLogin(); a different stamp would load a second image.
+        preg_match('/captcha\?v=(\d+)"/', $html, $src);
+        $this->assertNotEmpty($src);
+        $this->assertStringContainsString(', '.$src[1].')"', $html);
     }
 
     public function test_repeated_failed_logins_are_throttled(): void

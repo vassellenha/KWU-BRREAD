@@ -17,6 +17,9 @@ class LoginCaptcha
 
     private const LENGTH = 5;
 
+    /** How many recently drawn codes are accepted. */
+    private const KEEP = 3;
+
     public static function enabled(): bool
     {
         return (bool) config('auth.login_captcha');
@@ -33,21 +36,32 @@ class LoginCaptcha
             $code .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
         }
 
-        $request->session()->put(self::KEY, $code);
+        // The last few codes stay valid, so a second tab or a quick double refresh does not leave the
+        // image on screen without its answer. The first attempt still throws every one of them away.
+        $recent = (array) $request->session()->get(self::KEY, []);
+        $request->session()->put(self::KEY, array_slice([...$recent, $code], -self::KEEP));
 
         return self::render($code, resource_path('fonts/DejaVuSans-Bold.ttf'));
     }
 
     /**
-     * Checks the typed text, ignoring case and spaces, and discards the code either way.
+     * Checks the typed text against the recent codes, ignoring case and spaces, and discards them all either way.
      */
     public static function passes(Request $request, mixed $answer): bool
     {
-        $expected = $request->session()->pull(self::KEY);
+        $expected = (array) $request->session()->pull(self::KEY, []);
 
-        return is_string($expected)
-            && is_string($answer)
-            && hash_equals($expected, strtoupper(preg_replace('/\s+/', '', $answer)));
+        if (! is_string($answer)) {
+            return false;
+        }
+
+        $typed = strtoupper(preg_replace('/\s+/', '', $answer));
+        $matched = false;
+        foreach ($expected as $code) {
+            $matched = (is_string($code) && hash_equals($code, $typed)) || $matched;
+        }
+
+        return $matched;
     }
 
     /**

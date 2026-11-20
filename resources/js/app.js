@@ -409,13 +409,15 @@ function primeAudio() {
     }
 }
 
-Alpine.data('staffLogin', (initialUsername, captchaBase) => ({
+Alpine.data('staffLogin', (initialUsername, captchaBase, captchaStamp = Date.now()) => ({
     username: initialUsername,
     password: '',
     showPassword: false,
     error: '',
     busy: false,
-    captchaStamp: Date.now(),
+    // Starts on the stamp the server already put in the image's src, so Alpine binding :src does not
+    // load a second image: each load draws a new code, and the slower one used to win the session.
+    captchaStamp,
     _nav: null,
 
     init() {

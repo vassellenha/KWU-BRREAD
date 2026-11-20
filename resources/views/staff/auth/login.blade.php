@@ -22,7 +22,8 @@
 <body class="staff staff-login doodle {{ $locked ? 'is-locked' : '' }} bg-surface-container-low text-on-surface antialiased font-plus-jakarta min-h-screen flex items-center justify-center p-margin">
     @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 2, 'drops' => false])
 
-    <main class="w-full max-w-sm" x-data="staffLogin(@js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')), @js(route('captcha.image')))" @if (($prankSeconds ?? 0) > 0 && ! $locked) data-prank-seconds="{{ $prankSeconds }}" data-prank-ip="{{ request()->ip() }}" @endif @if (($prankMisses ?? 0) >= 3 && ! $locked) data-prank-cursed @endif>
+    @php($captchaStamp = now()->getTimestampMs())
+    <main class="w-full max-w-sm" x-data="staffLogin(@js(old('username', $quickLoginEnabled ? $quickLoginUsername : '')), @js(route('captcha.image')), {{ $captchaStamp }})" @if (($prankSeconds ?? 0) > 0 && ! $locked) data-prank-seconds="{{ $prankSeconds }}" data-prank-ip="{{ request()->ip() }}" @endif @if (($prankMisses ?? 0) >= 3 && ! $locked) data-prank-cursed @endif>
         <div class="flex flex-col items-center mb-space-lg">
             <img src="{{ asset('logo.png') }}" alt="Brread!" width="480" height="239" class="h-20 w-auto object-contain mb-space-sm -rotate-3">
             <p class="login-tagline font-hand text-[28px] leading-none -rotate-2" data-login-tagline>{{ $locked ? 'welcome,' : 'behind the counter' }}</p>
@@ -118,7 +119,7 @@
                         <div class="flex items-center gap-space-xs">
                             <div class="flex aspect-[300/84] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant bg-white">
                                 <img
-                                    src="{{ route('captcha.image') }}?v={{ now()->getTimestampMs() }}"
+                                    src="{{ route('captcha.image') }}?v={{ $captchaStamp }}"
                                     :src="captchaUrl"
                                     alt="Letters to type below"
                                     width="300"
