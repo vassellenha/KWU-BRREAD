@@ -30,7 +30,33 @@ const FLAVOR_TEXTURES = {
     Chocolate: 'chocolate',
 };
 
-const SPRINKLE_COLORS = ['#e63946', '#ffd23f', '#3fa34d', '#2f80ed', '#ff8c42', '#8e44ad', '#ff6fae', '#fdfdfd'];
+// Flavors whose segments and inclusions have to line up over every side of the slab. Each one is a
+// single atlas baked by scripts/build_studio3d_flavors.py and drawn with a triplanar lookup in the
+// slab's own space, so it needs no UVs and works on any slab whose long axis is x (a folded-bread
+// layout included). sss = strength of the faked warm glow at grazing angles.
+const PROCEDURAL_FLAVORS = {
+    Neapolitan: { slug: 'neapolitan', sss: 0.035, sheen: 0.3 },
+    'Durian Musang King': { slug: 'durian-musang-king', sss: 0.055, sheen: 0.38 },
+    'Es Teler': { slug: 'es-teler', sss: 0.04, sheen: 0.3 },
+};
+const FLAVOR_MAPS = ['albedo.webp', 'surface.webp', 'frost.webp'];
+
+// Keep in sync with ATLAS, ATLAS_PPU, REGIONS and HEIGHT_RANGE in scripts/build_studio3d_flavors.py.
+// Region: centre column, centre row (px from the top), half-extents (world units).
+const FLAVOR_ATLAS = {
+    size: 1024,
+    ppu: 420,
+    heightRange: 0.012,
+    regions: {
+        top: [512, 210, 1.12, 0.47],
+        front: [512, 514, 1.12, 0.225],
+        back: [512, 715, 1.12, 0.225],
+        endR: [290, 916, 0.47, 0.225],
+        endL: [734, 916, 0.47, 0.225],
+    },
+};
+
+const SPRINKLE_COLORS =['#e63946', '#ffd23f', '#3fa34d', '#2f80ed', '#ff8c42', '#8e44ad', '#ff6fae', '#fdfdfd'];
 
 const DEFAULT_VIEW = { azimuth: -28, polar: 63 };
 
@@ -391,6 +417,159 @@ function buildSprinkles(iceGeometry) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Procedural flavor material: MeshPhysicalMaterial with its colour, relief, roughness and
+// occlusion read from the flavor atlas by position instead of by UV.
+// ---------------------------------------------------------------------------------------------
+
+function regionUniform([column, row, halfA, halfB]) {
+    const { size, ppu } = FLAVOR_ATLAS;
+    // Centre in UV (the texture is flipped on upload, so rows count up from the bottom) and half-extent in UV.
+    return new THREE.Vector4(column / size, 1 - row / size, (halfA * ppu) / size, (halfB * ppu) / size);
+}
+
+function createFlavorMaterial() {
+    const { regions, ppu, size, heightRange } = FLAVOR_ATLAS;
+    const uniforms = {
+        slabAlbedo: { value: null },
+        slabSurface: { value: null },
+        slabFrost: { value: null },
+        slabDetail: { value: null },
+        slabTop: { value: regionUniform(regions.top) },
+        slabFront: { value: regionUniform(regions.front) },
+        slabBack: { value: regionUniform(regions.back) },
+        slabEndR: { value: regionUniform(regions.endR) },
+        slabEndL: { value: regionUniform(regions.endL) },
+        slabScale: { value: ppu / size },
+        slabBump: { value: heightRange },
+        slabDetailScale: { value: 3.2 },
+        slabDetailBump: { value: 0.003 },
+        slabFrostAmount: { value: 0.6 },
+        slabSss: { value: 0.06 },
+    };
+
+    const material = new THREE.MeshPhysicalMaterial({
+        roughness: 0.65,
+        sheen: 0.3,
+        sheenRoughness: 0.55,
+        sheenColor: new THREE.Color(0xffffff),
+    });
+    material.userData.slab = uniforms;
+    material.customProgramCacheKey = () => 'brread-slab-triplanar-1';
+    material.onBeforeCompile = (shader) => {
+        Object.assign(shader.uniforms, uniforms);
+
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 vSlabPos;\nvarying vec3 vSlabNormal;')
+            .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSlabPos = position;\nvSlabNormal = normal;');
+
+        shader.fragmentShader = shader.fragmentShader
+            .replace(
+                '#include <common>',
+                /* glsl */ `#include <common>
+varying vec3 vSlabPos;
+varying vec3 vSlabNormal;
+uniform sampler2D slabAlbedo;
+uniform sampler2D slabSurface;
+uniform sampler2D slabFrost;
+uniform sampler2D slabDetail;
+uniform vec4 slabTop;
+uniform vec4 slabFront;
+uniform vec4 slabBack;
+uniform vec4 slabEndR;
+uniform vec4 slabEndL;
+uniform float slabScale;
+uniform float slabBump;
+uniform float slabDetailScale;
+uniform float slabDetailBump;
+uniform float slabFrostAmount;
+uniform float slabSss;
+
+// A point on one face of the slab (in world units) to its place in the atlas, kept inside its region.
+vec2 slabUv( vec4 region, vec2 ab ) {
+	return clamp( region.xy + ab * slabScale, region.xy - region.zw, region.xy + region.zw );
+}
+
+// Screen-space height slope of one projection (forward differences, as in three's bump map).
+vec2 slabSlope( sampler2D map, vec2 uv, float scale ) {
+	float h = texture2D( map, uv ).r;
+	return vec2( texture2D( map, uv + dFdx( uv ) ).r - h, texture2D( map, uv + dFdy( uv ) ).r - h ) * scale;
+}
+
+// Bump Mapping Unparametrized Surfaces on the GPU, Morten S. Mikkelsen. Unlike three's perturbNormalArb the
+// position derivatives are not normalised, so heights are in world units and the relief keeps its real depth
+// at every zoom level.
+vec3 slabPerturb( vec3 surfPos, vec3 surfNorm, vec2 dHdxy, float faceDirection ) {
+	vec3 sigmaX = dFdx( surfPos );
+	vec3 sigmaY = dFdy( surfPos );
+	vec3 r1 = cross( sigmaY, surfNorm );
+	vec3 r2 = cross( surfNorm, sigmaX );
+	float det = dot( sigmaX, r1 ) * faceDirection;
+	vec3 grad = sign( det ) * ( dHdxy.x * r1 + dHdxy.y * r2 );
+	return normalize( abs( det ) * surfNorm - grad );
+}`,
+            )
+            .replace(
+                '#include <map_fragment>',
+                /* glsl */ `
+	// Triplanar weights from the slab's own normal: sharp, so a face reads one region and only the
+	// rounded edges blend two. The atlas regions are cut from one solid block, so they agree there.
+	vec3 slabN = normalize( vSlabNormal );
+	vec3 slabW = pow( abs( slabN ), vec3( 6.0 ) );
+	slabW /= slabW.x + slabW.y + slabW.z;
+	vec3 sp = vSlabPos;
+	vec2 abX = slabN.x >= 0.0 ? vec2( - sp.z, sp.y ) : vec2( sp.z, sp.y );
+	vec2 abY = vec2( sp.x, - sp.z );
+	vec2 abZ = slabN.z >= 0.0 ? vec2( sp.x, sp.y ) : vec2( - sp.x, sp.y );
+	vec2 uvX = slabUv( slabN.x >= 0.0 ? slabEndR : slabEndL, abX );
+	vec2 uvY = slabUv( slabTop, abY );
+	vec2 uvZ = slabUv( slabN.z >= 0.0 ? slabFront : slabBack, abZ );
+
+	vec4 slabAlb = texture2D( slabAlbedo, uvX ) * slabW.x + texture2D( slabAlbedo, uvY ) * slabW.y + texture2D( slabAlbedo, uvZ ) * slabW.z;
+	vec4 slabSurf = texture2D( slabSurface, uvX ) * slabW.x + texture2D( slabSurface, uvY ) * slabW.y + texture2D( slabSurface, uvZ ) * slabW.z;
+	float slabFrostMask = texture2D( slabFrost, uvX ).r * slabW.x + texture2D( slabFrost, uvY ).r * slabW.y + texture2D( slabFrost, uvZ ).r * slabW.z;
+	vec2 slabDH = slabSlope( slabSurface, uvX, slabBump ) * slabW.x + slabSlope( slabSurface, uvY, slabBump ) * slabW.y + slabSlope( slabSurface, uvZ, slabBump ) * slabW.z;
+	// Micro ice crystals from a small tiling map at a finer scale, so close-ups stay crisp.
+	slabDH += slabSlope( slabDetail, abX * slabDetailScale, slabDetailBump ) * slabW.x
+		+ slabSlope( slabDetail, abY * slabDetailScale, slabDetailBump ) * slabW.y
+		+ slabSlope( slabDetail, abZ * slabDetailScale, slabDetailBump ) * slabW.z;
+
+	// Rime frost: paler and duller along the rim and over the frozen top.
+	vec3 slabColor = mix( slabAlb.rgb, mix( slabAlb.rgb, vec3( 0.9, 0.93, 0.96 ), 0.45 ), slabFrostMask * slabFrostAmount );
+	diffuseColor.rgb *= slabColor;`,
+            )
+            .replace(
+                '#include <roughnessmap_fragment>',
+                'float roughnessFactor = clamp( slabSurf.a + slabFrostMask * 0.2, 0.06, 1.0 );',
+            )
+            // Sheen picks up the cream's own colour, so dark flavours stay rich instead of turning grey.
+            .replace(
+                '#include <lights_physical_fragment>',
+                '#include <lights_physical_fragment>\n\t#ifdef USE_SHEEN\n\t\tmaterial.sheenColor *= 0.3 + 0.7 * slabColor;\n\t#endif',
+            )
+            .replace('#include <normal_fragment_maps>', 'normal = slabPerturb( - vViewPosition, normal, slabDH, faceDirection );')
+            .replace(
+                '#include <emissivemap_fragment>',
+                /* glsl */ `#include <emissivemap_fragment>
+	// Faked subsurface scattering: light that went into the cream comes back out warm near the silhouette.
+	float slabFresnel = pow( 1.0 - saturate( dot( normal, normalize( vViewPosition ) ) ), 2.5 );
+	totalEmissiveRadiance += diffuseColor.rgb * slabSss * ( 0.15 + 1.85 * slabFresnel ) * ( 1.0 - 0.5 * slabFrostMask );`,
+            )
+            .replace(
+                '#include <aomap_fragment>',
+                /* glsl */ `#include <aomap_fragment>
+	float slabOcclusion = slabAlb.a;
+	reflectedLight.indirectDiffuse *= slabOcclusion;
+	reflectedLight.directDiffuse *= mix( 1.0, slabOcclusion, 0.35 );
+	#if defined( USE_SHEEN )
+		sheenSpecularIndirect *= slabOcclusion;
+	#endif
+	reflectedLight.indirectSpecular *= computeSpecularOcclusion( saturate( dot( geometryNormal, geometryViewDir ) ), slabOcclusion, material.roughness );`,
+            );
+    };
+    return material;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Small critically-damped-ish spring so layers settle instead of snapping
 // ---------------------------------------------------------------------------------------------
 
@@ -438,7 +617,16 @@ export function supportsWebGL() {
 // from scroll). interactive: false turns dragging off so the canvas never competes with scrolling.
 export function createStudio3D(
     host,
-    { textureBase = '/img/studio3d', reducedMotion = false, autoRotate = true, interactive = true, onInteract } = {},
+    {
+        textureBase = '/img/studio3d',
+        // Owner textures: { slug: ['albedo.webp', ...] } for files present in flavorOverrideBase/<slug>/.
+        flavorOverrides = {},
+        flavorOverrideBase = '/img/studio/flavors',
+        reducedMotion = false,
+        autoRotate = true,
+        interactive = true,
+        onInteract,
+    } = {},
 ) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -522,6 +710,11 @@ export function createStudio3D(
         normalScale: new THREE.Vector2(1.5, 1.5),
     });
     const iceSide = iceFace.clone();
+    const iceMaterials = [iceFace, iceSide];
+    const flavorMaterial = createFlavorMaterial();
+    const slabUniforms = flavorMaterial.userData.slab;
+    // Shown while a procedural flavor's atlas is still on its way: the catalog colour, no relief.
+    const flavorFallback = new THREE.MeshPhysicalMaterial({ roughness: 0.62, sheen: 0.3, sheenRoughness: 0.6 });
     const sauceMaterial = new THREE.MeshPhysicalMaterial({
         color: 0x3a1708, roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.1, specularIntensity: 0.6, envMapIntensity: 0.6,
         sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x7a3a16),
@@ -538,7 +731,7 @@ export function createStudio3D(
     breadBottom.rotation.z = Math.PI;
 
     const iceGeometry = buildSlab(SLABS.ice, ICE_LOOK);
-    const ice = new THREE.Mesh(iceGeometry, [iceFace, iceSide]);
+    const ice = new THREE.Mesh(iceGeometry, iceMaterials);
     const iceGroup = new THREE.Group();
     iceGroup.add(ice);
     const sauce = buildSauce(sauceMaterial);
@@ -598,6 +791,66 @@ export function createStudio3D(
         material.map = map;
         material.normalMap = normalMap;
         material.needsUpdate = true;
+    };
+
+    // Procedural flavor atlases: fetched when the flavor is first picked. Only the flavor on screen
+    // keeps its textures on the GPU; the others keep their decoded images and upload again if picked.
+    const loadFlavorMap = (slug, file) => {
+        const own = `${flavorOverrideBase}/${slug}/${file}`;
+        const baked = `${textureBase}/flavors/${slug}/${file}`;
+        const useOwn = (flavorOverrides[slug] ?? []).includes(file);
+        return (useOwn ? loader.loadAsync(own).catch(() => loader.loadAsync(baked)) : loader.loadAsync(baked)).then((texture) => {
+            if (file === 'albedo.webp') texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = maxAnisotropy;
+            texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+            return texture;
+        });
+    };
+    let detailMap = null;
+    const loadDetail = () =>
+        (detailMap ??= loader.loadAsync(`${textureBase}/flavors/detail.webp`).then((texture) => {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.anisotropy = maxAnisotropy;
+            return texture;
+        }));
+    const flavorCache = new Map();
+    let flavorProgram = null;
+    const loadFlavor = (slug) => {
+        if (!flavorCache.has(slug)) {
+            const maps = Promise.all([...FLAVOR_MAPS.map((file) => loadFlavorMap(slug, file)), loadDetail()]);
+            // Compile the shader while the images download, so the first switch does not stall a frame.
+            flavorProgram ??= renderer.compileAsync(new THREE.Mesh(iceGeometry, flavorMaterial), camera, scene).catch(() => {});
+            const ready = Promise.all([maps, flavorProgram]).then(([[albedo, surface, frost, detail]]) => ({ slug, albedo, surface, frost, detail }));
+            ready.catch(() => flavorCache.delete(slug)); // let a later pick try again
+            flavorCache.set(slug, ready);
+        }
+        return flavorCache.get(slug);
+    };
+    let flavorOnGpu = null;
+    const useFlavorMaps = (spec, maps) => {
+        [maps.albedo, maps.surface, maps.frost, maps.detail].forEach((texture) => renderer.initTexture(texture)); // upload now, not mid-frame
+        slabUniforms.slabAlbedo.value = maps.albedo;
+        slabUniforms.slabSurface.value = maps.surface;
+        slabUniforms.slabFrost.value = maps.frost;
+        slabUniforms.slabDetail.value = maps.detail;
+        slabUniforms.slabSss.value = spec.sss;
+        flavorMaterial.sheen = spec.sheen;
+        if (flavorOnGpu && flavorOnGpu !== maps) [flavorOnGpu.albedo, flavorOnGpu.surface, flavorOnGpu.frost].forEach((t) => t.dispose());
+        flavorOnGpu = maps;
+        ice.material = flavorMaterial;
+    };
+    // A procedural flavor shows its catalog colour at once and gains its full surface when the atlas
+    // arrives (straight away when cached), instead of holding the whole layer back like the photo flavors.
+    const showProceduralFlavor = (spec, color) => {
+        const loading = loadFlavor(spec.slug);
+        if (ice.material === flavorMaterial && flavorOnGpu?.slug === spec.slug) return;
+        flavorFallback.color.set(color || '#f3e9d2');
+        ice.material = flavorFallback;
+        loading
+            .then((maps) => {
+                if (PROCEDURAL_FLAVORS[current.flavor] === spec) useFlavorMaps(spec, maps);
+            })
+            .catch(() => {}); // the plain colour stays: still a usable preview
     };
 
     // --- Controls --------------------------------------------------------------------------------
@@ -698,7 +951,10 @@ export function createStudio3D(
         const id = ++requestId;
         const previous = current;
         const breadKind = next.bread ? (BREAD_TEXTURES[next.bread] ?? 'white') : null;
-        const flavorKind = next.flavor ? (FLAVOR_TEXTURES[next.flavor] ?? 'vanilla') : null;
+        const procedural = next.flavor ? PROCEDURAL_FLAVORS[next.flavor] : null;
+        const flavorKind = next.flavor && !procedural ? (FLAVOR_TEXTURES[next.flavor] ?? 'vanilla') : null;
+
+        if (procedural) loadFlavor(procedural.slug).catch(() => {}); // start the download alongside the bread
 
         // Have the textures in hand before a layer appears, so nothing pops in untextured.
         const [breadMaps, iceMaps] = await Promise.all([
@@ -715,10 +971,12 @@ export function createStudio3D(
                 parts.breadBottom.scale.value = 0.9;
             }
         }
+        if (procedural && previous.flavor && previous.flavor !== next.flavor) parts.ice.scale.value = 0.88;
         if (iceMaps) {
-            if (iceFace.map !== iceMaps[0]) {
+            if (iceFace.map !== iceMaps[0] || ice.material !== iceMaterials) {
                 setMaps(iceFace, iceMaps[0], iceMaps[1]);
                 setMaps(iceSide, iceMaps[2], iceMaps[3]);
+                ice.material = iceMaterials;
                 if (previous.flavor) parts.ice.scale.value = 0.88;
             }
             // A flavour with no baked texture set borrows vanilla's relief and takes its catalog colour.
@@ -735,6 +993,7 @@ export function createStudio3D(
         }
         current = { ...next };
         layout(current);
+        if (procedural) showProceduralFlavor(procedural, next.flavorColor);
 
         if (reducedMotion || !started) {
             Object.values(parts).forEach((part) => {
@@ -806,6 +1065,12 @@ export function createStudio3D(
             setView(DEFAULT_VIEW.azimuth, DEFAULT_VIEW.polar);
         },
         setView,
+        // Draw calls and GPU resources of the last frame, for performance checks.
+        info() {
+            const { calls, triangles } = renderer.info.render;
+            const { textures, geometries } = renderer.info.memory;
+            return { calls, triangles, textures, geometries, programs: renderer.info.programs?.length ?? 0 };
+        },
         // Renders one frame right now with every animation settled (used by tests and for stills).
         renderStill() {
             Object.values(parts).forEach((part) => {
@@ -830,9 +1095,13 @@ export function createStudio3D(
             controls.dispose();
             timer.dispose();
             textureCache.forEach((promise) => promise.then((texture) => texture.dispose()).catch(() => {}));
+            flavorCache.forEach((promise) =>
+                promise.then((maps) => [maps.albedo, maps.surface, maps.frost].forEach((texture) => texture.dispose())).catch(() => {}),
+            );
+            detailMap?.then((texture) => texture.dispose()).catch(() => {});
             [breadGeometry, iceGeometry, sprinkles.geometry].forEach((geometry) => geometry.dispose());
             sauce.traverse((child) => child.geometry?.dispose());
-            [breadFace, breadCrust, iceFace, iceSide, sauceMaterial, sprinkles.material, floor.material].forEach((m) => m.dispose());
+            [breadFace, breadCrust, iceFace, iceSide, flavorMaterial, flavorFallback, sauceMaterial, sprinkles.material, floor.material].forEach((m) => m.dispose());
             shadowTexture.dispose();
             floor.geometry.dispose();
             environment.dispose();

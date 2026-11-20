@@ -36,6 +36,9 @@ class MenuController extends Controller
         'Vanilla',
         'Strawberry',
         'Chocolate',
+        'Neapolitan',
+        'Durian Musang King',
+        'Es Teler',
         'Chocolate Sauce',
         'Rainbow Sprinkles',
     ];

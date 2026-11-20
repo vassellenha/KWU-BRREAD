@@ -14,6 +14,7 @@ use App\Http\Controllers\Staff\SecurityController;
 use App\Http\Controllers\Staff\SiteController;
 use App\Models\User;
 use App\Support\HoneypotTrap;
+use App\Support\StudioFlavorTextures;
 use Illuminate\Support\Facades\Route;
 
 $rolesFor = fn (string $module): string => 'role:'.implode(',', User::MODULE_ROLES[$module]);
@@ -104,7 +105,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/builder', function () {
-    return view('pages.build');
+    return view('pages.build', ['flavorOverrides' => StudioFlavorTextures::overrides()]);
 })->name('build');
 
 Route::get('/menu', function () {

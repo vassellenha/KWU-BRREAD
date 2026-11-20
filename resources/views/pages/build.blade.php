@@ -251,6 +251,7 @@
                             {{-- 3D stage: resources/js/studio3d.js mounts its canvas here. Drag to orbit the sandwich a full 360°. --}}
                             <div
                                 x-ref="studio3d"
+                                data-flavor-overrides='@json($flavorOverrides ?? [], JSON_FORCE_OBJECT)'
                                 class="stage-fade absolute inset-0 transition-opacity duration-500"
                                 :class="studio3dReady ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                             ></div>

@@ -95,7 +95,8 @@
         <g class="fs-part fs-part--slab">
             <g class="fs-bounce">
             <g clip-path="url(#{{ $uid }}-se)">
-                <image href="{{ $ice }}" x="0" y="0" width="100" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabEnd }}"/>
+                {{-- Only the right-hand end of the cutout, so a layered flavor shows at its open end the layer that ends its front. --}}
+                <image href="{{ $ice }}" x="-230" y="0" width="330" height="52" preserveAspectRatio="xMaxYMid slice" transform="{{ $mxSlabEnd }}"/>
                 <rect x="256" y="160" width="60" height="110" fill="#3b1f16" fill-opacity="0.24"/>
                 @if ($hasSprinkles)
                     <g class="fs-sprk"><image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="100" height="52" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabEnd }}"/></g>

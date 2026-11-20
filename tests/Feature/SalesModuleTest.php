@@ -149,7 +149,10 @@ class SalesModuleTest extends TestCase
 
         $report = $this->salesPage()->viewData('report');
 
-        $this->assertSame(['Strawberry' => 3, 'Vanilla' => 1, 'Chocolate' => 0], $report['flavors']->pluck('units', 'name')->all());
+        $this->assertSame(
+            ['Strawberry' => 3, 'Vanilla' => 1, 'Chocolate' => 0, 'Durian Musang King' => 0, 'Es Teler' => 0, 'Neapolitan' => 0],
+            $report['flavors']->pluck('units', 'name')->all(),
+        );
         $this->assertSame(75.0, $report['flavors'][0]['share']);
         $this->assertSame(['Rainbow Sprinkles' => 3, 'Chocolate Sauce' => 0], $report['toppings']->pluck('units', 'name')->all());
         $this->assertSame(75.0, $report['topping_rate']);

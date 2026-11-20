@@ -14,6 +14,9 @@ export const INGREDIENT_IMAGES = {
     Vanilla: '/img/ingredients/icecream-vanilla.webp',
     Strawberry: '/img/ingredients/icecream-strawberry.webp',
     Chocolate: '/img/ingredients/icecream-chocolate.webp',
+    Neapolitan: '/img/ingredients/icecream-neapolitan.webp',
+    'Durian Musang King': '/img/ingredients/icecream-durian-musang-king.webp',
+    'Es Teler': '/img/ingredients/icecream-es-teler.webp',
     'Chocolate Sauce': '/img/ingredients/topping-chocolate-sauce.webp',
     'Rainbow Sprinkles': '/img/ingredients/topping-sprinkles.webp',
 };
@@ -40,6 +43,9 @@ const SIGNATURE_PRESETS = [
     { name: 'Strawberry Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Strawberry', toppings: ['Rainbow Sprinkles'] },
     { name: 'Wholegrain Choco Crunch', bread: 'Whole Wheat Bread', flavor: 'Chocolate', toppings: [] },
     { name: 'Wheat Vanilla Drizzle', bread: 'Whole Wheat Bread', flavor: 'Vanilla', toppings: ['Chocolate Sauce'] },
+    { name: 'Neapolitan Trio Slab', bread: 'Plain White Bread', flavor: 'Neapolitan', toppings: [] },
+    { name: 'Musang King Wheat Slab', bread: 'Whole Wheat Bread', flavor: 'Durian Musang King', toppings: [] },
+    { name: 'Es Teler Sprinkle Stack', bread: 'Plain White Bread', flavor: 'Es Teler', toppings: ['Rainbow Sprinkles'] },
 ];
 
 // Runs in the capture phase so x-model on the same input reads the cleaned value.
@@ -883,7 +889,14 @@ Alpine.data('brreadBuilder', () => ({
             const { createStudio3D, supportsWebGL } = await import('./studio3d.js');
             if (!supportsWebGL()) return;
 
+            let flavorOverrides = {};
+            try {
+                flavorOverrides = JSON.parse(host.dataset.flavorOverrides || '{}');
+            } catch {
+                /* malformed list: use the generated textures */
+            }
             studio3d = createStudio3D(host, {
+                flavorOverrides,
                 reducedMotion: prefersReducedMotion(),
                 onInteract: () => (this.studio3dTouched = true),
             });

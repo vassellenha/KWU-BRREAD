@@ -21,7 +21,13 @@ class PublicOrderController extends Controller
     /** Side-view cutouts used by the animated sandwich on the status page. */
     private const BREAD_ART = ['Whole Wheat Bread' => 'bread-wheat'];
 
-    private const ICE_ART = ['Strawberry' => 'ice-strawberry', 'Chocolate' => 'ice-chocolate'];
+    private const ICE_ART = [
+        'Strawberry' => 'ice-strawberry',
+        'Chocolate' => 'ice-chocolate',
+        'Neapolitan' => 'ice-neapolitan',
+        'Durian Musang King' => 'ice-durian-musang-king',
+        'Es Teler' => 'ice-es-teler',
+    ];
 
     private const TOPPING_ART = ['Chocolate Sauce' => 'top-sauce', 'Rainbow Sprinkles' => 'top-sprinkles'];
 
