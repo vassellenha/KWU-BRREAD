@@ -19,5 +19,6 @@ class DatabaseSeeder extends Seeder
         $this->call(SignatureComboSeeder::class);
         $this->call(EmployeeSeeder::class);
         $this->call(ExpenseSeeder::class);
+        $this->call(HppSimulationSeeder::class);
     }
 }
