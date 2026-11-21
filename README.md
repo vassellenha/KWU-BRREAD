@@ -214,6 +214,8 @@ The cart survives a page refresh. An order records the customer's name and phone
 </tr>
 </table>
 
+**Home and About follow the menu.** The ingredient lists, the flavor, bread and topping counts, the "ways to build it" number, the footer blurb, the chips under the 3D sandwich on Home (one per active flavor, dressed like the richest signature combo that uses it) and the Signature combinations cards all come from the database through `app/Support/HomeMenu.php`. Add a flavor in Menu, hide a topping, or edit or reorder a combo, and the public pages change by themselves. A combo card uses a real photo when one exists for that flavor and topping mix, and otherwise the flavor's own picture on a tint of its color. If the menu cannot be read, the pages fall back to generic wording instead of failing.
+
 Six public pages: home (`/`), the builder (`/builder`), the full menu (`/menu`), the shop's contact details (`/contact`), the customer photo wall (`/reviews`) and a short privacy note (`/privacy`). The privacy note says what checkout collects and why, and the cart drawer links to it right under the name and phone fields. Every page carries its own description plus Open Graph tags, so a shared link shows the `public/img/social-preview.jpg` card in WhatsApp and similar apps. Checkout asks the customer to confirm the name and phone number they typed before the order is placed. The contact page shows the counter at Telkom University Jakarta, Kampus C Minangkabau (Jl. Minangkabau Barat No. 50, Setiabudi) on a live Google Map, with an Open in Google Maps link to the place and a Get directions link, and Instagram (`@brread.official`) replaces the old email address. Opening hours hang on a shop sign: a cream board on a string from a nail with a pink drip along its top, saying OPEN and "till 9:30 PM tonight"; after hours it flips to its chocolate side, CLOSED and when it is back (Jakarta time). Poking it makes it swing. The heritage photo on Home and About is a real ice cream uncle at his cart on Orchard Road (`public/img/marketing/heritage-uncle.jpg`), replacing the generated one. The map uses the Google Maps Embed API when `GOOGLE_MAPS_API_KEY` is set and falls back to the keyless Google embed when it is empty, so it always shows. Create the key in Google Cloud, enable only the Maps Embed API, and restrict it to the site's domain by HTTP referrer, because an embed key is public by design (see `config/services.php`). A custom `/404` page matches the site's look instead of Laravel's default error screen, and the ingredient images were re-encoded to WebP (about 80% smaller) to keep the builder fast on mobile.
 
 ### Order tracking
@@ -356,6 +358,20 @@ Phase B is the Kewer scene: the video full screen with sound locked on (no contr
 
 The sidebar lists only the modules your role can open, and the URL of any other module returns a 403.
 
+### Batch save and the keyboard
+
+MRP, HR and Menu are edited like a spreadsheet. Change as many rows as you like, then save them in one go.
+
+- **Dirty rows.** A changed row gets a tinted background and a dot, and each changed field shows what it was before ("was: 8,000"). Nothing is sent until you save.
+- **Save all.** The bar pinned to the bottom of the page counts the changed rows. **Save all changes** (or **Ctrl+S**) sends only those rows. **Discard all** puts everything back, and **Revert** on a row puts back just that row. **Esc** inside a field puts that field back.
+- **All or nothing.** The server saves every changed row in one database transaction. If one row is wrong, nothing is saved: the page scrolls to the first problem and shows the message under that field, and every other edit stays on screen so you can fix it and save again.
+- **Someone else edited it first.** Each row carries a short version token. If the row changed in the meantime (another tab, another person, a new order), that row is rejected with "Changed by someone else" and the page offers to reload. You never overwrite newer data by accident.
+- **Leaving with unsaved changes.** Clicking a link or the browser's back button opens a dialog with **Save all and leave**, **Discard and leave** and **Stay here**. Closing the tab shows the browser's own warning. This only applies on staff pages.
+- **Endpoints.** `POST /staff/mrp/bulk`, `/staff/menu/bulk` and `/staff/hr/bulk` (routes `staff.mrp.bulk`, `staff.menu.bulk`, `staff.hr.bulk`), each behind the same role middleware as its page and limited to 30 requests a minute. They reply with the new version of every saved row, so the page can carry on without a reload. The old single-row endpoints still work.
+- **MRP** keeps one stock movement per changed row, so the history stays exact. A row counts as changed when you fill in its quantity. The note at the top applies to every row, and a note typed on a row replaces it for that row.
+
+**Arrow keys.** On the table pages the arrow keys move between cells: Up and Down stay in the same column (also across the Bread, Ice cream and Topping lists), Left and Right go to the next cell (inside a text field only once the caret is at its edge), **Enter** moves down and **Shift+Enter** up, **Home** and **End** jump to the first and last cell of the row, **Page Up** and **Page Down** move ten rows, **Ctrl+Home** and **Ctrl+End** go to the first and last cell. On a number field, **Shift+Up** and **Shift+Down** change the value. **Tab** and **Shift+Tab** keep working as usual, so the keyboard never gets stuck. The Orders list works the same way row by row (Enter opens the tracking page), and so does the sidebar menu. A short tip about the keys shows once per session and can be dismissed.
+
 ### Modules
 
 <details>
@@ -365,7 +381,7 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 
 - The dashboard shows each ingredient's stock level, category, reorder point and status.
 - A low-stock alert appears when an ingredient reaches its minimum.
-- To restock or correct a count, adjust the stock and write a note. If you enter a restock cost, it is booked as an expense in Accounting.
+- To restock or correct a count, fill in the quantity (with the stock in or out direction) on each ingredient you changed, add a note, and press **Save all changes**. All rows are saved together. If you enter a restock cost, it is booked as an expense in Accounting.
 - The full history of stock movements is at `/staff/mrp/movements`.
 - Customer orders deduct stock automatically at checkout, so you never subtract those by hand.
 
@@ -376,7 +392,7 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 
 <br />
 
-- Add, edit and deactivate employees from the directory.
+- Add employees, then edit the name, position, phone, duty order and active status right in the table and press **Save all changes** (see Batch save above).
 - The duty rotation puts 3 active employees on shift for 3 days at a time. It follows the rotation order, so deactivating or reordering someone changes the schedule right away.
 
 </details>
@@ -426,9 +442,9 @@ The sidebar lists only the modules your role can open, and the URL of any other 
 
 - Three lists, one per kind: Bread, Ice cream and Topping. Each row shows its price, stock and whether it is on the menu.
 - **Add Item** creates a bread, an ice cream flavor or a topping. A flavor also needs a color, which tints its layer in the Studio's 3D preview. You can enter a starting stock, which is booked as a restock in the movement history. Without stock the builder shows the new item as Sold Out until you restock it here or in MRP.
-- Change a price straight from its row. The message tells you the old and the new price. Orders already placed keep the price they were sold at, so the books and the sales report never shift.
-- **Edit** changes the name, price and color. The kind cannot change, and a name can only be used once per kind.
-- **Hide** takes an item off the menu and out of the builder without losing anything, and **Show** brings it back.
+- Change names, prices, colors and the on-menu switch straight in the rows, then press **Save all changes**. The message tells you how many items changed. Orders already placed keep the price they were sold at, so the books and the sales report never shift.
+- The kind cannot change, and a name can only be used once per kind. A clash is reported under the field, also when two rows in the same save would end up with the same name.
+- Switching an item off takes it off the menu and out of the builder without losing anything, and switching it on brings it back.
 - **Delete** only appears for an item nobody has ever ordered. Anything that appears in an order can only be hidden, so sales history stays whole.
 - New items show a generic bread or ice cream photo in the storefront. The signature creations and the toppings' pictures in the 3D preview are built from the original ingredient names, so hiding or renaming one of those makes the signature that uses it unavailable.
 - The deploy seeder no longer overwrites this data. It only inserts the original seven ingredients when they are missing, so prices, names, hidden items and new items you set here survive every deploy.
@@ -517,7 +533,7 @@ php artisan test
 
 GitHub Actions (`.github/workflows/ci.yml`) builds the assets and runs the suite on every push to `main` and on every pull request, and the badge at the top shows the result.
 
-The feature tests cover both login portals, role access, ordering with stock deduction, the order tracking page with its print receipt and barcode, and the MRP, HR, accounting, sales and menu modules.
+The feature tests cover both login portals, role access, ordering with stock deduction, the order tracking page with its print receipt and barcode, the MRP, HR, accounting, sales and menu modules, and the batch save endpoints (all or nothing, per-row errors, version conflicts, roles, throttling).
 
 <img src="./docs/readme/banner-10.svg" width="100%" alt="Section 10: The Layout" />
 
@@ -526,12 +542,17 @@ The feature tests cover both login portals, role access, ordering with stock ded
 ```text
 app/
   Http/Controllers/Api/      public API: components and orders
-  Http/Controllers/Staff/    login and the MRP, HR, accounting, sales and menu modules
+  Http/Controllers/Staff/    login and the MRP, HR, accounting, sales and menu modules (MRP, HR and Menu each have a bulk save action)
+  Http/Requests/Staff/       form requests, including the three Bulk* requests that validate every changed row
   Models/                    Component, Order, OrderItem, StockMovement, Employee, Expense, User
   Services/                  CashflowExporter, SalesReport, ShiftScheduler
+  Support/RowVersion.php     the per-row version token behind batch save conflict checks
+  Support/HomeMenu.php       the menu as the public pages describe it: lists, counts, hero chips, combo cards
 database/                    migrations and seeders
 resources/views/             storefront pages, staff portal, shared partials
 resources/js/studio3d.js     the Studio's 3D scene: slab models, toppings, lighting, orbit controls
+resources/js/staff-batch.js  Alpine batchForm: dirty tracking, Save all, discard, guard dialog
+resources/js/staff-grid.js   x-grid-nav: arrow-key navigation for tables, lists and menus
 public/img/studio3d/         baked PBR textures (colour and normal maps) for breads, ice creams and the marshmallow skin
 scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients; build_studio3d_flavors.py bakes the drawn flavors (add a slug to bake only that one: python scripts/build_studio3d_flavors.py matcha); build_studio3d_toppings.py bakes the marshmallow textures and the flat art of the mini toppings; setup.ps1 is the Windows setup
 Makefile                     shortcuts: make setup, serve, test, fresh, docker

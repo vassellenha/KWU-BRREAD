@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Staff\BulkMrpRequest;
 use App\Models\Component;
 use App\Models\Expense;
 use App\Models\StockMovement;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -29,17 +32,120 @@ class MrpController extends Controller
                 ->values(),
         ]);
 
-        $stats = [
+        return view('staff.mrp.index', [
+            'components' => $components,
+            'sparklines' => $sparklines,
+            'stats' => $this->stats($components),
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, Component>  $components
+     * @return array{total_ingredients: int, low_stock: int, total_units: int, stock_value: float|int}
+     */
+    private function stats(Collection $components): array
+    {
+        return [
             'total_ingredients' => $components->count(),
             'low_stock' => $components->filter->isLowStock()->count(),
             'total_units' => $components->sum('stock_quantity'),
             'stock_value' => $components->sum(fn (Component $component) => $component->stock_quantity * $component->price),
         ];
+    }
 
-        return view('staff.mrp.index', [
-            'components' => $components,
-            'sparklines' => $sparklines,
-            'stats' => $stats,
+    /**
+     * "Save all" on the stock page: every changed ingredient in one transaction. One bad row (more taken out
+     * than is in stock, a row somebody else just changed) saves nothing, and the errors come back per row.
+     */
+    public function bulkAdjust(BulkMrpRequest $request): JsonResponse
+    {
+        $rows = $request->changedRows();
+        $sharedNote = $request->validated('shared_note');
+        $userId = $request->user()->id;
+
+        $costLogged = 0;
+
+        $changed = DB::transaction(function () use ($rows, $sharedNote, $userId, &$costLogged) {
+            $components = Component::whereKey(array_keys($rows))->lockForUpdate()->get()->keyBy('id');
+            $errors = [];
+
+            foreach ($rows as $id => $row) {
+                $component = $components->get($id);
+
+                if (! $component) {
+                    $errors["rows.{$id}.version"][] = 'This ingredient was removed by someone else. Reload to see the current list.';
+
+                    continue;
+                }
+
+                if ($row['version'] !== $component->stockVersion()) {
+                    $errors["rows.{$id}.version"][] = "Someone else changed the stock of {$component->name} while you were editing. Reload to see the current amount.";
+
+                    continue;
+                }
+
+                if ($row['direction'] === 'out' && (int) ($row['cost'] ?? 0) > 0) {
+                    $errors["rows.{$id}.cost"][] = 'A purchase cost only applies to stock in.';
+                }
+
+                if ($row['direction'] === 'out' && $row['quantity'] > $component->stock_quantity) {
+                    $errors["rows.{$id}.quantity"][] = "Only {$component->stock_quantity} {$component->unit} of {$component->name} in stock, so that much cannot be removed.";
+                }
+            }
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            foreach ($rows as $id => $row) {
+                $component = $components->get($id);
+                $isRestock = $row['direction'] === 'in';
+                $cost = $isRestock ? (int) ($row['cost'] ?? 0) : 0;
+                $note = $row['note'] ?? $sharedNote;
+
+                $component->recordStockMovement(
+                    type: $isRestock ? StockMovement::TYPE_RESTOCK : StockMovement::TYPE_ADJUSTMENT,
+                    quantityChange: $isRestock ? $row['quantity'] : -$row['quantity'],
+                    userId: $userId,
+                    note: $note,
+                );
+
+                if ($cost > 0) {
+                    Expense::create([
+                        'description' => "Restock: {$component->name} (+{$row['quantity']} {$component->unit})",
+                        'category' => 'Ingredients',
+                        'amount' => $cost,
+                        'expense_date' => today(),
+                        'user_id' => $userId,
+                        'note' => $note,
+                    ]);
+                    $costLogged++;
+                }
+            }
+
+            return $components;
+        });
+
+        $everything = Component::orderBy('category')->orderBy('name')->get();
+        $stats = $this->stats($everything);
+        $count = $changed->count();
+
+        return response()->json([
+            'message' => $count.($count === 1 ? ' stock change' : ' stock changes').' saved'
+                .($costLogged > 0 ? ", $costLogged purchase ".($costLogged === 1 ? 'cost' : 'costs').' logged in Accounting.' : '.'),
+            'saved' => $count,
+            'rows' => $changed->mapWithKeys(fn (Component $component) => [$component->id => [
+                'version' => $component->stockVersion(),
+                'fields' => ['direction' => 'in', 'quantity' => '', 'cost' => '', 'note' => ''],
+                'cells' => ['stock' => "{$component->stock_quantity} {$component->unit}"],
+                'flags' => ['low' => $component->isLowStock()],
+            ]]),
+            'stats' => [
+                'total_ingredients' => (string) $stats['total_ingredients'],
+                'low_stock' => (string) $stats['low_stock'],
+                'total_units' => number_format($stats['total_units'], 0, ',', '.'),
+                'stock_value' => 'Rp '.number_format($stats['stock_value'], 0, ',', '.'),
+            ],
         ]);
     }
 

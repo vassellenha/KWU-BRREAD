@@ -4480,3 +4480,283 @@ body.is-broken .prank-ghost {
 @media (prefers-reduced-motion: reduce) {
     .is-picked .ing-icon { animation: none; }
 }
+
+/* ---------- Staff "save all" and arrow-key navigation ---------- */
+[data-show][hidden],
+[data-hide][hidden] {
+    display: none !important;
+}
+
+[data-batch-row] > td:first-child {
+    position: relative;
+}
+[data-batch-row].is-dirty > td:first-child {
+    box-shadow: inset 3px 0 0 #a62d42;
+}
+[data-batch-row].is-dirty > td:first-child::before {
+    content: '';
+    position: absolute;
+    top: 0.85rem;
+    left: 0.4rem;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: #a62d42;
+}
+[data-batch-row].is-dirty {
+    background-color: rgba(247, 163, 182, 0.12);
+}
+[data-batch-row].has-conflict {
+    background-color: rgba(186, 26, 26, 0.07);
+}
+[data-batch-field].is-changed {
+    border-color: #a62d42;
+}
+[data-batch-field][aria-invalid='true'] {
+    border-color: #ba1a1a;
+    box-shadow: 0 0 0 2px rgba(186, 26, 26, 0.18);
+}
+[data-batch-revert] {
+    display: none;
+}
+[data-batch-row].is-dirty [data-batch-revert] {
+    display: inline-flex;
+}
+
+.batch-note {
+    display: block;
+    margin-top: 0.2rem;
+    max-width: 16rem;
+    font-size: 11px;
+    line-height: 1.3;
+    color: #5b4a4c;
+}
+.batch-note--error {
+    color: #ba1a1a;
+    font-weight: 600;
+}
+
+[data-cell] {
+    scroll-margin-block: 5.5rem 6.5rem;
+}
+[data-cell]:focus-visible,
+[data-grid-row]:focus-visible {
+    outline: 2px solid #a62d42;
+    outline-offset: 2px;
+}
+[data-grid-row]:focus-visible {
+    outline-offset: -2px;
+    background-color: rgba(247, 163, 182, 0.14);
+}
+
+.batch-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.batch-stepper__btn {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: #f5ebe4;
+    color: #5b4a4c;
+    transition: background-color 150ms, transform 120ms;
+}
+.batch-stepper__btn:active {
+    transform: scale(0.94);
+}
+@media (hover: hover) and (pointer: fine) {
+    .batch-stepper__btn:hover {
+        background: #ecdcd2;
+    }
+}
+
+.batch-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.batch-switch__track {
+    position: relative;
+    display: inline-block;
+    height: 1.5rem;
+    width: 2.75rem;
+    border-radius: 9999px;
+    background: #d8c9c4;
+    transition: background-color 160ms;
+}
+.batch-switch__track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    height: 1.125rem;
+    width: 1.125rem;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 180ms var(--ease-out);
+}
+.batch-switch input:checked + .batch-switch__track {
+    background: #445f64;
+}
+.batch-switch input:checked + .batch-switch__track::after {
+    transform: translateX(1.25rem);
+}
+.batch-switch input:focus-visible + .batch-switch__track {
+    outline: 2px solid #a62d42;
+    outline-offset: 2px;
+}
+
+.batch-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(166, 45, 66, 0.25);
+    background: rgba(247, 163, 182, 0.18);
+}
+
+.batch-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    margin-top: 1.25rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    pointer-events: none;
+}
+.batch-bar__inner {
+    pointer-events: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(222, 191, 192, 0.7);
+    background: rgba(255, 248, 244, 0.96);
+    box-shadow: 0 10px 30px rgba(64, 0, 14, 0.16);
+    backdrop-filter: blur(8px);
+}
+.batch-bar__status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 14px;
+    color: #5b4a4c;
+}
+.batch-bar__status.is-pending {
+    color: #a62d42;
+}
+.batch-bar__dot {
+    height: 8px;
+    width: 8px;
+    flex: none;
+    border-radius: 9999px;
+    background: #cdbfb9;
+}
+.batch-bar__status.is-pending .batch-bar__dot {
+    background: #a62d42;
+}
+.batch-bar__keys {
+    margin-top: 0.1rem;
+    font-size: 11px;
+    color: rgba(91, 74, 76, 0.75);
+}
+@media (max-width: 639px) {
+    .batch-bar__keys {
+        display: none;
+    }
+    .batch-bar__inner > div:last-child {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+.batch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 9999px;
+    padding: 0.55rem 1.1rem;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.2;
+    transition: opacity 150ms, background-color 150ms;
+}
+.batch-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.batch-btn--primary {
+    background: #a62d42;
+    color: #fff;
+}
+.batch-btn--ghost {
+    background: #f5ebe4;
+    color: #3a2b2d;
+}
+.batch-btn--danger {
+    background: #ffdad6;
+    color: #93000a;
+}
+.batch-btn:focus-visible {
+    outline: 2px solid #a62d42;
+    outline-offset: 2px;
+}
+
+.batch-toasts {
+    position: fixed;
+    right: 1rem;
+    left: 1rem;
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+.batch-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 28rem;
+    padding: 0.7rem 1rem;
+    border-radius: 1rem;
+    background: #362f2b;
+    color: #fbeee4;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 12px 28px rgba(32, 27, 21, 0.25);
+    animation: batch-toast-in 220ms var(--ease-out);
+}
+.batch-toast.is-error {
+    background: #ffdad6;
+    color: #93000a;
+}
+@keyframes batch-toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .batch-toast {
+        animation: none;
+    }
+    .batch-switch__track,
+    .batch-switch__track::after {
+        transition: none;
+    }
+}

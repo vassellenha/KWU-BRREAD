@@ -105,8 +105,8 @@
                     <div class="about-track">
                         @foreach ([
                             ['n' => '1', 'img' => '/img/marketing/step-bread.jpg', 'alt' => 'Stacks of plain white and whole wheat sandwich bread', 'title' => 'It starts with a loaf', 'text' => 'Soft white sandwich bread, or whole wheat for people who want it less sweet. Sliced, never toasted.', 'tilt' => '-2deg'],
-                            ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Vanilla, strawberry and chocolate ice cream blocks cut into slabs', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. Vanilla, strawberry or chocolate.', 'tilt' => '1.5deg'],
-                            ['n' => '3', 'img' => '/img/marketing/product-vanilla-wheat.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => 'Chocolate sauce, rainbow sprinkles, both, or neither. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
+                            ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Vanilla, strawberry and chocolate ice cream blocks cut into slabs', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. '.(\App\Support\HomeMenu::join($menu['flavors']) ?: 'Plenty of flavors').'.', 'tilt' => '1.5deg'],
+                            ['n' => '3', 'img' => '/img/marketing/product-vanilla-wheat.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => (\App\Support\HomeMenu::join($menu['toppings'], 'or') ?: 'A topping').', any mix of them, or none. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
                             ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'An ice cream sandwich packed in an insulated pouch', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
                             ['n' => '5', 'img' => '/img/marketing/hero-held.jpg', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles', 'title' => 'And into your hands', 'text' => 'Around '.\App\Support\ShopSettings::get()['delivery_minutes'].' minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
                         ] as $step)
@@ -136,19 +136,19 @@
                         <div class="about-steps">
                             <div data-step data-from="-1" data-to="0.22">
                                 <h2 class="about-step-title">Start with one slice.</h2>
-                                <p class="about-step-text">Soft white bread or whole wheat. It folds around the ice cream and gives you something to hold on to, so we keep it simple.</p>
+                                <p class="about-step-text">{{ ucfirst(\App\Support\HomeMenu::join(array_map(fn ($name) => \App\Support\HomeMenu::breadLabel($name), $menu['breads'])) ?: 'Soft') }} bread. It folds around the ice cream and gives you something to hold on to, so we keep it simple.</p>
                             </div>
                             <div data-step data-from="0.22" data-to="0.62">
                                 <h2 class="about-step-title">One thick slab in the middle.</h2>
-                                <p class="about-step-text">About 4.2 cm of vanilla, strawberry or chocolate, thick enough to still be cold at the centre.</p>
+                                <p class="about-step-text">About 4.2 cm of {{ \App\Support\HomeMenu::join(array_map('strtolower', $menu['flavors'])) ?: 'ice cream' }}, thick enough to still be cold at the centre.</p>
                             </div>
                             <div data-step data-from="0.62" data-to="0.86">
                                 <h2 class="about-step-title">Then something on top.</h2>
-                                <p class="about-step-text">Rainbow sprinkles, chocolate sauce, or both. Nobody's checking.</p>
+                                <p class="about-step-text">{{ ucfirst(\App\Support\HomeMenu::join(array_map('strtolower', $menu['toppings']), 'or')) ?: 'A topping' }}, any mix, or none. Nobody's checking.</p>
                             </div>
                             <div data-step data-from="0.86" data-to="2">
                                 <h2 class="about-step-title">Close it up.</h2>
-                                <p class="about-step-text">That's one Brread!. With 2 breads, 3 flavors and the toppings, there are 24 ways to build it.</p>
+                                <p class="about-step-text">That's one Brread!. With {{ $menu['counts']['breads'] }} {{ \Illuminate\Support\Str::plural('bread', $menu['counts']['breads']) }}, {{ $menu['counts']['flavors'] }} {{ \Illuminate\Support\Str::plural('flavor', $menu['counts']['flavors']) }} and {{ $menu['counts']['toppings'] }} {{ \Illuminate\Support\Str::plural('topping', $menu['counts']['toppings']) }}, there are {{ number_format($menu['ways']) }} ways to build it.</p>
                             </div>
                         </div>
                     </div>

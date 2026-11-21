@@ -104,7 +104,10 @@
         </div>
     </div>
 
-    {{-- EMPLOYEE DIRECTORY --}}
+    {{-- EMPLOYEE DIRECTORY: the rows below are one "save all" form. --}}
+    <div x-data="batchForm({ url: @js(route('staff.hr.bulk')) })">
+    @include('partials.batch-hint')
+    <p id="grid-help" class="sr-only">Use the arrow keys to move between cells. Up and Down change row, Left and Right change cell. Shift plus Up or Down changes a number. Press Control S to save all changes.</p>
     <div x-data="{ showAddForm: @js($isRestoredAddForm) }" class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden">
         <div class="flex items-center justify-between gap-space-sm p-space-md border-b border-outline-variant/30">
             <h2 class="font-title-md text-title-md text-on-surface">Employee Directory</h2>
@@ -136,83 +139,46 @@
             </form>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[720px] text-left">
+        <div x-grid-nav class="relative overflow-x-auto">
+            <table class="w-full min-w-[860px] text-left" aria-describedby="grid-help">
                 <thead>
                     <tr class="border-b border-outline-variant/30 bg-surface-container/50">
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Order</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Name</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Position</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Phone</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Status</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide text-right">Actions</th>
+                        <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Order</th>
+                        <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Name</th>
+                        <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Position</th>
+                        <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Phone</th>
+                        <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Active</th>
+                        <th scope="col" class="px-space-md py-space-sm"><span class="sr-only">Revert</span></th>
                     </tr>
                 </thead>
-                <tbody x-data="{ openId: {{ old('_row') ? (int) old('_row') : 'null' }} }">
+                <tbody>
                     @forelse ($employees as $employee)
-                        @php $isRestoredRow = (int) old('_row') === $employee->id; @endphp
-                        <tr class="border-b border-outline-variant/20 last:border-0">
-                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant tabular-nums {{ $employee->is_active ? '' : 'opacity-50' }}">{{ $employee->rotation_order }}</td>
-                            <td class="px-space-md py-space-sm font-label-lg text-label-lg text-on-surface {{ $employee->is_active ? '' : 'opacity-50' }}">{{ $employee->name }}</td>
-                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant {{ $employee->is_active ? '' : 'opacity-50' }}">{{ $employee->position ?? '—' }}</td>
-                            <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant tabular-nums {{ $employee->is_active ? '' : 'opacity-50' }}">{{ $employee->phone ?? '—' }}</td>
-                            <td class="px-space-md py-space-sm">
-                                @if ($employee->is_active)
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-md text-label-md">
-                                        <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                        Active
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md">
-                                        Inactive
-                                    </span>
-                                @endif
+                        <tr data-grid-row data-batch-row="{{ $employee->id }}" data-version="{{ $employee->rowVersion() }}" class="border-b border-outline-variant/20 last:border-0">
+                            <td class="px-space-md py-space-sm align-top" data-batch-title>
+                                <x-staff.stepper :label="'rotation order of '.$employee->name">
+                                    <input type="text" inputmode="numeric" data-filter="integer" maxlength="4" data-batch-field="rotation_order" data-cell="rotation_order" data-stepper="1" data-min="0" data-max="9999" value="{{ $employee->rotation_order }}" aria-label="Rotation order of {{ $employee->name }}" class="w-20 tabular-nums {{ $fieldClasses }}">
+                                </x-staff.stepper>
                             </td>
-                            <td class="px-space-md py-space-sm text-right">
-                                <div class="inline-flex items-center gap-space-xs">
-                                    <button type="button" @click="openId = openId === {{ $employee->id }} ? null : {{ $employee->id }}" :aria-expanded="openId === {{ $employee->id }}" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
-                                        <span class="material-symbols-outlined text-[16px]">edit</span>
-                                        Edit
-                                    </button>
-                                    <form method="POST" action="{{ route('staff.hr.toggle', $employee) }}">
-                                        @csrf
-                                        <button type="submit" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded {{ $employee->is_active ? 'text-error hover:bg-error-container/30' : 'bg-tertiary-fixed text-on-tertiary-fixed-variant hover:opacity-80' }} font-label-md text-label-md transition-colors duration-200">
-                                            <span class="material-symbols-outlined text-[16px]">{{ $employee->is_active ? 'person_off' : 'person' }}</span>
-                                            {{ $employee->is_active ? 'Deactivate' : 'Reactivate' }}
-                                        </button>
-                                    </form>
-                                </div>
+                            <td class="px-space-md py-space-sm align-top">
+                                <input type="text" data-filter="name" maxlength="255" data-batch-field="name" data-cell="name" value="{{ $employee->name }}" aria-label="Name" class="w-56 {{ $fieldClasses }}">
                             </td>
-                        </tr>
-                        <tr x-show="openId === {{ $employee->id }}" x-cloak>
-                            <td colspan="6" class="px-space-md pb-space-md bg-surface-container/30">
-                                <form method="POST" action="{{ route('staff.hr.update', $employee) }}" class="flex flex-wrap items-end gap-space-sm pt-space-sm">
-                                    @csrf
-                                    @method('PUT')
-                                    <input type="hidden" name="_row" value="{{ $employee->id }}">
-                                    <div>
-                                        <label for="name-{{ $employee->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Name</label>
-                                        <input id="name-{{ $employee->id }}" type="text" name="name" data-filter="name" maxlength="255" value="{{ $isRestoredRow ? old('name') : $employee->name }}" required class="{{ $fieldClasses }}">
-                                    </div>
-                                    <div>
-                                        <label for="position-{{ $employee->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Position</label>
-                                        <input id="position-{{ $employee->id }}" type="text" name="position" maxlength="255" value="{{ $isRestoredRow ? old('position') : $employee->position }}" class="{{ $fieldClasses }}">
-                                    </div>
-                                    <div>
-                                        <label for="phone-{{ $employee->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Phone</label>
-                                        <input id="phone-{{ $employee->id }}" type="tel" inputmode="tel" name="phone" data-filter="phone" maxlength="30" value="{{ $isRestoredRow ? old('phone') : $employee->phone }}" class="{{ $fieldClasses }}">
-                                    </div>
-                                    <div>
-                                        <label for="order-{{ $employee->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Rotation order</label>
-                                        <input id="order-{{ $employee->id }}" type="text" inputmode="numeric" data-filter="integer" name="rotation_order" maxlength="4" value="{{ $isRestoredRow ? old('rotation_order') : $employee->rotation_order }}" required class="w-24 tabular-nums {{ $fieldClasses }}">
-                                    </div>
-                                    <button type="submit" class="press-scale px-space-md py-space-xs rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg hover:opacity-95 transition-opacity duration-200">
-                                        Save
-                                    </button>
-                                </form>
-                                <p class="font-body-sm text-body-sm text-on-surface-variant/70 mt-space-xs">
-                                    Lower rotation order goes first. {{ \App\Services\ShiftScheduler::GROUP_SIZE }} active employees cover each shift, in that order.
-                                </p>
+                            <td class="px-space-md py-space-sm align-top">
+                                <input type="text" maxlength="255" data-batch-field="position" data-cell="position" value="{{ $employee->position }}" aria-label="Position of {{ $employee->name }}" placeholder="Not set" class="w-48 {{ $fieldClasses }}">
+                            </td>
+                            <td class="px-space-md py-space-sm align-top">
+                                <input type="tel" inputmode="tel" data-filter="phone" maxlength="30" data-batch-field="phone" data-cell="phone" value="{{ $employee->phone }}" aria-label="Phone of {{ $employee->name }}" placeholder="Not set" class="w-48 tabular-nums {{ $fieldClasses }}">
+                            </td>
+                            <td class="px-space-md py-space-sm align-top">
+                                <label class="batch-switch" title="Active employees are part of the duty rotation">
+                                    <input type="checkbox" class="peer sr-only" data-batch-field="is_active" data-cell="is_active" data-on="Active" data-off="Inactive" aria-label="{{ $employee->name }} is active" @checked($employee->is_active)>
+                                    <span class="batch-switch__track" aria-hidden="true"></span>
+                                </label>
+                            </td>
+                            <td class="px-space-md py-space-sm align-top text-right">
+                                <button type="button" data-batch-revert @click="revertRow($el.closest('[data-batch-row]'))" aria-label="Revert {{ $employee->name }}" class="press-scale items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
+                                    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">undo</span>
+                                    Revert
+                                </button>
                             </td>
                         </tr>
                     @empty
@@ -226,6 +192,12 @@
                 </tbody>
             </table>
         </div>
+        <p class="p-space-md border-t border-outline-variant/30 font-body-sm text-body-sm text-on-surface-variant/80">
+            Lower rotation order goes first. {{ \App\Services\ShiftScheduler::GROUP_SIZE }} active employees cover each shift, in that order.
+        </p>
+    </div>
+
+    @include('partials.batch-bar')
     </div>
 
 @endsection

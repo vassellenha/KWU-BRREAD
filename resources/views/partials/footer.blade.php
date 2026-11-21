@@ -13,8 +13,10 @@
             <div class="space-y-space-sm">
                 <h2 class="font-title-md text-title-md text-on-surface">What goes in</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
-                    A slab of vanilla, strawberry or chocolate ice cream folded inside one slice of white or
-                    whole wheat bread, topped with chocolate sauce or sprinkles.
+                    @php $names = \App\Support\HomeMenu::names(); @endphp
+                    A slab of {{ \App\Support\HomeMenu::join(array_map('strtolower', $names['flavors'])) ?: 'ice cream' }} ice cream folded inside one slice of
+                    {{ \App\Support\HomeMenu::join(array_map(fn ($name) => \App\Support\HomeMenu::breadLabel($name), $names['breads'])) ?: 'soft' }}
+                    bread, topped with {{ \App\Support\HomeMenu::join(array_map('strtolower', $names['toppings'])) ?: 'a topping of your choice' }}.
                 </p>
                 <p class="font-body-sm text-body-sm text-on-surface-variant">
                     <span class="font-bold text-on-surface">Allergens:</span> dairy, wheat (gluten) and soy.

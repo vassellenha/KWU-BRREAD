@@ -4,6 +4,8 @@ import '@fontsource/space-mono/latin-700.css';
 import Alpine from 'alpinejs';
 import axios from 'axios';
 import { registerOrderFx } from './order-fx.js';
+import { registerStaffBatch } from './staff-batch.js';
+import { registerGridNav } from './staff-grid.js';
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -1300,44 +1302,21 @@ Alpine.data('brreadBuilder', () => ({
 }));
 
 // The quick-add cards on the home page sell the same signature combos as the Studio.
-// Home hero: the same 3D sandwich the Studio uses, with three ready-made combos to flip through.
+// Home hero: the same 3D sandwich the Studio uses, with a chip per flavor to flip through.
 // Kept outside Alpine state for the same reason as studio3d above. The photo stays as the
 // fallback whenever the scene cannot start (no WebGL, data saver on, chunk failed to load).
 let hero3d = null;
 
-const HERO_COMBOS = [
-    {
-        key: 'strawberry',
-        label: 'Strawberry',
-        swatch: '#F8B8C4',
-        summary: 'White bread · strawberry · sprinkles',
-        state: { bread: 'Plain White Bread', flavor: 'Strawberry', flavorColor: '#F8B8C4', sauce: false, sprinkles: true, exploded: false },
-    },
-    {
-        key: 'vanilla',
-        label: 'Vanilla',
-        swatch: '#F3E9D2',
-        summary: 'Whole wheat · vanilla · chocolate sauce',
-        state: { bread: 'Whole Wheat Bread', flavor: 'Vanilla', flavorColor: '#F3E9D2', sauce: true, sprinkles: false, exploded: false },
-    },
-    {
-        key: 'chocolate',
-        label: 'Chocolate',
-        swatch: '#5C3A21',
-        summary: 'Whole wheat · chocolate',
-        state: { bread: 'Whole Wheat Bread', flavor: 'Chocolate', flavorColor: '#5C3A21', sauce: false, sprinkles: false, exploded: false },
-    },
-];
-
-Alpine.data('heroSandwich', () => ({
-    combos: HERO_COMBOS,
-    active: 'strawberry',
+// The chips come from the server (App\Support\HomeMenu): one per active flavor, dressed like a signature combo.
+Alpine.data('heroSandwich', (combos = []) => ({
+    combos,
+    active: combos[0]?.key ?? '',
     ready: false,
     touched: false,
     exploded: false,
 
     get activeCombo() {
-        return this.combos.find((combo) => combo.key === this.active);
+        return this.combos.find((combo) => combo.key === this.active) ?? { summary: '', state: {} };
     },
 
     init() {
@@ -1352,7 +1331,7 @@ Alpine.data('heroSandwich', () => ({
 
     async mount() {
         const host = this.$refs?.stage;
-        if (!host || hero3d || navigator.connection?.saveData) return;
+        if (!host || hero3d || !this.combos.length || navigator.connection?.saveData) return;
 
         try {
             const { createStudio3D, supportsWebGL } = await import('./studio3d.js');
@@ -1456,6 +1435,8 @@ Alpine.data('signatureMenu', (products) => ({
 
 window.Alpine = Alpine;
 registerOrderFx(Alpine);
+registerStaffBatch(Alpine);
+registerGridNav(Alpine);
 
 // The pile of polaroids on the Contact page. Drag the top one off and let go (or tap it, or press the right arrow)
 // and it sails off, then tucks in at the back of the pile; the left arrow brings the last one back on top.

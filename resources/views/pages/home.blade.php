@@ -6,12 +6,7 @@
 
 @section('content')
 
-    <div class="w-full font-plus-jakarta" x-data="signatureMenu([
-            { id: 1, tag: 'Vanilla', category: ['white-bread'], name: 'Classic Vanilla Slab', desc: 'Soft plain white bread folded around a thick block of creamy Madagascar vanilla bean ice cream.', price: 14000, image: '/img/marketing/product-vanilla.jpg' },
-            { id: 2, tag: 'Strawberry + Sprinkles', category: ['white-bread'], name: 'Strawberry Sprinkle Stack', desc: 'Plain white bread with real-fruit strawberry ice cream, finished with a scatter of rainbow sprinkles.', price: 17000, image: '/img/marketing/product-strawberry.jpg' },
-            { id: 3, tag: 'Chocolate', category: ['wheat-bread'], name: 'Wholegrain Choco Crunch', desc: 'Hearty whole wheat bread paired with rich dark chocolate ice cream for a less-sweet, grown-up bite.', price: 15000, image: '/img/marketing/product-chocolate.jpg' },
-            { id: 4, tag: 'Vanilla + Choco Drizzle', category: ['wheat-bread'], name: 'Wheat Vanilla Drizzle', desc: 'Whole wheat bread and vanilla bean ice cream, drizzled generously with glossy dark chocolate sauce.', price: 18000, image: '/img/marketing/product-vanilla-wheat.jpg' },
-        ])">
+    <div class="w-full font-plus-jakarta" x-data="signatureMenu(@js($menu['combos']))">
 
         {{-- HERO SECTION --}}
         <section class="doodle relative w-full bg-surface-container-low pb-space-xl">
@@ -29,8 +24,8 @@
                             </span>
                         </h1>
                         <p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl mb-space-lg">
-                            Choose white or whole wheat bread, a slab of vanilla, strawberry or chocolate ice
-                            cream, and a drizzle or sprinkles on top. We pack it cold and deliver it across Jakarta.
+                            Choose {{ \App\Support\HomeMenu::join(array_map(fn ($name) => \App\Support\HomeMenu::breadLabel($name), $menu['breads'])) ?: 'your bread' }} bread, a slab of ice cream from {{ $menu['counts']['flavors'] }} flavors, and a topping
+                            or two. We pack it cold and deliver it across Jakarta.
                         </p>
                         <div class="flex flex-wrap items-center gap-space-md w-full sm:w-auto">
                             <a href="{{ route('build') }}" class="btn-chunky w-full sm:w-auto flex items-center justify-center bg-primary-container text-on-primary-container px-space-xl py-3 rounded-full font-label-lg text-label-lg text-center">
@@ -43,7 +38,7 @@
                     </div>
 
                     {{-- Live 3D sandwich (resources/js/studio3d.js). The photo shows first and stays if 3D cannot start. --}}
-                    <div class="lg:col-span-6 flex flex-col items-center" x-data="heroSandwich()" data-reveal>
+                    <div class="lg:col-span-6 flex flex-col items-center" x-data="heroSandwich(@js($menu['hero']))" data-reveal>
                         <div class="hero-stage relative w-full max-w-[520px] aspect-square select-none">
                             <div
                                 x-ref="stage"
@@ -147,7 +142,13 @@
                             <img class="w-full h-full object-cover" alt="Stacks of plain white sandwich bread and whole wheat bread slices" src="/img/marketing/step-bread.jpg" loading="lazy">
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 flex items-baseline gap-space-sm"><span class="font-hand text-[64px] leading-[0.8] text-primary-container -rotate-6" aria-hidden="true">1</span><span><span class="sr-only">Step 1: </span>Pick the bread</span></h3>
-                        <p class="font-body-md text-body-md text-on-surface-variant">Soft white sandwich bread, or whole wheat if you want it less sweet.</p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">
+                            @if (collect($menu['breads'])->contains(fn ($name) => str_contains($name, 'White')) && collect($menu['breads'])->contains(fn ($name) => str_contains($name, 'Wheat')) && $menu['counts']['breads'] === 2)
+                                Soft white sandwich bread, or whole wheat if you want it less sweet.
+                            @else
+                                {{ ucfirst(\App\Support\HomeMenu::join($menu['breads'])) ?: 'Soft sandwich bread.' }}.
+                            @endif
+                        </p>
                     </div>
 
                     <div class="flex flex-col md:mt-10" data-reveal>
@@ -155,7 +156,7 @@
                             <img class="w-full h-full object-cover" alt="Three sliced ice cream blocks: vanilla, strawberry, and chocolate on a marble slab" src="/img/marketing/step-icecream.jpg" loading="lazy">
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 flex items-baseline gap-space-sm"><span class="font-hand text-[64px] leading-[0.8] text-primary-container rotate-3" aria-hidden="true">2</span><span><span class="sr-only">Step 2: </span>Pick the ice cream</span></h3>
-                        <p class="font-body-md text-body-md text-on-surface-variant">Vanilla, strawberry or chocolate, cut into a thick slab.</p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">{{ \App\Support\HomeMenu::join($menu['flavors']) ?: 'Real dairy ice cream' }}, cut into a thick slab.</p>
                     </div>
 
                     <div class="flex flex-col md:mt-4" data-reveal>
@@ -163,7 +164,7 @@
                             <img class="w-full h-full object-cover" alt="A completed ice cream sandwich packaged in a pastel pink thermal pouch with ice mist" src="/img/marketing/step-packaged.jpg" loading="lazy">
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 flex items-baseline gap-space-sm"><span class="font-hand text-[64px] leading-[0.8] text-primary-container -rotate-3" aria-hidden="true">3</span><span><span class="sr-only">Step 3: </span>Add a topping, we deliver</span></h3>
-                        <p class="font-body-md text-body-md text-on-surface-variant">Chocolate sauce or sprinkles, then it goes into an insulated box and out the door.</p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">{{ \App\Support\HomeMenu::join($menu['toppings']) ?: 'A topping of your choice' }}, then it goes into an insulated box and out the door.</p>
                     </div>
                 </div>
             </div>
@@ -185,18 +186,14 @@
                             class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
                             :class="activeFilter === 'all' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
                         >All</button>
-                        <button
-                            type="button"
-                            @click="activeFilter = 'white-bread'"
-                            class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
-                            :class="activeFilter === 'white-bread' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
-                        >White bread</button>
-                        <button
-                            type="button"
-                            @click="activeFilter = 'wheat-bread'"
-                            class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-[background-color,color] duration-200"
-                            :class="activeFilter === 'wheat-bread' ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
-                        >Wheat bread</button>
+                        @foreach ($menu['filters'] as $filter)
+                            <button
+                                type="button"
+                                @click="activeFilter = @js($filter['slug'])"
+                                class="press-scale px-space-md py-space-xs rounded-full font-label-lg text-label-lg whitespace-nowrap transition-[background-color,color] duration-200"
+                                :class="activeFilter === @js($filter['slug']) ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface'"
+                            >{{ $filter['label'] }}</button>
+                        @endforeach
                     </div>
                 </div>
 
@@ -204,7 +201,7 @@
                     <template x-for="product in filteredProducts" :key="product.id">
                         <div class="product-card hover-lift bg-surface-container-lowest rounded-lg p-space-md flex flex-col border border-outline-variant/40 hover:shadow-[0_12px_28px_rgba(113,59,44,0.10)]" data-reveal>
                             <div class="zoom-on-hover relative w-full h-52 rounded bg-surface-container overflow-hidden mb-space-sm">
-                                <img class="w-full h-full object-cover" :src="product.image" :alt="product.name" loading="lazy">
+                                <img x-show="product.image" class="w-full h-full" :class="product.photo ? 'object-cover' : 'object-contain p-space-md'" :style="product.photo ? '' : { backgroundColor: (product.color || '#F3E9D2') + '33' }" :src="product.image" :alt="product.name" loading="lazy">
                             </div>
                             <p class="font-hand text-[22px] leading-none text-primary-container mb-1 -rotate-1 origin-left" x-text="product.tag"></p>
                             <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1" x-text="product.name"></h3>
@@ -225,7 +222,7 @@
                     <div class="space-y-space-xs text-center md:text-left">
                         <p class="font-hand text-[26px] leading-none text-secondary-fixed -rotate-2 origin-left">none of these quite right?</p>
                         <h3 class="font-headline-md text-headline-md">Build your own in the Studio</h3>
-                        <p class="font-body-md text-body-md text-on-primary/90 max-w-xl">Choose from 2 breads, 7 ice cream flavors and 4 toppings, then turn your sandwich around in 3D before you order.</p>
+                        <p class="font-body-md text-body-md text-on-primary/90 max-w-xl">Choose from {{ $menu['counts']['breads'] }} {{ \Illuminate\Support\Str::plural('bread', $menu['counts']['breads']) }}, {{ $menu['counts']['flavors'] }} ice cream {{ \Illuminate\Support\Str::plural('flavor', $menu['counts']['flavors']) }} and {{ $menu['counts']['toppings'] }} {{ \Illuminate\Support\Str::plural('topping', $menu['counts']['toppings']) }}, then turn your sandwich around in 3D before you order.</p>
                     </div>
                     <a href="{{ route('build') }}" class="btn-chunky bg-surface-container-lowest text-primary px-space-xl py-3 rounded-full font-label-lg text-label-lg flex-shrink-0" style="--chunk: #6f1326">
                         Open the Studio

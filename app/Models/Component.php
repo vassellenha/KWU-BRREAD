@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RowVersion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -36,6 +37,18 @@ class Component extends Model
     public function stockMovements(): HasMany
     {
         return $this->hasMany(StockMovement::class);
+    }
+
+    /** Fingerprint of the stock level, for the stock page's "save all" (see App\Support\RowVersion). */
+    public function stockVersion(): string
+    {
+        return RowVersion::of($this, ['stock_quantity']);
+    }
+
+    /** Fingerprint of what the menu page edits. */
+    public function menuVersion(): string
+    {
+        return RowVersion::of($this, ['name', 'price', 'hex_color', 'is_active']);
     }
 
     public function isLowStock(): bool

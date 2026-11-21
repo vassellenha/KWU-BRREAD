@@ -19,6 +19,11 @@
         Every bread, ice cream flavor and topping a customer can pick. Changes go live in the builder at once.
     </x-staff.page-header>
 
+    {{-- Prices, names, colors and availability below are one "save all" form: edit as many rows as you like, then save them together. --}}
+    <div x-data="batchForm({ url: @js(route('staff.menu.bulk')) })">
+    @include('partials.batch-hint')
+    <p id="grid-help" class="sr-only">Use the arrow keys to move between cells. Up and Down change row, Left and Right change cell. Shift plus Up or Down changes a number. Press Control S to save all changes.</p>
+
     {{-- STAT SUMMARY --}}
     <div class="grid grid-cols-3 gap-space-md mb-space-lg">
         <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
@@ -26,21 +31,21 @@
                 <span class="material-symbols-outlined text-[18px] text-on-surface-variant">bakery_dining</span>
                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Items</span>
             </div>
-            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums">{{ $stats['total'] }}</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums" data-stat="total">{{ $stats['total'] }}</p>
         </div>
         <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
             <div class="flex items-center gap-space-xs mb-1">
                 <span class="material-symbols-outlined text-[18px] text-on-surface-variant">check_circle</span>
                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">On the menu</span>
             </div>
-            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums">{{ $stats['active'] }}</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums" data-stat="active">{{ $stats['active'] }}</p>
         </div>
         <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
             <div class="flex items-center gap-space-xs mb-1">
                 <span class="material-symbols-outlined text-[18px] text-on-surface-variant">block</span>
                 <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Hidden</span>
             </div>
-            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums">{{ $stats['hidden'] }}</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface tabular-nums" data-stat="hidden">{{ $stats['hidden'] }}</p>
         </div>
     </div>
 
@@ -101,9 +106,11 @@
 
     @include('staff.menu.combos')
 
-    {{-- ONE TABLE PER KIND --}}
+    {{-- ONE TABLE PER KIND, all inside one grid so the arrow keys cross from one kind to the next --}}
+    <div x-grid-nav>
     @foreach ($groups as $category => $group)
-        <div x-data="{ openId: {{ old('_row') ? (int) old('_row') : 'null' }} }" class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden mb-space-lg">
+        @php $isFlavor = $category === 'ice_cream'; @endphp
+        <div class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden mb-space-lg">
             <div class="flex items-center gap-space-sm p-space-md border-b border-outline-variant/30">
                 <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container/40 text-primary">
                     <span class="material-symbols-outlined text-[22px]">{{ $categoryIcons[$category] }}</span>
@@ -114,127 +121,75 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[760px] text-left">
+            <div class="relative overflow-x-auto">
+                <table class="w-full min-w-[820px] text-left" aria-describedby="grid-help">
                     <thead>
                         <tr class="border-b border-outline-variant/30 bg-surface-container/50">
-                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Name</th>
-                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Price</th>
-                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Stock</th>
-                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Status</th>
-                            <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide text-right">Actions</th>
+                            <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Name</th>
+                            <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Price</th>
+                            @if ($isFlavor)
+                                <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Color</th>
+                            @endif
+                            <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">Stock</th>
+                            <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">On the menu</th>
+                            <th scope="col" class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wide text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($group['items'] as $component)
                             @php
-                                $isRestoredRow = (int) old('_row') === $component->id;
-                                $isRestoredPrice = (int) old('_price_row') === $component->id;
                                 $dim = $component->is_active ? '' : 'opacity-50';
+                                $inCombo = in_array($component->name, $signature, true);
+                                $itemName = $component->name; // inside a component slot, $component is the stepper itself
+                                $itemPrice = (int) $component->price;
                             @endphp
-                            <tr class="border-b border-outline-variant/20 last:border-0">
-                                <td class="px-space-md py-space-sm {{ $dim }}">
-                                    <div class="flex items-center gap-space-sm">
-                                        @if ($component->hex_color)
-                                            <span class="w-5 h-5 rounded-full border border-outline-variant/40 shrink-0" style="background-color: {{ $component->hex_color }}"></span>
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="font-label-lg text-label-lg text-on-surface">{{ $component->name }}</p>
-                                            @if (in_array($component->name, $signature, true))
-                                                <p class="font-label-md text-label-md text-on-surface-variant">Used by a signature combo</p>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-space-md py-space-sm">
-                                    <form method="POST" action="{{ route('staff.menu.price', $component) }}" class="inline-flex items-center gap-space-xs">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="_price_row" value="{{ $component->id }}">
-                                        <label for="price-{{ $component->id }}" class="font-label-md text-label-md text-on-surface-variant">Rp</label>
-                                        <input id="price-{{ $component->id }}" type="text" inputmode="numeric" data-filter="integer" name="price" maxlength="6" value="{{ $isRestoredPrice ? old('price') : (int) $component->price }}" required aria-label="Price of {{ $component->name }}, in rupiah" class="w-28 tabular-nums {{ $fieldClasses }}">
-                                        <button type="submit" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
-                                            <span class="material-symbols-outlined text-[16px]">check</span>
-                                            Save
-                                        </button>
-                                    </form>
-                                </td>
-                                <td class="px-space-md py-space-sm font-body-md text-body-md text-on-surface-variant tabular-nums {{ $dim }}">{{ number_format($component->stock_quantity, 0, ',', '.') }} {{ $component->unit }}</td>
-                                <td class="px-space-md py-space-sm">
-                                    @if ($component->is_active)
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-md text-label-md">
-                                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                            On the menu
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md">
-                                            Hidden
-                                        </span>
+                            <tr data-grid-row data-batch-row="{{ $component->id }}" data-version="{{ $component->menuVersion() }}" class="border-b border-outline-variant/20 last:border-0">
+                                <td class="px-space-md py-space-sm align-top" data-batch-title>
+                                    <input type="text" maxlength="60" data-batch-field="name" data-cell="name" value="{{ $component->name }}" aria-label="Name" class="w-56 {{ $fieldClasses }}">
+                                    @if ($inCombo)
+                                        <span class="mt-1 block font-label-md text-label-md text-on-surface-variant">Used by a signature combo</span>
                                     @endif
                                 </td>
-                                <td class="px-space-md py-space-sm text-right">
+                                <td class="px-space-md py-space-sm align-top">
+                                    <x-staff.stepper :label="'price of '.$itemName">
+                                        <input type="text" inputmode="numeric" data-filter="integer" maxlength="6" data-batch-field="price" data-cell="price" data-stepper="500" data-min="0" data-max="{{ \App\Http\Controllers\Staff\MenuController::MAX_PRICE }}" value="{{ $itemPrice }}" aria-label="Price of {{ $itemName }}, in rupiah" class="w-28 tabular-nums {{ $fieldClasses }}">
+                                    </x-staff.stepper>
+                                </td>
+                                @if ($isFlavor)
+                                    <td class="px-space-md py-space-sm align-top">
+                                        <input type="color" data-batch-field="hex_color" data-cell="hex_color" value="{{ $component->hex_color ?: '#F8B8C4' }}" aria-label="Flavor color of {{ $component->name }}" class="h-9 w-16 cursor-pointer rounded-full border border-outline-variant bg-surface-container-lowest p-1">
+                                    </td>
+                                @endif
+                                <td class="px-space-md py-space-sm align-top font-body-md text-body-md text-on-surface-variant tabular-nums {{ $dim }}" data-dim-unless="active">{{ number_format($component->stock_quantity, 0, ',', '.') }} {{ $component->unit }}</td>
+                                <td class="px-space-md py-space-sm align-top">
+                                    <label class="batch-switch" title="Shows in the builder when on">
+                                        <input type="checkbox" class="peer sr-only" data-batch-field="is_active" data-cell="is_active" data-on="On the menu" data-off="Hidden" aria-label="{{ $component->name }} is on the menu" @checked($component->is_active)>
+                                        <span class="batch-switch__track" aria-hidden="true"></span>
+                                    </label>
+                                </td>
+                                <td class="px-space-md py-space-sm align-top text-right">
                                     <div class="inline-flex items-center gap-space-xs">
-                                        <button type="button" @click="openId = openId === {{ $component->id }} ? null : {{ $component->id }}" :aria-expanded="openId === {{ $component->id }}" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
-                                            <span class="material-symbols-outlined text-[16px]">edit</span>
-                                            Edit
+                                        <button type="button" data-batch-revert @click="revertRow($el.closest('[data-batch-row]'))" aria-label="Revert {{ $component->name }}" class="press-scale items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
+                                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">undo</span>
+                                            Revert
                                         </button>
-                                        <form method="POST" action="{{ route('staff.menu.toggle', $component) }}">
-                                            @csrf
-                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded {{ $component->is_active ? 'text-error hover:bg-error-container/30' : 'bg-tertiary-fixed text-on-tertiary-fixed-variant hover:opacity-80' }} font-label-md text-label-md transition-colors duration-200">
-                                                <span class="material-symbols-outlined text-[16px]">{{ $component->is_active ? 'block' : 'check_circle' }}</span>
-                                                {{ $component->is_active ? 'Hide' : 'Show' }}
-                                            </button>
-                                        </form>
                                         @if ($component->order_items_count === 0)
                                             <form method="POST" action="{{ route('staff.menu.destroy', $component) }}" data-confirm="{{ $component->name }} and its stock history will be deleted for good." data-confirm-title="Delete {{ $component->name }}?" data-confirm-label="Delete" data-confirm-tone="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" aria-label="Delete {{ $component->name }}" class="press-scale inline-flex items-center gap-1 px-space-sm py-1 rounded text-error hover:bg-error-container/30 font-label-md text-label-md transition-colors duration-200">
-                                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                                    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
                                                 </button>
                                             </form>
+                                        @else
+                                            <span class="font-label-md text-label-md text-on-surface-variant" title="Ordered in {{ $component->order_items_count }} {{ $component->order_items_count === 1 ? 'line' : 'lines' }} so far, so it can be hidden but not deleted.">Ordered</span>
                                         @endif
                                     </div>
                                 </td>
                             </tr>
-                            <tr x-show="openId === {{ $component->id }}" x-cloak>
-                                <td colspan="5" class="px-space-md pb-space-md bg-surface-container/30">
-                                    <form method="POST" action="{{ route('staff.menu.update', $component) }}" class="flex flex-wrap items-end gap-space-sm pt-space-sm">
-                                        @csrf
-                                        @method('PUT')
-                                        <input type="hidden" name="_row" value="{{ $component->id }}">
-                                        <div>
-                                            <label for="name-{{ $component->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Name</label>
-                                            <input id="name-{{ $component->id }}" type="text" name="name" maxlength="60" value="{{ $isRestoredRow ? old('name') : $component->name }}" required class="w-56 {{ $fieldClasses }}">
-                                        </div>
-                                        <div>
-                                            <label for="edit-price-{{ $component->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Price, Rp</label>
-                                            <input id="edit-price-{{ $component->id }}" type="text" inputmode="numeric" data-filter="integer" name="price" maxlength="6" value="{{ $isRestoredRow ? old('price') : (int) $component->price }}" required class="w-28 tabular-nums {{ $fieldClasses }}">
-                                        </div>
-                                        @if ($category === 'ice_cream')
-                                            <div>
-                                                <label for="color-{{ $component->id }}" class="block font-label-md text-label-md text-on-surface-variant mb-1">Flavor color</label>
-                                                <input id="color-{{ $component->id }}" type="color" name="hex_color" value="{{ $isRestoredRow && old('hex_color') ? old('hex_color') : ($component->hex_color ?: '#F8B8C4') }}" class="h-9 w-16 cursor-pointer rounded-full border border-outline-variant bg-surface-container-lowest p-1">
-                                            </div>
-                                        @endif
-                                        <button type="submit" class="press-scale px-space-md py-space-xs rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg hover:opacity-95 transition-opacity duration-200">
-                                            Save
-                                        </button>
-                                    </form>
-                                    <p class="font-body-sm text-body-sm text-on-surface-variant/70 mt-space-xs">
-                                        @if (in_array($component->name, $signature, true))
-                                            This item is part of a signature combo. If you hide it, that combo shows as unavailable in the builder.
-                                        @endif
-                                        @if ($component->order_items_count > 0)
-                                            Ordered in {{ $component->order_items_count }} {{ $component->order_items_count === 1 ? 'line' : 'lines' }} so far, so it can be hidden but not deleted.
-                                        @endif
-                                        Price changes only affect new orders.
-                                    </p>
-                                </td>
-                            </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-space-md py-space-xl text-center">
+                                <td colspan="{{ $isFlavor ? 6 : 5 }}" class="px-space-md py-space-xl text-center">
                                     <p class="font-title-md text-title-md text-on-surface">Nothing here yet</p>
                                     <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Use Add Item above to put the first {{ strtolower($group['label']) }} on the menu.</p>
                                 </td>
@@ -245,5 +200,11 @@
             </div>
         </div>
     @endforeach
+    </div>
+
+    <p class="mb-space-md font-body-sm text-body-sm text-on-surface-variant/80">Price changes only affect new orders. Hiding an item that is part of a signature combo shows that combo as unavailable in the builder.</p>
+
+    @include('partials.batch-bar')
+    </div>
 
 @endsection

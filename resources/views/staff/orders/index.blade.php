@@ -156,8 +156,9 @@
 
     {{-- ORDERS TABLE CARD --}}
     <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[900px] text-left border-collapse">
+        <p id="orders-help" class="sr-only">Use Up and Down to move between orders. Press Enter to open the tracking page, or to reach the order's buttons. Confirm and Cancel stay explicit buttons.</p>
+        <div x-data x-grid-nav.list class="overflow-x-auto">
+            <table class="w-full min-w-[900px] text-left border-collapse" aria-describedby="orders-help">
                 <thead>
                     <tr class="border-b border-outline-variant/30 bg-surface-container/40">
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-40">No. Pesanan</th>
@@ -180,7 +181,13 @@
                                 return "{$qty}x {$bread} · {$flavor}";
                             })->join(', ');
                         @endphp
-                        <tr class="hover:bg-surface-container/20 transition-colors">
+                        <tr
+                            data-grid-row
+                            tabindex="-1"
+                            aria-label="Order #{{ $order->order_number }}, {{ $order->customer_name }}"
+                            @if ($order->public_status_url) data-open="{{ $order->public_status_url }}" @endif
+                            class="hover:bg-surface-container/20 transition-colors"
+                        >
                             {{-- ORDER NUMBER & DATE --}}
                             <td class="px-space-md py-space-sm align-top">
                                 <span class="font-mono font-bold text-on-surface text-[13px] block">#{{ $order->order_number }}</span>

@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Staff\BulkMenuRequest;
 use App\Models\Component;
 use App\Models\SignatureCombo;
 use App\Models\StockMovement;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -25,7 +28,9 @@ class MenuController extends Controller
         'topping' => 'Topping',
     ];
 
-    private const MAX_PRICE = 999999;
+    public const MAX_PRICE = 999999;
+
+    public const NAME_PATTERN = "regex:/^[\\p{L}\\p{N}][\\p{L}\\p{N} &'().,+-]*$/u";
 
     public function index(): View
     {
@@ -128,6 +133,96 @@ class MenuController extends Controller
         return back()->with('status', $this->updateMessage($component, $oldPrice));
     }
 
+    /**
+     * "Save all" on the menu page: name, price, color and availability of every changed item in one transaction.
+     * One bad row saves nothing, and the errors come back per row.
+     */
+    public function bulkUpdate(BulkMenuRequest $request): JsonResponse
+    {
+        $rows = $request->changedRows();
+        $priceChanged = false;
+
+        $changed = DB::transaction(function () use ($rows, &$priceChanged) {
+            $components = Component::whereKey(array_keys($rows))->lockForUpdate()->get()->keyBy('id');
+            $errors = [];
+
+            foreach ($rows as $id => $row) {
+                $component = $components->get($id);
+
+                if (! $component) {
+                    $errors["rows.{$id}.version"][] = 'This item was removed by someone else. Reload to see the current menu.';
+                } elseif ($row['version'] !== $component->menuVersion()) {
+                    $errors["rows.{$id}.version"][] = "Someone else changed {$component->name} while you were editing. Reload to see their version.";
+                } elseif ($component->category === 'ice_cream' && empty($row['hex_color'])) {
+                    $errors["rows.{$id}.hex_color"][] = 'Pick a flavor color.';
+                }
+            }
+
+            // The names an item would have once every row is saved, so swapping two names works but a clash does not.
+            $categories = $components->pluck('category')->unique()->all();
+            $final = Component::whereIn('category', $categories)->get(['id', 'name', 'category'])
+                ->mapWithKeys(fn (Component $component) => [$component->id => [
+                    'category' => $component->category,
+                    'name' => mb_strtolower(isset($rows[$component->id]) ? (string) $rows[$component->id]['name'] : $component->name),
+                ]]);
+
+            foreach ($final->groupBy(fn (array $item) => $item['category'].'|'.$item['name'], preserveKeys: true) as $group) {
+                if ($group->count() < 2) {
+                    continue;
+                }
+
+                foreach ($group->keys() as $id) {
+                    if (isset($rows[$id]) && ! isset($errors["rows.{$id}.version"])) {
+                        $label = self::CATEGORIES[$final[$id]['category']] ?? 'menu';
+                        $errors["rows.{$id}.name"][] = "The {$label} menu already has an item with that name.";
+                    }
+                }
+            }
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            foreach ($rows as $id => $row) {
+                $component = $components->get($id);
+                $priceChanged = $priceChanged || (int) $component->price !== (int) $row['price'];
+
+                $component->update([
+                    'name' => $row['name'],
+                    'price' => $row['price'],
+                    'hex_color' => $this->colorFor($component->category, $row['hex_color'] ?? null),
+                    'is_active' => (bool) $row['is_active'],
+                ]);
+            }
+
+            return $components;
+        });
+
+        $count = $changed->count();
+        $all = Component::get(['id', 'is_active']);
+
+        return response()->json([
+            'message' => $count.($count === 1 ? ' change' : ' changes').' saved'.($priceChanged ? '. Orders already placed keep their old price.' : '.'),
+            'saved' => $count,
+            'rows' => $changed->mapWithKeys(fn (Component $component) => [$component->id => [
+                'version' => $component->menuVersion(),
+                'fields' => [
+                    'name' => $component->name,
+                    'price' => (string) (int) $component->price,
+                    'hex_color' => $component->hex_color ?: '#F8B8C4',
+                    'is_active' => $component->is_active ? '1' : '0',
+                ],
+                'cells' => [],
+                'flags' => ['active' => $component->is_active],
+            ]]),
+            'stats' => [
+                'total' => (string) $all->count(),
+                'active' => (string) $all->where('is_active', true)->count(),
+                'hidden' => (string) $all->where('is_active', false)->count(),
+            ],
+        ]);
+    }
+
     public function toggleActive(Component $component): RedirectResponse
     {
         $component->update(['is_active' => ! $component->is_active]);
@@ -173,7 +268,7 @@ class MenuController extends Controller
             'required',
             'string',
             'max:60',
-            "regex:/^[\\p{L}\\p{N}][\\p{L}\\p{N} &'().,+-]*$/u",
+            self::NAME_PATTERN,
             function (string $attribute, mixed $value, Closure $fail) use ($category, $ignore) {
                 $taken = Component::where('category', $category)
                     ->whereRaw('lower(name) = ?', [mb_strtolower((string) $value)])

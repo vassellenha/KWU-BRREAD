@@ -21,7 +21,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f7a3b6">
     <meta name="robots" content="noindex">
     <title>@yield('title', 'Staff Portal') — Brread!</title>
@@ -40,7 +40,7 @@
                 <p class="staff-side-role font-hand">{{ strtolower($portalName) }}</p>
                 @include('partials.drip', ['flavor' => 'strawberry', 'seed' => 1, 'drops' => false])
             </div>
-            <nav class="flex-1 px-3 pt-12 pb-3 space-y-1 overflow-y-auto" aria-label="Modules">
+            <nav x-data x-grid-nav.menu class="flex-1 px-3 pt-12 pb-3 space-y-1 overflow-y-auto" aria-label="Modules">
                 @foreach ($navLinks as $link)
                     <a
                         href="{{ route($link['route']) }}"
@@ -87,7 +87,7 @@
                         </button>
                     </form>
                 </div>
-                <nav class="flex gap-space-xs overflow-x-auto px-margin pb-space-sm" aria-label="Modules">
+                <nav x-data x-grid-nav.menu.horizontal class="flex gap-space-xs overflow-x-auto px-margin pb-space-sm" aria-label="Modules">
                     @foreach ($navLinks as $link)
                         <a
                             href="{{ route($link['route']) }}"
@@ -135,6 +135,19 @@
             </div>
         </div>
     @endif
+
+    {{-- Short messages from the "save all" pages (see resources/js/staff-batch.js) --}}
+    <div x-data class="batch-toasts" aria-live="polite" aria-atomic="false">
+        <template x-for="item in $store.toast.items" :key="item.id">
+            <div class="batch-toast" :class="item.tone === 'error' ? 'is-error' : ''" :role="item.tone === 'error' ? 'alert' : 'status'">
+                <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true" x-text="item.tone === 'error' ? 'error' : 'check_circle'"></span>
+                <span class="min-w-0 flex-1" x-text="item.message"></span>
+                <button type="button" @click="$store.toast.dismiss(item.id)" aria-label="Dismiss" class="shrink-0 -my-1 -mr-2 flex h-7 w-7 items-center justify-center opacity-70 hover:opacity-100">
+                    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+                </button>
+            </div>
+        </template>
+    </div>
 
     @include('partials.confirm-dialog')
 </body>

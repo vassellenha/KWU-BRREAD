@@ -14,6 +14,7 @@ use App\Http\Controllers\Staff\SecurityController;
 use App\Http\Controllers\Staff\SignatureComboController;
 use App\Http\Controllers\Staff\SiteController;
 use App\Models\User;
+use App\Support\HomeMenu;
 use App\Support\HoneypotTrap;
 use App\Support\StudioFlavorTextures;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 
     Route::middleware($rolesFor(User::MODULE_MRP))->prefix('mrp')->name('mrp.')->group(function () {
         Route::get('/', [MrpController::class, 'index'])->name('index');
+        Route::post('/bulk', [MrpController::class, 'bulkAdjust'])->middleware('throttle:30,1')->name('bulk');
         Route::post('/{component}/adjust', [MrpController::class, 'adjustStock'])->name('adjust');
         Route::get('/movements', [MrpController::class, 'movements'])->name('movements');
     });
@@ -61,6 +63,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
     Route::middleware($rolesFor(User::MODULE_MENU))->prefix('menu')->name('menu.')->group(function () {
         Route::get('/', [MenuController::class, 'index'])->name('index');
         Route::post('/', [MenuController::class, 'store'])->name('store');
+        Route::post('/bulk', [MenuController::class, 'bulkUpdate'])->middleware('throttle:30,1')->name('bulk');
         Route::put('/{component}', [MenuController::class, 'update'])->name('update');
         Route::patch('/{component}/price', [MenuController::class, 'updatePrice'])->name('price');
         Route::post('/{component}/toggle', [MenuController::class, 'toggleActive'])->name('toggle');
@@ -78,6 +81,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
     Route::middleware($rolesFor(User::MODULE_HR))->prefix('hr')->name('hr.')->group(function () {
         Route::get('/', [HrController::class, 'index'])->name('index');
         Route::post('/', [HrController::class, 'store'])->name('store');
+        Route::post('/bulk', [HrController::class, 'bulkUpdate'])->middleware('throttle:30,1')->name('bulk');
         Route::put('/{employee}', [HrController::class, 'update'])->name('update');
         Route::post('/{employee}/toggle', [HrController::class, 'toggleActive'])->name('toggle');
     });
@@ -110,7 +114,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 });
 
 Route::get('/', function () {
-    return view('pages.home');
+    return view('pages.home', ['menu' => HomeMenu::get()]);
 })->name('home');
 
 Route::get('/builder', function () {
@@ -122,7 +126,7 @@ Route::get('/menu', function () {
 })->name('menu');
 
 Route::get('/about', function () {
-    return view('pages.about');
+    return view('pages.about', ['menu' => HomeMenu::get()]);
 })->name('about');
 
 Route::get('/contact', function () {
