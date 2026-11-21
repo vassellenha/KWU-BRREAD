@@ -1,6 +1,6 @@
 {{-- SIGNATURE COMBOS: the one-click creations of the builder --}}
 @php
-    $comboErrorBag = $errors->has('combo') || $errors->has('name') || $errors->has('bread_id') || $errors->has('flavor_id') || $errors->has('toppings') || $errors->has('toppings.*');
+    $comboErrorBag = $errors->has('combo') || $errors->has('name') || $errors->has('bread_id') || $errors->has('flavor_id') || $errors->has('toppings') || $errors->has("toppings.*") || $errors->has("photo");
     $restoredCombo = old('_form') === 'combo-add' ? 'add' : (old('_form') === 'combo-edit' ? (int) old('_combo') : null);
     $selectedToppings = fn (?int $comboId, $combo = null) => collect(
         $restoredCombo === ($comboId ?? 'add') ? old('toppings', []) : ($combo?->toppings->pluck('id')->all() ?? [])
@@ -26,7 +26,7 @@
 
     @if ($comboErrorBag)
         <div class="px-space-md pt-space-sm" role="alert">
-            @foreach (array_unique(array_merge($errors->get('combo'), $errors->get('name'), $errors->get('bread_id'), $errors->get('flavor_id'), $errors->get('toppings'), $errors->get('toppings.*'))) as $message)
+            @foreach (array_unique(array_merge($errors->get('combo'), $errors->get('name'), $errors->get('bread_id'), $errors->get('flavor_id'), $errors->get('toppings'), $errors->get('toppings.*'), $errors->get('photo'))) as $message)
                 <p class="font-body-sm text-body-sm text-error">{{ $message }}</p>
             @endforeach
         </div>
@@ -55,8 +55,15 @@
                     <tr class="border-b border-outline-variant/20 last:border-0">
                         <td class="px-space-md py-space-sm {{ $combo->is_active ? '' : 'opacity-50' }}">
                             <div class="flex items-center gap-space-sm">
-                                <span class="w-5 h-5 rounded-full border border-outline-variant/40 shrink-0" style="background-color: {{ $combo->flavor->hex_color ?: '#e8e2de' }}"></span>
-                                <p class="font-label-lg text-label-lg text-on-surface">{{ $combo->name }}</p>
+                                @if ($combo->photo)
+                                    <img src="{{ $combo->photo->url() }}" alt="" width="40" height="40" loading="lazy" class="w-10 h-10 rounded-lg object-cover border border-outline-variant/40 shrink-0">
+                                @else
+                                    <span class="w-5 h-5 rounded-full border border-outline-variant/40 shrink-0" style="background-color: {{ $combo->flavor->hex_color ?: '#e8e2de' }}"></span>
+                                @endif
+                                <div>
+                                    <p class="font-label-lg text-label-lg text-on-surface">{{ $combo->name }}</p>
+                                    <p class="font-body-sm text-body-sm text-on-surface-variant">{{ $combo->photo ? 'Your photo on Home' : '3D picture on Home' }}</p>
+                                </div>
                             </div>
                         </td>
                         <td class="px-space-md py-space-sm font-body-sm text-body-sm text-on-surface-variant {{ $combo->is_active ? '' : 'opacity-50' }}">

@@ -945,9 +945,6 @@ html.no-intro .about-line > span {
     color: var(--ink);
     background: var(--bg);
 }
-.about-card--vanilla { --bg: #f6e7bd; --ink: #4d3a05; }
-.about-card--strawberry { --bg: #f7a3b6; --ink: #5b0f22; }
-.about-card--chocolate { --bg: #4a2c1a; --ink: #f6e3cf; }
 .about-card-word {
     position: absolute;
     left: 50%;

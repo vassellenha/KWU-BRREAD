@@ -19,10 +19,10 @@
 
             @foreach ([
                 ['bread-white', '-0.26', '-14deg', 'right-[4%] top-[17%] w-[34vw] md:w-[24vw] max-w-[360px]'],
-                ['ice-strawberry', '0.20', '9deg', 'right-[22%] bottom-[9%] w-[30vw] md:w-[19vw] max-w-[280px]'],
+                ['ice-es-teler', '0.20', '9deg', 'right-[22%] bottom-[9%] w-[30vw] md:w-[19vw] max-w-[280px]'],
                 ['ice-chocolate', '-0.42', '18deg', 'hidden md:block right-[-3%] bottom-[24%] w-[16vw] max-w-[240px]'],
                 ['bread-wheat', '0.34', '-7deg', 'hidden md:block right-[36%] top-[13%] w-[13vw] max-w-[190px]'],
-                ['ice-vanilla', '-0.14', '24deg', 'hidden lg:block left-[46%] bottom-[30%] w-[11vw] max-w-[170px]'],
+                ['ice-matcha', '-0.14', '24deg', 'hidden lg:block left-[46%] bottom-[30%] w-[11vw] max-w-[170px]'],
             ] as [$cut, $speed, $tilt, $pos])
                 <img data-parallax="{{ $speed }}" style="--tilt: {{ $tilt }}" class="about-float {{ $pos }}" src="/img/cutout/{{ $cut }}.webp" alt="">
             @endforeach
@@ -59,24 +59,35 @@
             </div>
         </section>
 
-        {{-- 3. THE FLAVORS: three full-screen cards that stack over each other --}}
+        {{-- 3. THE FLAVORS: full-screen cards that stack over each other, one per flavor on the menu --}}
+        @php
+            // Colours, a line and the picture for each flavor we sell; a flavor added later without an entry here just has no card.
+            $flavorCards = [
+                'chocolate' => ['line' => 'Dark, not too sweet. Best on whole wheat, if you ask us.', 'cut' => 'ice-chocolate', 'top' => null, 'bg' => '#4a2c1a', 'ink' => '#f6e3cf', 'photo' => 'product-chocolate'],
+                'neapolitan' => ['line' => 'Vanilla, strawberry and chocolate side by side, so nobody has to pick.', 'cut' => 'ice-neapolitan', 'top' => null, 'bg' => '#f4c3cf', 'ink' => '#4a1f24', 'photo' => 'product-neapolitan'],
+                'es-teler' => ['line' => 'Mango, strawberry and pandan with coconut, jackfruit and avocado. Made for sprinkles.', 'cut' => 'ice-es-teler', 'top' => 'top-sprinkles', 'bg' => '#f8d27e', 'ink' => '#4a3005', 'photo' => 'product-es-teler'],
+                'durian-musang-king' => ['line' => 'Rich Musang King durian cream with chunks of golden custard.', 'cut' => 'ice-durian-musang-king', 'top' => null, 'bg' => '#e3e6a4', 'ink' => '#3b3f0c', 'photo' => 'product-durian'],
+                'matcha' => ['line' => 'Stone-ground green tea cream, earthy and only lightly sweet.', 'cut' => 'ice-matcha', 'top' => null, 'bg' => '#cfd8b4', 'ink' => '#2e3a17', 'photo' => 'product-matcha'],
+            ];
+            $drips = ['cream', 'vanilla', 'strawberry', 'chocolate', 'peach'];
+            $cards = collect($menu['flavors'])
+                ->map(fn ($name) => ['name' => $name, 'key' => \Illuminate\Support\Str::slug($name)] + ($flavorCards[\Illuminate\Support\Str::slug($name)] ?? []))
+                ->filter(fn ($card) => isset($card['cut']))
+                ->values();
+        @endphp
         <section class="about-stack relative">
-            @foreach ([
-                ['key' => 'vanilla', 'name' => 'Vanilla', 'note' => 'flavor no. 1', 'line' => 'Speckled with real vanilla. The one everything else gets compared to.', 'cut' => 'ice-vanilla', 'top' => 'top-sauce', 'photo' => '/img/marketing/product-vanilla.jpg', 'drip' => 'cream'],
-                ['key' => 'strawberry', 'name' => 'Strawberry', 'note' => 'flavor no. 2', 'line' => 'Pink, a little tart, with actual fruit in it. Made for sprinkles.', 'cut' => 'ice-strawberry', 'top' => 'top-sprinkles', 'photo' => '/img/marketing/product-strawberry.jpg', 'drip' => 'vanilla'],
-                ['key' => 'chocolate', 'name' => 'Chocolate', 'note' => 'flavor no. 3', 'line' => 'Dark, not too sweet. Best on whole wheat, if you ask us.', 'cut' => 'ice-chocolate', 'top' => null, 'photo' => '/img/marketing/product-chocolate.jpg', 'drip' => 'strawberry'],
-            ] as $i => $flavor)
-                <article class="about-card about-card--{{ $flavor['key'] }}" data-view>
-                    @include('partials.drip', ['flavor' => $flavor['drip'], 'seed' => $i, 'drops' => false])
+            @foreach ($cards as $i => $flavor)
+                <article class="about-card about-card--{{ $flavor['key'] }}" style="--bg: {{ $flavor['bg'] }}; --ink: {{ $flavor['ink'] }}" data-view>
+                    @include('partials.drip', ['flavor' => $drips[$i % count($drips)], 'seed' => $i % 3, 'drops' => false])
                     <span class="about-card-word" aria-hidden="true">{{ $flavor['name'] }}</span>
                     <div class="about-card-body">
                         <div>
-                            <p class="font-hand text-[30px] leading-none -rotate-2 origin-left opacity-80">{{ $flavor['note'] }}</p>
+                            <p class="font-hand text-[30px] leading-none -rotate-2 origin-left opacity-80">flavor no. {{ $i + 1 }}</p>
                             <h2 class="about-card-title">{{ $flavor['name'] }}</h2>
                             <p class="about-card-line">{{ $flavor['line'] }}</p>
                         </div>
                         <div class="about-card-art">
-                            <div class="about-card-photo"><img src="{{ $flavor['photo'] }}" alt="{{ $flavor['name'] }} ice cream sandwich" loading="lazy"></div>
+                            <div class="about-card-photo"><img src="/img/marketing/{{ $flavor['photo'] }}.jpg" alt="{{ $flavor['name'] }} ice cream sandwich" loading="lazy"></div>
                             <div class="about-card-slab">
                                 <img src="/img/cutout/{{ $flavor['cut'] }}.webp" alt="" loading="lazy">
                                 @if ($flavor['top'])
@@ -105,9 +116,9 @@
                     <div class="about-track">
                         @foreach ([
                             ['n' => '1', 'img' => '/img/marketing/step-bread.jpg', 'alt' => 'Stacks of plain white and whole wheat sandwich bread', 'title' => 'It starts with a loaf', 'text' => 'Soft white sandwich bread, or whole wheat for people who want it less sweet. Sliced, never toasted.', 'tilt' => '-2deg'],
-                            ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Vanilla, strawberry and chocolate ice cream blocks cut into slabs', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. '.(\App\Support\HomeMenu::join($menu['flavors']) ?: 'Plenty of flavors').'.', 'tilt' => '1.5deg'],
-                            ['n' => '3', 'img' => '/img/marketing/product-vanilla-wheat.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => (\App\Support\HomeMenu::join($menu['toppings'], 'or') ?: 'A topping').', any mix of them, or none. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
-                            ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'An ice cream sandwich packed in an insulated pouch', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
+                            ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Slabs of chocolate, neapolitan, es teler, durian musang king and matcha ice cream on a marble counter', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. '.(\App\Support\HomeMenu::join($menu['flavors']) ?: 'Plenty of flavors').'.', 'tilt' => '1.5deg'],
+                            ['n' => '3', 'img' => '/img/marketing/product-drizzle.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate ice cream and chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => (\App\Support\HomeMenu::join($menu['toppings'], 'or') ?: 'A topping').', any mix of them, or none. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
+                            ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'A brown cardboard Brread! delivery box', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
                             ['n' => '5', 'img' => '/img/marketing/hero-held.jpg', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles', 'title' => 'And into your hands', 'text' => 'Around '.\App\Support\ShopSettings::get()['delivery_minutes'].' minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
                         ] as $step)
                             <article class="about-panel">
@@ -154,7 +165,7 @@
                     </div>
                     <div class="lg:col-span-7 h-full min-h-[280px]">
                         <div data-about-stage-wrap class="about-stage-wrap">
-                            <img class="about-stage-photo" src="/img/marketing/product-strawberry.jpg" alt="White bread ice cream sandwich with strawberry ice cream and rainbow sprinkles" loading="lazy">
+                            <img class="about-stage-photo" src="/img/marketing/product-es-teler.jpg" alt="White bread ice cream sandwich with es teler ice cream and rainbow sprinkles" loading="lazy">
                             <div data-about-stage class="stage-fade about-stage" role="img" aria-label="3D ice cream sandwich that comes apart as you scroll"></div>
                         </div>
                     </div>
@@ -170,7 +181,7 @@
                 // The wall keeps itself current: the newest customer review photos go up first, and the launch shots fill
                 // whatever is left of the ten frames.
                 $tilts = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg', '1.5deg', '-2deg', '1deg', '-1deg', '2deg'];
-                $launch = ['community-mjordan.jpg', 'product-strawberry.jpg', 'community-targaryen.jpg', 'hero-held.jpg', 'product-chocolate.jpg', 'product-vanilla-wheat.jpg', 'step-packaged.jpg', 'community-rizky.jpg', 'product-vanilla.jpg', 'step-icecream.jpg'];
+                $launch = ['community-mjordan.jpg', 'product-es-teler.jpg', 'community-targaryen.jpg', 'hero-held.jpg', 'product-chocolate.jpg', 'product-drizzle.jpg', 'step-packaged.jpg', 'community-rizky.jpg', 'product-neapolitan.jpg', 'step-icecream.jpg'];
                 $frames = \App\Support\ReviewFeed::photos(10)->pluck('photo')
                     ->concat(array_map(fn ($file) => '/img/marketing/'.$file, $launch))
                     ->take(10)

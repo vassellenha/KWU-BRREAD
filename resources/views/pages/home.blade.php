@@ -153,7 +153,7 @@
 
                     <div class="flex flex-col md:mt-10" data-reveal>
                         <div class="zoom-on-hover h-52 w-full rounded overflow-hidden mb-space-md bg-surface-container">
-                            <img class="w-full h-full object-cover" alt="Three sliced ice cream blocks: vanilla, strawberry, and chocolate on a marble slab" src="/img/marketing/step-icecream.jpg" loading="lazy">
+                            <img class="w-full h-full object-cover" alt="Slabs of chocolate, neapolitan, es teler, durian musang king and matcha ice cream on a marble counter" src="/img/marketing/step-icecream.jpg" loading="lazy">
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 flex items-baseline gap-space-sm"><span class="font-hand text-[64px] leading-[0.8] text-primary-container rotate-3" aria-hidden="true">2</span><span><span class="sr-only">Step 2: </span>Pick the ice cream</span></h3>
                         <p class="font-body-md text-body-md text-on-surface-variant">{{ \App\Support\HomeMenu::join($menu['flavors']) ?: 'Real dairy ice cream' }}, cut into a thick slab.</p>
@@ -161,7 +161,7 @@
 
                     <div class="flex flex-col md:mt-4" data-reveal>
                         <div class="zoom-on-hover h-52 w-full rounded overflow-hidden mb-space-md bg-surface-container">
-                            <img class="w-full h-full object-cover" alt="A completed ice cream sandwich packaged in a pastel pink thermal pouch with ice mist" src="/img/marketing/step-packaged.jpg" loading="lazy">
+                            <img class="w-full h-full object-cover" alt="A brown cardboard Brread! delivery box" src="/img/marketing/step-packaged.jpg" loading="lazy">
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1 flex items-baseline gap-space-sm"><span class="font-hand text-[64px] leading-[0.8] text-primary-container -rotate-3" aria-hidden="true">3</span><span><span class="sr-only">Step 3: </span>Add a topping, we deliver</span></h3>
                         <p class="font-body-md text-body-md text-on-surface-variant">{{ \App\Support\HomeMenu::join($menu['toppings']) ?: 'A topping of your choice' }}, then it goes into an insulated box and out the door.</p>

@@ -14,9 +14,9 @@
             ->map(fn ($review) => ['src' => $review['photo'], 'caption' => $review['name'], 'alt' => 'Photo from '.$review['name'].' of their Brread! sandwich'])
             ->concat([
                 ['src' => '/img/marketing/hero-held.jpg', 'caption' => 'fresh off the counter', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles'],
-                ['src' => '/img/marketing/product-chocolate.jpg', 'caption' => 'chocolate on wheat', 'alt' => 'Chocolate ice cream folded in whole wheat bread'],
-                ['src' => '/img/marketing/product-vanilla-wheat.jpg', 'caption' => 'the drizzle one', 'alt' => 'Vanilla ice cream on whole wheat bread with chocolate sauce'],
-                ['src' => '/img/marketing/product-vanilla.jpg', 'caption' => 'classic vanilla', 'alt' => 'Vanilla ice cream folded in white bread'],
+                ['src' => '/img/marketing/product-chocolate.jpg', 'caption' => 'chocolate on wheat', 'alt' => 'Chocolate ice cream between two slices of whole wheat bread'],
+                ['src' => '/img/marketing/product-drizzle.jpg', 'caption' => 'the drizzle one', 'alt' => 'Chocolate ice cream on whole wheat bread with chocolate sauce'],
+                ['src' => '/img/marketing/product-neapolitan.jpg', 'caption' => 'the trio', 'alt' => 'Neapolitan ice cream between two slices of white bread'],
             ])
             ->take(6)
             ->values();

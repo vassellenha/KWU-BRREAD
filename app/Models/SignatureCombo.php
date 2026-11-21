@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A one-click creation shown in the builder: one bread, one flavor and any number of toppings,
@@ -32,6 +33,12 @@ class SignatureCombo extends Model
     public function flavor(): BelongsTo
     {
         return $this->belongsTo(Component::class, 'flavor_id');
+    }
+
+    /** The card photo the admin uploaded, if any (without its bytes unless asked for). */
+    public function photo(): HasOne
+    {
+        return $this->hasOne(SignatureComboPhoto::class);
     }
 
     public function toppings(): BelongsToMany

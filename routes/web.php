@@ -114,7 +114,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 });
 
 Route::get('/', function () {
-    return view('pages.home', ['menu' => HomeMenu::get(home: true)]);
+    return view('pages.home', ['menu' => HomeMenu::get(public: true)]);
 })->name('home');
 
 Route::get('/builder', function () {
@@ -126,7 +126,7 @@ Route::get('/menu', function () {
 })->name('menu');
 
 Route::get('/about', function () {
-    return view('pages.about', ['menu' => HomeMenu::get()]);
+    return view('pages.about', ['menu' => HomeMenu::get(public: true)]);
 })->name('about');
 
 Route::get('/contact', function () {
@@ -141,6 +141,7 @@ Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->nam
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
 Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
 Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');
+Route::get('/combos/photo/{photo}', [SignatureComboController::class, 'photo'])->whereNumber('photo')->name('signature.photo');
 
 // Unknown addresses go through the web middleware too, so a held guest is trapped on them as well.
 Route::fallback(fn () => abort(404));

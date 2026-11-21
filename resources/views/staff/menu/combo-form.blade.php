@@ -2,7 +2,7 @@
     $isRestored = $restoredCombo === ($comboId ?? 'add');
     $chosenToppings = $selectedToppings($comboId, $combo);
 @endphp
-<form method="POST" action="{{ $action }}" class="flex flex-wrap items-end gap-space-sm">
+<form method="POST" action="{{ $action }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-space-sm">
     @csrf
     @if ($method)
         @method($method)
@@ -56,6 +56,16 @@
             @endforeach
         </div>
     </fieldset>
+    <div>
+        <label for="{{ $formId }}-photo" class="block font-label-md text-label-md text-on-surface-variant mb-1">Card photo (optional)</label>
+        <input id="{{ $formId }}-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="block w-56 font-body-sm text-body-sm text-on-surface-variant file:mr-2 file:rounded-full file:border-0 file:bg-surface-container file:px-3 file:py-1.5 file:font-label-md file:text-on-surface">
+        @if ($combo?->photo)
+            <label class="mt-1 inline-flex items-center gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
+                <input type="checkbox" name="remove_photo" value="1" class="rounded border-outline-variant text-primary focus:ring-primary">
+                Remove the current photo
+            </label>
+        @endif
+    </div>
     <button type="submit" class="press-scale px-space-md py-space-xs rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg hover:opacity-95 transition-opacity duration-200">
         Save
     </button>

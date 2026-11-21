@@ -6,9 +6,11 @@ use App\Models\Component;
 use App\Models\SignatureCombo;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Support\HomeMenu;
 use Database\Seeders\ComponentSeeder;
 use Database\Seeders\SignatureComboSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class SignatureComboTest extends TestCase
@@ -187,5 +189,41 @@ class SignatureComboTest extends TestCase
         $this->actingAs($warehouse)->delete(route('staff.menu.combos.destroy', $combo))->assertForbidden();
 
         $this->assertSame(7, SignatureCombo::count());
+    }
+
+    public function test_the_admin_can_put_a_photo_on_a_combo_card_and_take_it_off(): void
+    {
+        $combo = SignatureCombo::firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->put(route('staff.menu.combos.update', $combo), $this->payload($combo->name) + ['photo' => UploadedFile::fake()->image('card.jpg', 800, 800)])
+            ->assertSessionHasNoErrors();
+
+        $photo = $combo->fresh()->photo;
+        $this->assertNotNull($photo);
+
+        $card = collect(HomeMenu::get(public: true)['combos'])->firstWhere('id', $combo->id);
+        $this->assertTrue($card['photo']);
+        $this->assertSame($photo->url(), $card['image']);
+
+        $this->get(route('signature.photo', $photo))->assertOk()->assertHeader('Content-Type', $photo->mime);
+
+        $this->actingAs($this->admin)
+            ->put(route('staff.menu.combos.update', $combo), $this->payload($combo->name) + ['remove_photo' => '1'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull($combo->fresh()->photo);
+        $this->assertFalse(collect(HomeMenu::get(public: true)['combos'])->firstWhere('id', $combo->id)['photo']);
+    }
+
+    public function test_a_combo_photo_must_be_a_real_picture(): void
+    {
+        $combo = SignatureCombo::firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->put(route('staff.menu.combos.update', $combo), $this->payload($combo->name) + ['photo' => UploadedFile::fake()->create('card.pdf', 50, 'application/pdf')])
+            ->assertSessionHasErrors('photo');
+
+        $this->assertNull($combo->fresh()->photo);
     }
 }

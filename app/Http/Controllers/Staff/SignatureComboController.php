@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\SignatureCombo;
+use App\Models\SignatureComboPhoto;
+use App\Support\ReviewImage;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +30,7 @@ class SignatureComboController extends Controller
             return back()->withInput()->withErrors(['combo' => 'The builder fits '.self::MAX_COMBOS.' combos. Delete one before adding another.']);
         }
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated, $request) {
             $combo = SignatureCombo::create([
                 'name' => $validated['name'],
                 'bread_id' => $validated['bread_id'],
@@ -37,6 +40,7 @@ class SignatureComboController extends Controller
             ]);
 
             $combo->toppings()->sync($validated['toppings'] ?? []);
+            $this->savePhoto($combo, $request);
         });
 
         return back()->with('status', "{$validated['name']} added to the signature combos.");
@@ -46,7 +50,7 @@ class SignatureComboController extends Controller
     {
         $validated = $request->validate($this->rules($combo));
 
-        DB::transaction(function () use ($combo, $validated) {
+        DB::transaction(function () use ($combo, $validated, $request) {
             $combo->update([
                 'name' => $validated['name'],
                 'bread_id' => $validated['bread_id'],
@@ -54,9 +58,31 @@ class SignatureComboController extends Controller
             ]);
 
             $combo->toppings()->sync($validated['toppings'] ?? []);
+            $this->savePhoto($combo, $request);
         });
 
         return back()->with('status', "{$combo->name} saved.");
+    }
+
+    /** The card picture itself, served to the Home page. */
+    public function photo(SignatureComboPhoto $photo): Response
+    {
+        return response(base64_decode($photo->data), 200, [
+            'Content-Type' => $photo->mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => 'inline',
+        ]);
+    }
+
+    /** A new upload replaces the card photo; "remove" brings the 3D picture of the sandwich back. */
+    private function savePhoto(SignatureCombo $combo, Request $request): void
+    {
+        if ($request->hasFile('photo')) {
+            $combo->photo()->updateOrCreate([], ReviewImage::fromUpload($request->file('photo')));
+        } elseif ($request->boolean('remove_photo')) {
+            $combo->photo()->delete();
+        }
     }
 
     public function toggleActive(SignatureCombo $combo): RedirectResponse
@@ -126,6 +152,8 @@ class SignatureComboController extends Controller
             'flavor_id' => ['required', 'integer', Rule::exists('components', 'id')->where('category', 'ice_cream')],
             'toppings' => ['nullable', 'array', 'max:'.self::MAX_TOPPINGS],
             'toppings.*' => ['integer', 'distinct', Rule::exists('components', 'id')->where('category', 'topping')],
+            'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
+            'remove_photo' => ['nullable', 'boolean'],
         ];
     }
 }

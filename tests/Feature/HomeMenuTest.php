@@ -25,7 +25,7 @@ class HomeMenuTest extends TestCase
 
     public function test_home_copy_and_counts_follow_the_menu(): void
     {
-        $menu = HomeMenu::get(home: true);
+        $menu = HomeMenu::get(public: true);
 
         $this->assertSame(Component::where('category', 'ice_cream')->where('is_active', true)->whereNotIn('name', ['Vanilla', 'Strawberry'])->count(), $menu['counts']['flavors']);
 
@@ -65,7 +65,7 @@ class HomeMenuTest extends TestCase
 
     public function test_home_leaves_vanilla_and_strawberry_out_but_about_keeps_them(): void
     {
-        $home = HomeMenu::get(home: true);
+        $home = HomeMenu::get(public: true);
 
         $this->assertNotContains('Vanilla', $home['flavors']);
         $this->assertNotContains('Strawberry', $home['flavors']);
@@ -94,5 +94,17 @@ class HomeMenuTest extends TestCase
         $this->assertSame('A or B', HomeMenu::join(['A', 'B']));
         $this->assertSame('A, B and C', HomeMenu::join(['A', 'B', 'C'], 'and'));
         $this->assertSame('', HomeMenu::join([]));
+    }
+
+    public function test_about_shows_a_card_for_each_flavor_we_sell_and_none_for_the_hidden_ones(): void
+    {
+        $html = $this->get('/about')->assertOk()->getContent();
+
+        foreach (['Chocolate', 'Neapolitan', 'Es Teler', 'Durian Musang King', 'Matcha'] as $flavor) {
+            $this->assertStringContainsString('<h2 class="about-card-title">'.$flavor.'</h2>', $html);
+        }
+        $this->assertStringNotContainsString('<h2 class="about-card-title">Vanilla</h2>', $html);
+        $this->assertStringNotContainsString('<h2 class="about-card-title">Strawberry</h2>', $html);
+        $this->assertStringNotContainsString('product-vanilla', $html);
     }
 }

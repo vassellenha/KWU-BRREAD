@@ -13,16 +13,8 @@ use Illuminate\Support\Str;
  */
 class HomeMenu
 {
-    /** Real photos for the combos that have one, keyed by "bread-slug|flavor|topping+topping" in lower case. */
-    private const PHOTOS = [
-        'plain-white-bread|vanilla|' => '/img/marketing/product-vanilla.jpg',
-        'plain-white-bread|strawberry|rainbow sprinkles' => '/img/marketing/product-strawberry.jpg',
-        'whole-wheat-bread|chocolate|' => '/img/marketing/product-chocolate.jpg',
-        'whole-wheat-bread|vanilla|chocolate sauce' => '/img/marketing/product-vanilla-wheat.jpg',
-    ];
-
-    /** Flavors the Home page leaves out for now (lower case). Menu, MRP and ordering are untouched; empty this list to bring them back. */
-    private const HIDDEN_ON_HOME = ['vanilla', 'strawberry'];
+    /** Flavors the public pages (Home, About, the footer) leave out for now (lower case). Menu, MRP and ordering are untouched; empty this list to bring them back. */
+    private const HIDDEN_ON_PUBLIC_PAGES = ['vanilla', 'strawberry'];
 
     /** Topping name => the key the 3D scene reads. */
     private const TOPPING_FLAGS = [
@@ -40,31 +32,31 @@ class HomeMenu
      *     combos: list<array<string, mixed>>, hero: list<array<string, mixed>>
      * }
      */
-    public static function get(bool $home = false): array
+    public static function get(bool $public = false): array
     {
         try {
-            return self::load($home);
+            return self::load($public);
         } catch (\Throwable) {
             // A menu that cannot be read leaves the generic wording in place instead of taking the page down.
             return ['breads' => [], 'flavors' => [], 'toppings' => [], 'counts' => ['breads' => 0, 'flavors' => 0, 'toppings' => 0], 'ways' => 0, 'filters' => [], 'combos' => [], 'hero' => []];
         }
     }
 
-    private static function load(bool $home): array
+    private static function load(bool $public): array
     {
         $active = Component::where('is_active', true)->orderBy('price')->orderBy('id')->get()->groupBy('category');
         $breads = $active->get('bread', collect());
         $flavors = $active->get('ice_cream', collect());
         $toppings = $active->get('topping', collect());
 
-        $signatures = SignatureCombo::with(['bread', 'flavor', 'toppings'])
+        $signatures = SignatureCombo::with(['bread', 'flavor', 'toppings', 'photo:id,signature_combo_id,updated_at'])
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
 
-        if ($home) {
-            $hidden = fn (Component $flavor) => in_array(Str::lower($flavor->name), self::HIDDEN_ON_HOME, true);
+        if ($public) {
+            $hidden = fn (Component $flavor) => in_array(Str::lower($flavor->name), self::HIDDEN_ON_PUBLIC_PAGES, true);
             $flavors = $flavors->reject($hidden)->values();
             $signatures = $signatures->reject(fn (SignatureCombo $combo) => $hidden($combo->flavor))->values();
         }
@@ -100,7 +92,7 @@ class HomeMenu
 
         return [
             'breads' => $active->get('bread', collect())->pluck('name')->all(),
-            'flavors' => $active->get('ice_cream', collect())->pluck('name')->all(),
+            'flavors' => $active->get('ice_cream', collect())->reject(fn (Component $flavor) => in_array(Str::lower($flavor->name), self::HIDDEN_ON_PUBLIC_PAGES, true))->pluck('name')->values()->all(),
             'toppings' => $active->get('topping', collect())->pluck('name')->all(),
         ];
     }
@@ -144,7 +136,7 @@ class HomeMenu
     {
         $toppingNames = $combo->toppings->pluck('name')->all();
         $flavor = $combo->flavor;
-        $photo = self::PHOTOS[Str::slug($combo->bread->name).'|'.Str::lower($flavor->name).'|'.Str::lower(implode('+', $toppingNames))] ?? null;
+        $photo = $combo->photo?->url();
         $fallback = '/img/ingredients/icecream-'.Str::slug($flavor->name).'.webp';
 
         return [

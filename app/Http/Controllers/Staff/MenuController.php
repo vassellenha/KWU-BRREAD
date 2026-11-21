@@ -36,7 +36,7 @@ class MenuController extends Controller
     {
         $all = Component::withCount('orderItems')->orderBy('name')->get();
         $byCategory = $all->groupBy('category');
-        $combos = SignatureCombo::with(['bread', 'flavor', 'toppings'])->orderBy('sort_order')->orderBy('id')->get();
+        $combos = SignatureCombo::with(['bread', 'flavor', 'toppings', 'photo:id,signature_combo_id,updated_at'])->orderBy('sort_order')->orderBy('id')->get();
 
         return view('staff.menu.index', [
             'groups' => collect(self::CATEGORIES)->map(fn (string $label, string $category) => [
