@@ -114,7 +114,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 });
 
 Route::get('/', function () {
-    return view('pages.home', ['menu' => HomeMenu::get()]);
+    return view('pages.home', ['menu' => HomeMenu::get(home: true)]);
 })->name('home');
 
 Route::get('/builder', function () {

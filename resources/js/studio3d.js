@@ -1391,6 +1391,11 @@ export function createStudio3D(
             camera.position.copy(controls.target).add(offset);
             renderer.render(scene, camera);
         },
+        // A still of the settled sandwich as an image, for thumbnails.
+        snapshot(type = 'image/webp', quality = 0.9) {
+            api.renderStill();
+            return canvas.toDataURL(type, quality);
+        },
         dispose() {
             disposed = true;
             cancelAnimationFrame(frame);

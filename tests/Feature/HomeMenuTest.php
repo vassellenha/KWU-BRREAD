@@ -25,9 +25,9 @@ class HomeMenuTest extends TestCase
 
     public function test_home_copy_and_counts_follow_the_menu(): void
     {
-        $menu = HomeMenu::get();
+        $menu = HomeMenu::get(home: true);
 
-        $this->assertSame(Component::where('category', 'ice_cream')->where('is_active', true)->count(), $menu['counts']['flavors']);
+        $this->assertSame(Component::where('category', 'ice_cream')->where('is_active', true)->whereNotIn('name', ['Vanilla', 'Strawberry'])->count(), $menu['counts']['flavors']);
 
         $this->get('/')->assertOk()
             ->assertSee('Matcha')
@@ -61,6 +61,22 @@ class HomeMenuTest extends TestCase
         $this->assertNotContains('Classic Vanilla Slab', $names);
         $this->assertContains('Es Teler Party', $names);
         $this->get('/')->assertSee('Es Teler Party')->assertDontSee('Classic Vanilla Slab');
+    }
+
+    public function test_home_leaves_vanilla_and_strawberry_out_but_about_keeps_them(): void
+    {
+        $home = HomeMenu::get(home: true);
+
+        $this->assertNotContains('Vanilla', $home['flavors']);
+        $this->assertNotContains('Strawberry', $home['flavors']);
+        $this->assertNotContains('vanilla', array_column($home['hero'], 'key'));
+        $this->assertNotContains('strawberry', array_column($home['hero'], 'key'));
+        foreach ($home['combos'] as $combo) {
+            $this->assertNotContains(strtolower($combo['state']['flavor'] ?? ''), ['vanilla', 'strawberry']);
+        }
+        $this->assertSame(count($home['flavors']), $home['counts']['flavors']);
+
+        $this->assertContains('Vanilla', HomeMenu::get()['flavors']);
     }
 
     public function test_hero_chip_dresses_the_sandwich_like_a_combo_with_that_flavor(): void

@@ -13,13 +13,16 @@ use Illuminate\Support\Str;
  */
 class HomeMenu
 {
-    /** Real photos for the combos that have one, keyed by "flavor|topping+topping" in lower case. */
+    /** Real photos for the combos that have one, keyed by "bread-slug|flavor|topping+topping" in lower case. */
     private const PHOTOS = [
-        'vanilla|' => '/img/marketing/product-vanilla.jpg',
-        'strawberry|rainbow sprinkles' => '/img/marketing/product-strawberry.jpg',
-        'chocolate|' => '/img/marketing/product-chocolate.jpg',
-        'vanilla|chocolate sauce' => '/img/marketing/product-vanilla-wheat.jpg',
+        'plain-white-bread|vanilla|' => '/img/marketing/product-vanilla.jpg',
+        'plain-white-bread|strawberry|rainbow sprinkles' => '/img/marketing/product-strawberry.jpg',
+        'whole-wheat-bread|chocolate|' => '/img/marketing/product-chocolate.jpg',
+        'whole-wheat-bread|vanilla|chocolate sauce' => '/img/marketing/product-vanilla-wheat.jpg',
     ];
+
+    /** Flavors the Home page leaves out for now (lower case). Menu, MRP and ordering are untouched; empty this list to bring them back. */
+    private const HIDDEN_ON_HOME = ['vanilla', 'strawberry'];
 
     /** Topping name => the key the 3D scene reads. */
     private const TOPPING_FLAGS = [
@@ -37,17 +40,17 @@ class HomeMenu
      *     combos: list<array<string, mixed>>, hero: list<array<string, mixed>>
      * }
      */
-    public static function get(): array
+    public static function get(bool $home = false): array
     {
         try {
-            return self::load();
+            return self::load($home);
         } catch (\Throwable) {
             // A menu that cannot be read leaves the generic wording in place instead of taking the page down.
             return ['breads' => [], 'flavors' => [], 'toppings' => [], 'counts' => ['breads' => 0, 'flavors' => 0, 'toppings' => 0], 'ways' => 0, 'filters' => [], 'combos' => [], 'hero' => []];
         }
     }
 
-    private static function load(): array
+    private static function load(bool $home): array
     {
         $active = Component::where('is_active', true)->orderBy('price')->orderBy('id')->get()->groupBy('category');
         $breads = $active->get('bread', collect());
@@ -59,6 +62,12 @@ class HomeMenu
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
+
+        if ($home) {
+            $hidden = fn (Component $flavor) => in_array(Str::lower($flavor->name), self::HIDDEN_ON_HOME, true);
+            $flavors = $flavors->reject($hidden)->values();
+            $signatures = $signatures->reject(fn (SignatureCombo $combo) => $hidden($combo->flavor))->values();
+        }
 
         $combos = $signatures->map(fn (SignatureCombo $combo) => self::card($combo))->values()->all();
 
@@ -135,7 +144,7 @@ class HomeMenu
     {
         $toppingNames = $combo->toppings->pluck('name')->all();
         $flavor = $combo->flavor;
-        $photo = self::PHOTOS[Str::lower($flavor->name).'|'.Str::lower(implode('+', $toppingNames))] ?? null;
+        $photo = self::PHOTOS[Str::slug($combo->bread->name).'|'.Str::lower($flavor->name).'|'.Str::lower(implode('+', $toppingNames))] ?? null;
         $fallback = '/img/ingredients/icecream-'.Str::slug($flavor->name).'.webp';
 
         return [
@@ -149,7 +158,20 @@ class HomeMenu
             'image' => $photo ?? (file_exists(public_path($fallback)) ? $fallback : null),
             'photo' => $photo !== null,
             'color' => $flavor->hex_color,
+            // What the page draws in 3D for the card when it has no real photo (see signatureMenu in app.js).
+            'state' => self::state($combo->bread, $flavor, $toppingNames),
         ];
+    }
+
+    /** The 3D scene's input for one sandwich. */
+    private static function state(?Component $bread, Component $flavor, array $toppingNames): array
+    {
+        $state = ['bread' => $bread?->name, 'flavor' => $flavor->name, 'flavorColor' => $flavor->hex_color ?: '#F3E9D2', 'exploded' => false];
+        foreach (self::TOPPING_FLAGS as $name => $flag) {
+            $state[$flag] = in_array($name, $toppingNames, true);
+        }
+
+        return $state;
     }
 
     /** One chip per flavor for the hero's 3D sandwich, dressed like the richest combo that uses it. */
@@ -165,10 +187,7 @@ class HomeMenu
             $toppingNames = $combo?->toppings->pluck('name')->all() ?? [];
             $color = $flavor->hex_color ?: '#F3E9D2';
 
-            $state = ['bread' => $bread?->name, 'flavor' => $flavor->name, 'flavorColor' => $color, 'exploded' => false];
-            foreach (self::TOPPING_FLAGS as $name => $flag) {
-                $state[$flag] = in_array($name, $toppingNames, true);
-            }
+            $state = self::state($bread, $flavor, $toppingNames);
 
             return [
                 'key' => Str::slug($flavor->name),

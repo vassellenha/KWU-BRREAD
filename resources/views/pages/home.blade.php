@@ -201,7 +201,7 @@
                     <template x-for="product in filteredProducts" :key="product.id">
                         <div class="product-card hover-lift bg-surface-container-lowest rounded-lg p-space-md flex flex-col border border-outline-variant/40 hover:shadow-[0_12px_28px_rgba(113,59,44,0.10)]" data-reveal>
                             <div class="zoom-on-hover relative w-full h-52 rounded bg-surface-container overflow-hidden mb-space-sm">
-                                <img x-show="product.image" class="w-full h-full" :class="product.photo ? 'object-cover' : 'object-contain p-space-md'" :style="product.photo ? '' : { backgroundColor: (product.color || '#F3E9D2') + '33' }" :src="product.image" :alt="product.name" loading="lazy">
+                                <img x-show="product.photo || product.thumb || product.image" class="w-full h-full" :class="product.photo ? 'object-cover' : 'object-contain p-space-sm'" :style="product.photo ? '' : { backgroundColor: (product.color || '#F3E9D2') + '2B' }" :src="product.photo ? product.image : (product.thumb || product.image)" :alt="product.name" loading="lazy">
                             </div>
                             <p class="font-hand text-[22px] leading-none text-primary-container mb-1 -rotate-1 origin-left" x-text="product.tag"></p>
                             <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1" x-text="product.name"></h3>

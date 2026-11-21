@@ -1372,6 +1372,40 @@ Alpine.data('signatureMenu', (products) => ({
 
     init() {
         Alpine.store('catalog').load();
+        const start = () => this.drawThumbs();
+        if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 2500 });
+        else setTimeout(start, 600);
+    },
+
+    // A card with no real photo gets a still of its own sandwich (right bread, flavor and toppings), drawn
+    // with the same 3D scene the Studio uses. One hidden scene is reused for every card, then thrown away.
+    async drawThumbs() {
+        const pending = this.products.filter((product) => !product.photo && product.state && !product.thumb);
+        if (!pending.length || navigator.connection?.saveData) return;
+
+        let scene = null;
+        const host = document.createElement('div');
+        host.setAttribute('aria-hidden', 'true');
+        host.style.cssText = 'position:fixed;left:-9999px;top:0;width:640px;height:440px;pointer-events:none';
+        document.body.appendChild(host);
+
+        try {
+            const { createStudio3D, supportsWebGL } = await import('./studio3d.js');
+            if (!supportsWebGL()) return;
+
+            scene = createStudio3D(host, { reducedMotion: true, autoRotate: false, interactive: false });
+            for (const product of pending) {
+                await scene.setState({ ...product.state, exploded: false });
+                scene.resetView();
+                scene.zoomBy(1.1);
+                product.thumb = scene.snapshot();
+            }
+        } catch (error) {
+            console.warn('Combo thumbnails unavailable, keeping the flavor pictures.', error);
+        } finally {
+            scene?.dispose();
+            host.remove();
+        }
     },
 
     get filteredProducts() {
