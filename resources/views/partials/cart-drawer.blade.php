@@ -74,8 +74,17 @@
                     <div class="rounded border bg-surface-container-lowest p-space-sm" :class="$store.cart.lineProblem(item) ? 'border-error/60' : 'border-outline-variant/30'">
                         <div class="flex gap-space-sm">
                             <div class="flex-1 min-w-0">
-                                <p class="font-label-lg text-label-lg text-on-surface truncate" :title="item.bread.name + ' · ' + item.flavor.name" x-text="item.bread.name + ' · ' + item.flavor.name"></p>
-                                <p class="font-body-sm text-body-sm text-on-surface-variant truncate" :title="item.toppings.map((t) => t.name).join(', ')" x-text="item.toppings.length ? item.toppings.map((t) => t.name).join(', ') : 'No toppings'"></p>
+                                <p class="flex items-center gap-1.5 font-label-lg text-label-lg text-on-surface min-w-0" :title="item.bread.name + ' · ' + item.flavor.name">
+                                    <span x-show="window.ingredientIcon(item.flavor.name)" class="relative w-4 h-4 rounded-full overflow-hidden flex-none"><svg class="ing-icon ing-swatch absolute inset-0" aria-hidden="true" focusable="false"><use :href="'#' + window.ingredientIcon(item.flavor.name)"></use></svg></span>
+                                    <span class="truncate" x-text="item.bread.name + ' · ' + item.flavor.name"></span>
+                                </p>
+                                <p class="font-body-sm text-body-sm text-on-surface-variant truncate" :title="item.toppings.map((t) => t.name).join(', ')">
+                                    <span x-show="!item.toppings.length">No toppings</span>
+                                    {{-- Each topping with its icon, comma separated like before. --}}
+                                    <template x-for="(topping, index) in item.toppings" :key="topping.id">
+                                        <span><span x-show="index">, </span><svg x-show="window.ingredientIcon(topping.name)" class="ing-icon text-[15px] mr-0.5" aria-hidden="true" focusable="false"><use :href="'#' + window.ingredientIcon(topping.name)"></use></svg><span x-text="topping.name"></span></span>
+                                    </template>
+                                </p>
                             </div>
                             <button type="button" @click="$store.cart.remove(item.uid)" aria-label="Remove from cart" class="press-scale w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors duration-200 shrink-0">
                                 <span class="material-symbols-outlined text-[18px]">delete</span>

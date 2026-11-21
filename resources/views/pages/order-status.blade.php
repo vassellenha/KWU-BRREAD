@@ -284,7 +284,12 @@
                                     @foreach ($creation['lines'] as $line)
                                         <div class="os-rcpt__row">
                                             <span class="os-rcpt__row-label">{{ $line['label'] }}</span>
-                                            <span class="os-rcpt__row-name">{{ $line['name'] }}</span>
+                                            <span class="os-rcpt__row-name">
+                                                @if ($icon = \App\Support\IngredientIcon::for($line['name']))
+                                                    <svg class="ing-icon os-rcpt__icon{{ $line['label'] === 'Topping' ? '' : ' os-rcpt__icon--swatch' }}" aria-hidden="true" focusable="false"><use href="#{{ $icon }}"></use></svg>
+                                                @endif
+                                                {{ $line['name'] }}
+                                            </span>
                                             <i class="os-rcpt__lead" aria-hidden="true"></i>
                                             <span class="os-rcpt__row-price">{{ $rupiah($line['price']) }}</span>
                                         </div>

@@ -1388,3 +1388,7 @@ input.sr-only:focus-visible + .os-photo { outline: 3px dashed var(--rasp-d); out
     .os-photo-preview { animation: none; }
     .os-photo, .os-photo:hover { transition: none; transform: none; }
 }
+
+/* Ingredient icons on the receipt lines (sprite in partials/ingredient-icons.blade.php). */
+.os-rcpt__icon { width: 1.15em; height: 1.15em; margin-right: 0.25em; vertical-align: -0.22em; color: #352f29; }
+.os-rcpt__icon--swatch { border-radius: 9999px; }

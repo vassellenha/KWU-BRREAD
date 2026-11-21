@@ -106,18 +106,18 @@ class MenuModuleTest extends TestCase
     public function test_an_ice_cream_flavor_needs_a_valid_color_and_is_saved_in_capitals(): void
     {
         $this->actingAs($this->admin)
-            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Matcha', 'price' => '9000'])
+            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Taro', 'price' => '9000'])
             ->assertSessionHasErrors('hex_color');
 
         $this->actingAs($this->admin)
-            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Matcha', 'price' => '9000', 'hex_color' => 'green'])
+            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Taro', 'price' => '9000', 'hex_color' => 'green'])
             ->assertSessionHasErrors('hex_color');
 
         $this->actingAs($this->admin)
-            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Matcha', 'price' => '9000', 'hex_color' => '#a3c585'])
+            ->post('/staff/menu', ['category' => 'ice_cream', 'name' => 'Taro', 'price' => '9000', 'hex_color' => '#a3c585'])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('#A3C585', $this->item('Matcha')->hex_color);
+        $this->assertSame('#A3C585', $this->item('Taro')->hex_color);
     }
 
     public function test_bread_and_toppings_never_keep_a_color(): void

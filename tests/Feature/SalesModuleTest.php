@@ -150,11 +150,11 @@ class SalesModuleTest extends TestCase
         $report = $this->salesPage()->viewData('report');
 
         $this->assertSame(
-            ['Strawberry' => 3, 'Vanilla' => 1, 'Chocolate' => 0, 'Durian Musang King' => 0, 'Es Teler' => 0, 'Neapolitan' => 0],
+            ['Strawberry' => 3, 'Vanilla' => 1, 'Chocolate' => 0, 'Durian Musang King' => 0, 'Es Teler' => 0, 'Matcha' => 0, 'Neapolitan' => 0],
             $report['flavors']->pluck('units', 'name')->all(),
         );
         $this->assertSame(75.0, $report['flavors'][0]['share']);
-        $this->assertSame(['Rainbow Sprinkles' => 3, 'Chocolate Sauce' => 0], $report['toppings']->pluck('units', 'name')->all());
+        $this->assertSame(['Rainbow Sprinkles' => 3, 'Chocolate Sauce' => 0, 'Marshmallow Mini' => 0, 'Yupi Gummy Bear Mini' => 0], $report['toppings']->pluck('units', 'name')->all());
         $this->assertSame(75.0, $report['topping_rate']);
     }
 
@@ -285,8 +285,8 @@ class SalesModuleTest extends TestCase
 
     public function test_hiding_an_ingredient_keeps_its_sales_history(): void
     {
-        $retired = Component::create(['name' => 'Matcha', 'category' => 'ice_cream', 'price' => 9000, 'stock_quantity' => 10, 'unit' => 'pcs', 'reorder_point' => 1, 'is_active' => true]);
-        $this->orderAt('2026-11-19 12:00:00', [$this->sandwich(['Plain White Bread', 'Matcha'], 2)]);
+        $retired = Component::create(['name' => 'Taro', 'category' => 'ice_cream', 'price' => 9000, 'stock_quantity' => 10, 'unit' => 'pcs', 'reorder_point' => 1, 'is_active' => true]);
+        $this->orderAt('2026-11-19 12:00:00', [$this->sandwich(['Plain White Bread', 'Taro'], 2)]);
 
         $admin = User::factory()->withRole(User::ROLE_ADMIN)->create();
         $this->actingAs($admin)->post("/staff/menu/{$retired->id}/toggle");
@@ -294,17 +294,17 @@ class SalesModuleTest extends TestCase
 
         $this->assertFalse($retired->fresh()->is_active);
         $report = $this->salesPage()->viewData('report');
-        $this->assertSame('Matcha + Plain White Bread', $report['combinations'][0]['label']);
-        $this->assertSame(2, $report['flavors']->firstWhere('name', 'Matcha')['units']);
+        $this->assertSame('Taro + Plain White Bread', $report['combinations'][0]['label']);
+        $this->assertSame(2, $report['flavors']->firstWhere('name', 'Taro')['units']);
     }
 
     public function test_an_unsold_retired_ingredient_drops_out_of_the_rankings(): void
     {
-        Component::create(['name' => 'Matcha', 'category' => 'ice_cream', 'price' => 9000, 'stock_quantity' => 10, 'unit' => 'pcs', 'reorder_point' => 1, 'is_active' => false]);
+        Component::create(['name' => 'Taro', 'category' => 'ice_cream', 'price' => 9000, 'stock_quantity' => 10, 'unit' => 'pcs', 'reorder_point' => 1, 'is_active' => false]);
 
         $report = $this->salesPage()->viewData('report');
 
-        $this->assertNull($report['flavors']->firstWhere('name', 'Matcha'));
+        $this->assertNull($report['flavors']->firstWhere('name', 'Taro'));
     }
 
     public function test_redeploying_keeps_changes_made_in_hr(): void

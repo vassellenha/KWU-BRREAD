@@ -21,6 +21,8 @@
     $toppings = $creation['art']['toppings'] ?? [];
     $hasSauce = in_array('top-sauce', $toppings, true);
     $hasSprinkles = in_array('top-sprinkles', $toppings, true);
+    // Pieces that sit on the top face (they are not pressed into the cut sides like sprinkles).
+    $pieces = array_values(array_intersect(['top-marshmallow', 'top-gummy-bears'], $toppings));
     $crustVars = $wheat
         ? '--crust: #a8693a; --crust-d: #7a4624; --crumb: #c9a06c; --tint: rgba(70, 35, 8, 0.12)'
         : '--crust: #e6ad62; --crust-d: #bf7d33; --crumb: #f7ecd4; --tint: rgba(222, 164, 86, 0.34)';
@@ -125,6 +127,9 @@
                 @if ($hasSprinkles)
                     <g class="fs-sprk"><image class="fs-top" href="{{ $art('top-sprinkles') }}" x="0" y="0" width="196" height="100" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabTop }}"/></g>
                 @endif
+                @foreach ($pieces as $piece)
+                    <g class="fs-sprk"><image class="fs-top" href="{{ $art($piece) }}" x="{{ $loop->index * 7 }}" y="{{ $loop->index * 5 }}" width="196" height="100" preserveAspectRatio="xMidYMid slice" transform="{{ $mxSlabTop }}"/></g>
+                @endforeach
             </g>
             <polygon class="fs-ln" points="{{ $slabTop }}"/>
             </g>

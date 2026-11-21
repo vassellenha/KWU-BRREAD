@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Half-width, half-depth, half-thickness, plan corner radius, edge rounding radius (world units).
 // Keep hw/hd/rp/re in sync with scripts/build_studio3d_textures.py.
@@ -38,6 +39,8 @@ const PROCEDURAL_FLAVORS = {
     Neapolitan: { slug: 'neapolitan', sss: 0.035, sheen: 0.3 },
     'Durian Musang King': { slug: 'durian-musang-king', sss: 0.055, sheen: 0.38 },
     'Es Teler': { slug: 'es-teler', sss: 0.04, sheen: 0.3 },
+    // Matte stone-ground tea cream: a weaker warm glow and less sheen than the fruit flavors.
+    Matcha: { slug: 'matcha', sss: 0.03, sheen: 0.22 },
 };
 const FLAVOR_MAPS = ['albedo.webp', 'surface.webp', 'frost.webp'];
 
@@ -57,6 +60,20 @@ const FLAVOR_ATLAS = {
 };
 
 const SPRINKLE_COLORS =['#e63946', '#ffd23f', '#3fa34d', '#2f80ed', '#ff8c42', '#8e44ad', '#ff6fae', '#fdfdfd'];
+
+// Mini toppings, at 1 mm = MM world units (the slab is about 12 cm long and 2 cm thick). Same palettes
+// as scripts/build_studio3d_toppings.py, which renders the flat art of these pieces.
+const MM = 0.0175;
+const MARSHMALLOW_CREAM = ['#f2e9da', '#f5eee2', '#eee4d2'];
+const MARSHMALLOW_PINK = '#f6c6d1';
+const GUMMY_COLORS = ['#d8261c', '#f0740f', '#f2b90c', '#3ea52a'];
+// Pieces per topping and the radius each one keeps clear around it (world units). Both kinds are drawn
+// from one Poisson-disc set, so each spreads evenly on its own and the two never overlap when combined.
+const PIECES = {
+    marshmallow: { count: 19, radius: 0.092 },
+    gummy: { count: 13, radius: 0.088 },
+    seed: 7301,
+};
 
 const DEFAULT_VIEW = { azimuth: -28, polar: 63 };
 
@@ -417,6 +434,205 @@ function buildSprinkles(iceGeometry) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Mini toppings: marshmallows and gummy bears. One InstancedMesh per kind (one draw call each),
+// spread over the top with Poisson-disc sampling and seated by casting rays at the slab's real surface,
+// so a piece sinks a little into the cream instead of floating above it or cutting through the bread.
+// ---------------------------------------------------------------------------------------------
+
+// Dart throwing in turns (one marshmallow, one gummy bear, ...) until every kind has its count or the
+// top is full. Each point keeps its own radius clear, so a piece never overlaps its neighbour.
+function poissonOnTop(random, kinds) {
+    const { hw, hd } = SLABS.ice;
+    const points = [];
+    const placed = Object.fromEntries(Object.keys(kinds).map((key) => [key, []]));
+    const order = Object.keys(kinds);
+    for (let tries = 0, turn = 0; tries < 40000; tries++) {
+        const open = order.filter((key) => placed[key].length < kinds[key].count);
+        if (!open.length) break;
+        const key = open[turn % open.length];
+        const r = kinds[key].radius;
+        const x = (random() * 2 - 1) * (hw - 0.07 - r * 0.6);
+        const z = (random() * 2 - 1) * (hd - 0.05 - r * 0.6);
+        if (points.every((p) => Math.hypot(p.x - x, p.z - z) >= p.r + r)) {
+            const point = { x, z, r };
+            points.push(point);
+            placed[key].push(point);
+            turn++;
+        }
+    }
+    return placed;
+}
+
+// Where a ray from above meets the slab top, and the surface normal there (slab space).
+function seatOnTop(raycaster, slab, x, z) {
+    raycaster.set(new THREE.Vector3(x, 1, z), new THREE.Vector3(0, -1, 0));
+    const hit = raycaster.intersectObject(slab, false)[0];
+    if (!hit) return { point: new THREE.Vector3(x, SLABS.ice.ht, z), normal: new THREE.Vector3(0, 1, 0) };
+    return { point: hit.point, normal: hit.face.normal.clone().normalize() };
+}
+
+// A mini marshmallow: a short cylinder with softly rounded, slightly bulging sides (about 10 x 8.7 mm).
+function marshmallowGeometry() {
+    const radius = 5.0 * MM;
+    const half = 4.35 * MM;
+    const round = 1.7 * MM;
+    const profile = [new THREE.Vector2(0, -half)];
+    const arc = (cx, cy, from, to, steps) => {
+        for (let i = 0; i <= steps; i++) {
+            const a = from + ((to - from) * i) / steps;
+            profile.push(new THREE.Vector2(cx + Math.cos(a) * round, cy + Math.sin(a) * round));
+        }
+    };
+    arc(radius - round, -half + round, -Math.PI / 2, 0, 5);
+    // The wall bows out a touch in the middle, like a marshmallow that set a little proud.
+    for (let i = 1; i < 4; i++) {
+        const y = -half + round + ((2 * (half - round)) * i) / 4;
+        profile.push(new THREE.Vector2(radius + Math.sin((i / 4) * Math.PI) * 0.25 * MM, y));
+    }
+    arc(radius - round, half - round, 0, Math.PI / 2, 5);
+    profile.push(new THREE.Vector2(0, half));
+    const geometry = new THREE.LatheGeometry(profile, 22);
+    geometry.userData = { radius, half };
+    return geometry;
+}
+
+// A gummy bear lying on its back: head, two ears, a body, two arms and two legs (about 12 mm tall,
+// 4.4 mm thick), merged into one geometry of under 500 triangles. Local +y runs up the bear, +z out of
+// its face, so +z is the side that faces up once it lies on the slab.
+function gummyBearGeometry() {
+    const parts = [];
+    const ellipsoid = (centre, radii, w, h) => {
+        const g = new THREE.SphereGeometry(1, w, h);
+        g.scale(radii[0] * MM, radii[1] * MM, radii[2] * MM);
+        g.translate(centre[0] * MM, centre[1] * MM, centre[2] * MM);
+        parts.push(g);
+    };
+    const limb = (from, to, radius) => {
+        const a = new THREE.Vector3(...from).multiplyScalar(MM);
+        const b = new THREE.Vector3(...to).multiplyScalar(MM);
+        const g = new THREE.CapsuleGeometry(radius * MM, a.distanceTo(b), 2, 6);
+        g.scale(1, 1, 0.85);
+        g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+        g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+        parts.push(g);
+    };
+    // Limbs and ears sink well into the body and head, so the bear reads as one moulded piece.
+    ellipsoid([0, -0.9, 0], [2.75, 3.0, 2.15], 8, 7); // body
+    ellipsoid([0, 2.85, 0.15], [2.6, 2.3, 2.0], 8, 7); // head
+    ellipsoid([-1.75, 4.45, -0.05], [1.05, 1.05, 0.8], 6, 4); // ears
+    ellipsoid([1.75, 4.45, -0.05], [1.05, 1.05, 0.8], 6, 4);
+    limb([-1.75, 0.5, 0.55], [-2.75, -0.8, 0.85], 0.95); // arms
+    limb([1.75, 0.5, 0.55], [2.75, -0.8, 0.85], 0.95);
+    ellipsoid([-1.4, -3.35, 0.45], [1.3, 1.4, 1.3], 7, 5); // legs
+    ellipsoid([1.4, -3.35, 0.45], [1.3, 1.4, 1.3], 7, 5);
+    const geometry = mergeGeometries(parts.map((g) => g.toNonIndexed()));
+    parts.forEach((g) => g.dispose());
+    geometry.userData = { thickness: 2.2 * MM };
+    return geometry;
+}
+
+// Lays out the pieces of one topping and fills its InstancedMesh. Returns the per-piece rest matrices
+// (for the drop-in animation) and how far the tallest piece rises above the slab top.
+function placePieces(mesh, slab, { points, seed, kind }) {
+    const { ht } = SLABS.ice;
+    const random = mulberry32(seed + 1);
+    const raycaster = new THREE.Raycaster();
+    const dummy = new THREE.Object3D();
+    const up = new THREE.Vector3(0, 1, 0);
+    const axis = new THREE.Vector3();
+    const color = new THREE.Color();
+    const rest = [];
+    let rise = 0;
+    const { radius = 0, half = 0, thickness = 0 } = mesh.geometry.userData;
+    const sink = kind === 'marshmallow' ? 0.3 : 0.25; // share of the piece pressed into the cream
+
+    const place = ({ point, normal }) => {
+        const yaw = random() * Math.PI * 2;
+        const tangent = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
+        tangent.sub(normal.clone().multiplyScalar(tangent.dot(normal))).normalize();
+        if (tangent.lengthSq() < 1e-6) tangent.set(1, 0, 0);
+        const size = 0.9 + random() * 0.2;
+        let lift;
+
+        if (kind === 'marshmallow') {
+            const standing = random() < 0.38;
+            // Standing: the cylinder axis along the surface normal. Lying: across it, rolled to a random yaw.
+            axis.copy(standing ? normal : tangent);
+            dummy.quaternion.setFromUnitVectors(up, axis);
+            if (standing) dummy.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(normal, yaw));
+            else dummy.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(tangent, random() * Math.PI));
+            const squish = 0.9 + random() * 0.12;
+            dummy.scale.set(size, size * squish, size);
+            lift = (standing ? half * squish : radius) * size * (1 - sink);
+            const pink = random() < 0.2;
+            mesh.setColorAt(rest.length, color.set(pink ? MARSHMALLOW_PINK : MARSHMALLOW_CREAM[Math.floor(random() * MARSHMALLOW_CREAM.length)]));
+        } else {
+            // Lying on its back, face up, spun to a random direction and rocked a little.
+            const basis = new THREE.Matrix4().makeBasis(tangent, normal.clone().cross(tangent).normalize(), normal);
+            dummy.quaternion.setFromRotationMatrix(basis);
+            dummy.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler((random() - 0.5) * 0.3, (random() - 0.5) * 0.3, 0)));
+            dummy.scale.setScalar(size);
+            lift = thickness * size * (1 - sink);
+            mesh.setColorAt(rest.length, color.set(GUMMY_COLORS[rest.length % GUMMY_COLORS.length]));
+        }
+
+        dummy.position.copy(point).addScaledVector(normal, lift);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(rest.length, dummy.matrix);
+        rest.push(dummy.matrix.clone());
+        rise = Math.max(rise, dummy.position.y + lift / (1 - sink) - ht);
+    };
+
+    points.forEach(({ x, z }) => place(seatOnTop(raycaster, slab, x, z)));
+
+    mesh.count = rest.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return { rest, rise };
+}
+
+// Gummy jelly without real transmission (too heavy on phones): a sharp clearcoat, a deep colour at the
+// rim and a brighter core where the surface faces the viewer, as if light were glowing through it.
+function createJellyMaterial() {
+    const material = new THREE.MeshPhysicalMaterial({
+        roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1, specularIntensity: 1, ior: 1.45,
+        sheen: 0.25, sheenRoughness: 0.4, sheenColor: new THREE.Color(0xffffff), envMapIntensity: 1.1,
+    });
+    material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <emissivemap_fragment>',
+            `#include <emissivemap_fragment>
+            float jellyFacing = clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+            totalEmissiveRadiance += diffuseColor.rgb * pow(jellyFacing, 1.6) * 0.32;`,
+        );
+    };
+    material.customProgramCacheKey = () => 'brread-jelly';
+    return material;
+}
+
+function buildMiniToppings(iceGeometry) {
+    const slab = new THREE.Mesh(iceGeometry);
+    slab.updateMatrixWorld();
+
+    const { marshmallow: marshmallowPoints, gummy: gummyPoints } = poissonOnTop(mulberry32(PIECES.seed), { marshmallow: PIECES.marshmallow, gummy: PIECES.gummy });
+
+    const marshmallowMaterial = new THREE.MeshPhysicalMaterial({
+        roughness: 0.68, sheen: 0.42, sheenRoughness: 0.6, sheenColor: new THREE.Color(0xfff6ea), normalScale: new THREE.Vector2(0.7, 0.7),
+    });
+    const marshmallows = new THREE.InstancedMesh(marshmallowGeometry(), marshmallowMaterial, PIECES.marshmallow.count);
+    const marshmallowLayout = placePieces(marshmallows, slab, { points: marshmallowPoints, seed: PIECES.seed + 1, kind: 'marshmallow' });
+
+    const gummies = new THREE.InstancedMesh(gummyBearGeometry(), createJellyMaterial(), PIECES.gummy.count);
+    const gummyLayout = placePieces(gummies, slab, { points: gummyPoints, seed: PIECES.seed + 2, kind: 'gummy' });
+
+    marshmallows.userData = marshmallowLayout;
+    gummies.userData = gummyLayout;
+    return { marshmallows, gummies };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Procedural flavor material: MeshPhysicalMaterial with its colour, relief, roughness and
 // occlusion read from the flavor atlas by position instead of by UV.
 // ---------------------------------------------------------------------------------------------
@@ -736,7 +952,8 @@ export function createStudio3D(
     iceGroup.add(ice);
     const sauce = buildSauce(sauceMaterial);
     const sprinkles = buildSprinkles(iceGeometry);
-    iceGroup.add(sauce, sprinkles);
+    const { marshmallows, gummies } = buildMiniToppings(iceGeometry);
+    iceGroup.add(sauce, sprinkles, marshmallows, gummies);
 
     [breadTop, breadBottom, ice].forEach((mesh) => {
         mesh.castShadow = true;
@@ -750,6 +967,8 @@ export function createStudio3D(
         ice: { object: iceGroup, y: new Spring(0), scale: new Spring(0, 220, 17) },
         sauce: { object: sauce, y: null, scale: new Spring(0, 240, 19) },
         sprinkles: { object: sprinkles, y: null, scale: new Spring(0, 240, 19) },
+        marshmallows: { object: marshmallows, y: null, scale: new Spring(0, 240, 19), pieces: true },
+        gummies: { object: gummies, y: null, scale: new Spring(0, 240, 19), pieces: true },
     };
     Object.values(parts).forEach((part) => (part.object.visible = false));
 
@@ -786,6 +1005,25 @@ export function createStudio3D(
             loadTexture(`ice-${flavor}-side.webp`, { color: true, repeatX: 2 }),
             loadTexture(`ice-${flavor}-side-n.webp`, { repeatX: 2 }),
         ]);
+
+    // The marshmallow skin (scripts/build_studio3d_toppings.py): fetched the first time it is picked.
+    let marshmallowMaps = null;
+    const loadMarshmallow = () =>
+        (marshmallowMaps ??= Promise.all([
+            loader.loadAsync(`${textureBase}/toppings/marshmallow.webp`),
+            loader.loadAsync(`${textureBase}/toppings/marshmallow-n.webp`),
+        ]).then(([map, normalMap]) => {
+            map.colorSpace = THREE.SRGBColorSpace;
+            [map, normalMap].forEach((texture) => {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(2, 1);
+                texture.anisotropy = maxAnisotropy;
+            });
+            marshmallows.material.map = map;
+            marshmallows.material.normalMap = normalMap;
+            marshmallows.material.needsUpdate = true;
+            return [map, normalMap];
+        }));
 
     const setMaps = (material, map, normalMap) => {
         material.map = map;
@@ -915,7 +1153,7 @@ export function createStudio3D(
     resizeObserver.observe(host);
 
     // --- State → layout --------------------------------------------------------------------------
-    let current = { bread: null, flavor: null, flavorColor: null, sauce: false, sprinkles: false, exploded: false };
+    let current = { bread: null, flavor: null, flavorColor: null, sauce: false, sprinkles: false, marshmallows: false, gummies: false, exploded: false };
     let requestId = 0;
 
     const layout = (state) => {
@@ -925,11 +1163,23 @@ export function createStudio3D(
         const iceHalf = SLABS.ice.ht;
         const sauceOn = hasIce && state.sauce;
         const sprinklesOn = hasIce && state.sprinkles;
+        const marshmallowsOn = hasIce && !!state.marshmallows;
+        const gummiesOn = hasIce && !!state.gummies;
+        // Mini pieces sit on the sauce when both are picked, rather than sinking through it.
+        const onSauce = sauceOn ? 0.012 : 0;
+        marshmallows.position.y = onSauce;
+        gummies.position.y = onSauce;
 
         let top = breadHalf;
         let bottom = -breadHalf;
         if (hasIce) {
-            const lift = sauceOn ? 0.03 : sprinklesOn ? 0.014 : 0;
+            // The top slice rests on whatever stands highest on the slab.
+            const lift = Math.max(
+                sauceOn ? 0.03 : 0,
+                sprinklesOn ? 0.014 : 0,
+                marshmallowsOn ? marshmallows.userData.rise + onSauce - 0.006 : 0,
+                gummiesOn ? gummies.userData.rise + onSauce - 0.004 : 0,
+            );
             top = iceHalf + breadHalf - 0.012 + lift;
             bottom = -(iceHalf + breadHalf) + 0.012;
         }
@@ -945,6 +1195,8 @@ export function createStudio3D(
         parts.ice.scale.target = hasIce ? 1 : 0;
         parts.sauce.scale.target = sauceOn ? 1 : 0;
         parts.sprinkles.scale.target = sprinklesOn ? 1 : 0;
+        parts.marshmallows.scale.target = marshmallowsOn ? 1 : 0;
+        parts.gummies.scale.target = gummiesOn ? 1 : 0;
     };
 
     const setState = async (next) => {
@@ -960,6 +1212,7 @@ export function createStudio3D(
         const [breadMaps, iceMaps] = await Promise.all([
             breadKind ? loadBread(breadKind) : null,
             flavorKind ? loadIce(flavorKind) : null,
+            next.marshmallows ? loadMarshmallow().catch(() => null) : null,
         ]);
         if (id !== requestId) return;
 
@@ -995,6 +1248,17 @@ export function createStudio3D(
         layout(current);
         if (procedural) showProceduralFlavor(procedural, next.flavorColor);
 
+        // Mini toppings drop onto the slab one after another; taking them off shrinks them away like the others.
+        const hasIce = !!next.bread && !!next.flavor;
+        [['marshmallows', !!next.marshmallows && hasIce, !!previous.marshmallows && !!previous.bread && !!previous.flavor], ['gummies', !!next.gummies && hasIce, !!previous.gummies && !!previous.bread && !!previous.flavor]].forEach(
+            ([key, on, wasOn]) => {
+                if (on && !wasOn) {
+                    parts[key].scale.snap(1);
+                    if (!reducedMotion && started) startDrop(parts[key]);
+                }
+            },
+        );
+
         if (reducedMotion || !started) {
             Object.values(parts).forEach((part) => {
                 part.scale.snap();
@@ -1010,6 +1274,37 @@ export function createStudio3D(
     let onScreen = true;
     let disposed = false;
 
+    // Drop-in: every piece starts a little above its seat and lands in turn, with a small settle.
+    const DROP = { height: 0.42, duration: 0.34, stagger: 0.028 };
+    const dropMatrix = new THREE.Matrix4();
+    const startDrop = (part) => {
+        part.drop = { elapsed: 0 };
+        stepDrop(part, 0);
+    };
+    const stepDrop = (part, dt) => {
+        const { rest } = part.object.userData;
+        part.drop.elapsed += dt;
+        let running = false;
+        rest.forEach((matrix, index) => {
+            const t = THREE.MathUtils.clamp((part.drop.elapsed - index * DROP.stagger) / DROP.duration, 0, 1);
+            if (t < 1) running = true;
+            // Falls with gravity, then a short damped bounce on landing.
+            const fall = t < 0.72 ? 1 - (t / 0.72) ** 2 : 0;
+            const bounce = t >= 0.72 ? Math.sin(((t - 0.72) / 0.28) * Math.PI) * 0.05 : 0;
+            dropMatrix.copy(matrix);
+            dropMatrix.elements[13] += (fall + bounce) * DROP.height;
+            part.object.setMatrixAt(index, dropMatrix);
+        });
+        part.object.instanceMatrix.needsUpdate = true;
+        if (!running) part.drop = null;
+    };
+    const settleDrop = (part) => {
+        if (!part.drop) return;
+        part.object.userData.rest.forEach((matrix, index) => part.object.setMatrixAt(index, matrix));
+        part.object.instanceMatrix.needsUpdate = true;
+        part.drop = null;
+    };
+
     const applyPart = (part, dt) => {
         const scale = Math.max(0, part.scale.step(dt));
         part.object.visible = scale > 0.02;
@@ -1024,7 +1319,10 @@ export function createStudio3D(
         if (!onScreen || document.hidden) return;
         const dt = Math.min(timer.getDelta(), 1 / 30);
 
-        Object.values(parts).forEach((part) => applyPart(part, dt));
+        Object.values(parts).forEach((part) => {
+            applyPart(part, dt);
+            if (part.drop) stepDrop(part, dt);
+        });
         if (!reducedMotion) sandwich.position.y = Math.sin(timer.getElapsed() * 1.1) * 0.022;
         floor.material.opacity = parts.breadBottom.scale.value;
         floor.visible = parts.breadBottom.object.visible;
@@ -1069,11 +1367,18 @@ export function createStudio3D(
         info() {
             const { calls, triangles } = renderer.info.render;
             const { textures, geometries } = renderer.info.memory;
-            return { calls, triangles, textures, geometries, programs: renderer.info.programs?.length ?? 0 };
+            return {
+                calls, triangles, textures, geometries, programs: renderer.info.programs?.length ?? 0,
+                pieces: { marshmallows: marshmallows.count, gummies: gummies.count },
+                pieceTriangles: Object.fromEntries(
+                    [['marshmallow', marshmallows.geometry], ['gummy', gummies.geometry]].map(([key, g]) => [key, (g.index ? g.index.count : g.attributes.position.count) / 3]),
+                ),
+            };
         },
         // Renders one frame right now with every animation settled (used by tests and for stills).
         renderStill() {
             Object.values(parts).forEach((part) => {
+                settleDrop(part);
                 part.scale.snap();
                 part.y?.snap();
                 applyPart(part, 0);
@@ -1099,9 +1404,10 @@ export function createStudio3D(
                 promise.then((maps) => [maps.albedo, maps.surface, maps.frost].forEach((texture) => texture.dispose())).catch(() => {}),
             );
             detailMap?.then((texture) => texture.dispose()).catch(() => {});
-            [breadGeometry, iceGeometry, sprinkles.geometry].forEach((geometry) => geometry.dispose());
+            [breadGeometry, iceGeometry, sprinkles.geometry, marshmallows.geometry, gummies.geometry].forEach((geometry) => geometry.dispose());
+            marshmallowMaps?.then((maps) => maps.forEach((texture) => texture.dispose())).catch(() => {});
             sauce.traverse((child) => child.geometry?.dispose());
-            [breadFace, breadCrust, iceFace, iceSide, flavorMaterial, flavorFallback, sauceMaterial, sprinkles.material, floor.material].forEach((m) => m.dispose());
+            [breadFace, breadCrust, iceFace, iceSide, flavorMaterial, flavorFallback, sauceMaterial, sprinkles.material, marshmallows.material, gummies.material, floor.material].forEach((m) => m.dispose());
             shadowTexture.dispose();
             floor.geometry.dispose();
             environment.dispose();

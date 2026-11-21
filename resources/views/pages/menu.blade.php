@@ -21,8 +21,11 @@
                 'Neapolitan': { cut: 'ice-neapolitan', bg: '#f4c3cf', ink: '#4a1f24', note: 'flavor no. 4', desc: 'Vanilla, strawberry and chocolate side by side in one slab.', tilt: '6deg' },
                 'Durian Musang King': { cut: 'ice-durian-musang-king', bg: '#e3e6a4', ink: '#3b3f0c', note: 'flavor no. 5', desc: 'Rich Musang King durian cream with chunks of golden custard.', tilt: '-5deg' },
                 'Es Teler': { cut: 'ice-es-teler', bg: '#f8d27e', ink: '#4a3005', note: 'flavor no. 6', desc: 'Mango, strawberry and pandan with coconut, jackfruit and avocado.', tilt: '4deg' },
+                'Matcha': { cut: 'ice-matcha', bg: '#cfd8b4', ink: '#2e3a17', note: 'flavor no. 7', desc: 'Stone-ground green tea cream, earthy and only lightly sweet.', tilt: '-6deg' },
                 'Chocolate Sauce': { cut: 'ice-vanilla', top: 'top-sauce', bg: '#d9b38c', ink: '#3d1b13', note: 'drizzled on', desc: 'Glossy dark chocolate, poured over the top.', tilt: '4deg' },
                 'Rainbow Sprinkles': { cut: 'ice-strawberry', top: 'top-sprinkles', bg: '#cfe6ea', ink: '#1f4a52', note: 'for the crunch', desc: 'A handful of colour on every bite.', tilt: '-5deg' },
+                'Marshmallow Mini': { cut: 'ice-chocolate', top: 'top-marshmallow', bg: '#f6e3e6', ink: '#5b2b33', note: 'soft and pillowy', desc: 'Little vanilla marshmallows in cream and pastel pink.', tilt: '5deg' },
+                'Yupi Gummy Bear Mini': { cut: 'ice-vanilla', top: 'top-gummy-bears', bg: '#fbd8c8', ink: '#5a1c0e', note: 'for the chew', desc: 'Tiny fruity gummy bears in red, orange, yellow and green.', tilt: '-4deg' },
             },
             lookFor(item) {
                 const generic = { bread: 'bread-white', ice_cream: 'ice-vanilla' }[item.category];

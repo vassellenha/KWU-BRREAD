@@ -225,7 +225,7 @@
                     <div class="space-y-space-xs text-center md:text-left">
                         <p class="font-hand text-[26px] leading-none text-secondary-fixed -rotate-2 origin-left">none of these quite right?</p>
                         <h3 class="font-headline-md text-headline-md">Build your own in the Studio</h3>
-                        <p class="font-body-md text-body-md text-on-primary/90 max-w-xl">Choose from 2 breads, 6 ice cream flavors and 2 toppings, then turn your sandwich around in 3D before you order.</p>
+                        <p class="font-body-md text-body-md text-on-primary/90 max-w-xl">Choose from 2 breads, 7 ice cream flavors and 4 toppings, then turn your sandwich around in 3D before you order.</p>
                     </div>
                     <a href="{{ route('build') }}" class="btn-chunky bg-surface-container-lowest text-primary px-space-xl py-3 rounded-full font-label-lg text-label-lg flex-shrink-0" style="--chunk: #6f1326">
                         Open the Studio

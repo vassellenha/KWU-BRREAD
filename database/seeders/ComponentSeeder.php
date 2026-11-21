@@ -28,10 +28,15 @@ class ComponentSeeder extends Seeder
             ['name' => 'Neapolitan', 'category' => 'ice_cream', 'price' => 8000, 'hex_color' => '#EE8AA3', 'stock_quantity' => 120, 'unit' => 'pcs', 'reorder_point' => 40],
             ['name' => 'Durian Musang King', 'category' => 'ice_cream', 'price' => 8000, 'hex_color' => '#D6DC7A', 'stock_quantity' => 120, 'unit' => 'pcs', 'reorder_point' => 40],
             ['name' => 'Es Teler', 'category' => 'ice_cream', 'price' => 8000, 'hex_color' => '#F5B82E', 'stock_quantity' => 120, 'unit' => 'pcs', 'reorder_point' => 40],
+            // Price, stock and reorder point copied from Vanilla; the earthy green swatch keeps it apart from Es Teler's pandan.
+            ['name' => 'Matcha', 'category' => 'ice_cream', 'price' => 8000, 'hex_color' => '#8A9F5B', 'stock_quantity' => 120, 'unit' => 'pcs', 'reorder_point' => 40],
 
             // Toppings
             ['name' => 'Chocolate Sauce', 'category' => 'topping', 'price' => 3000, 'hex_color' => '#3D1B13', 'stock_quantity' => 300, 'unit' => 'pcs', 'reorder_point' => 60],
             ['name' => 'Rainbow Sprinkles', 'category' => 'topping', 'price' => 3000, 'hex_color' => null, 'stock_quantity' => 300, 'unit' => 'pcs', 'reorder_point' => 60],
+            // Price, stock and reorder point copied from Rainbow Sprinkles (one portion per sandwich, like every topping).
+            ['name' => 'Marshmallow Mini', 'category' => 'topping', 'price' => 3000, 'hex_color' => '#F4EBDD', 'stock_quantity' => 300, 'unit' => 'pcs', 'reorder_point' => 60],
+            ['name' => 'Yupi Gummy Bear Mini', 'category' => 'topping', 'price' => 3000, 'hex_color' => '#E4472F', 'stock_quantity' => 300, 'unit' => 'pcs', 'reorder_point' => 60],
         ];
 
         foreach ($components as $component) {

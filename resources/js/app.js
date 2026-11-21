@@ -17,10 +17,28 @@ export const INGREDIENT_IMAGES = {
     Neapolitan: '/img/ingredients/icecream-neapolitan.webp',
     'Durian Musang King': '/img/ingredients/icecream-durian-musang-king.webp',
     'Es Teler': '/img/ingredients/icecream-es-teler.webp',
+    Matcha: '/img/ingredients/icecream-matcha.webp',
     'Chocolate Sauce': '/img/ingredients/topping-chocolate-sauce.webp',
     'Rainbow Sprinkles': '/img/ingredients/topping-sprinkles.webp',
+    'Marshmallow Mini': '/img/ingredients/topping-marshmallow-mini.webp',
+    'Yupi Gummy Bear Mini': '/img/ingredients/topping-gummy-bears.webp',
 };
 window.INGREDIENT_IMAGES = INGREDIENT_IMAGES;
+
+// Hand-drawn icons in resources/views/partials/ingredient-icons.blade.php (same list as App\Support\IngredientIcon).
+// Toppings show their shape; the multi-part flavors show a drawn swatch instead of a plain colour dot.
+export const INGREDIENT_ICONS = {
+    'Chocolate Sauce': 'ing-chocolate-sauce',
+    'Rainbow Sprinkles': 'ing-rainbow-sprinkles',
+    'Marshmallow Mini': 'ing-marshmallow-mini',
+    'Yupi Gummy Bear Mini': 'ing-yupi-gummy-bear-mini',
+    Matcha: 'ing-matcha',
+    Neapolitan: 'ing-neapolitan',
+    'Durian Musang King': 'ing-durian-musang-king',
+    'Es Teler': 'ing-es-teler',
+};
+export const ingredientIcon = (name) => (name ? (INGREDIENT_ICONS[name] ?? null) : null);
+window.ingredientIcon = ingredientIcon;
 
 // Items the admin adds in the Menu module have no photo of their own, so they borrow the
 // generic bread or ice cream picture. Toppings without art simply show no picture.
@@ -877,6 +895,8 @@ Alpine.data('brreadBuilder', () => ({
             flavorColor: this.selectedFlavor?.hex_color ?? null,
             sauce: this.hasChocolateSauce,
             sprinkles: this.hasSprinkles,
+            marshmallows: this.hasTopping('Marshmallow Mini'),
+            gummies: this.hasTopping('Yupi Gummy Bear Mini'),
             exploded: this.explodedView,
         };
     },
@@ -1091,8 +1111,22 @@ Alpine.data('brreadBuilder', () => ({
         return INGREDIENT_IMAGES[name] ?? null;
     },
 
+    iconFor(name) {
+        return ingredientIcon(name);
+    },
+
+    // Per-icon class, so each topping gets its own pick animation (see .ing-icon-- in app.css).
+    iconClass(name) {
+        const id = ingredientIcon(name);
+        return id ? `ing-icon--${id.slice(4)}` : '';
+    },
+
+    hasTopping(name) {
+        return this.selectedToppings.some((t) => t.name === name);
+    },
+
     get hasSprinkles() {
-        return this.selectedToppings.some((t) => t.name === 'Rainbow Sprinkles');
+        return this.hasTopping('Rainbow Sprinkles');
     },
 
     get hasChocolateSauce() {

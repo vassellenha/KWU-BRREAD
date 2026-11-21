@@ -85,9 +85,14 @@ The builder stacks a photo of every ingredient you pick and shows the result as 
 <td valign="top" align="center"><img src="./docs/readme/menu-sprinkles.png" width="100%" alt="Rainbow Sprinkles" /><br /><b>Rainbow Sprinkles</b><br />Rp 3,000</td>
 </tr>
 <tr>
-<td valign="middle" align="center"><b>24 combinations</b><br />2 breads × 3 flavors × 4 topping choices (none, either one, or both)</td>
+<td valign="middle" align="center"><b>224 combinations</b><br />2 breads × 7 flavors × 16 topping choices (any mix of the four)</td>
 <td valign="top" align="center"><img src="./docs/readme/menu-chocolate.png" width="100%" alt="Chocolate" /><br /><b>Chocolate</b><br />Rp 8,000</td>
-<td valign="middle" align="center"><b>Rp 14,000 to Rp 21,000</b><br />per sandwich at the seeded prices</td>
+<td valign="middle" align="center"><b>Rp 14,000 to Rp 27,000</b><br />per sandwich at the seeded prices</td>
+</tr>
+<tr>
+<td valign="middle" align="center"><b>More flavors</b><br />Neapolitan, Durian Musang King, Es Teler and Matcha, Rp 8,000 each</td>
+<td valign="top" align="center"><img src="./public/img/ingredients/icecream-matcha.webp" width="100%" alt="Matcha" /><br /><b>Matcha</b><br />Rp 8,000</td>
+<td valign="top" align="center"><img src="./public/img/ingredients/topping-marshmallow-mini.webp" width="100%" alt="Marshmallow Mini" /><br /><b>Marshmallow Mini</b><br />Rp 3,000<br /><img src="./public/img/ingredients/topping-gummy-bears.webp" width="100%" alt="Yupi Gummy Bear Mini" /><br /><b>Yupi Gummy Bear Mini</b><br />Rp 3,000</td>
 </tr>
 </table>
 
@@ -150,7 +155,37 @@ Rp 8,000 per sandwich.<br />Seeded with only **35** in stock against a reorder p
 <td width="40%" valign="top"><img src="./docs/readme/flavor-sauce.jpg" width="100%" alt="A vanilla sandwich on whole wheat bread with chocolate sauce drizzled over the top" /></td>
 <td valign="top">
 
-A Rp 3,000 topping, seeded with **300** in stock and a reorder point of **60**.<br />Each topping can be added once, and the sauce and the sprinkles can be combined.
+A Rp 3,000 topping, seeded with **300** in stock and a reorder point of **60**.<br />Each topping can be added once, and all four toppings can be combined.
+
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><b>Matcha</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./public/img/ingredients/icecream-matcha.webp" width="100%" alt="A slab of matcha ice cream" /></td>
+<td valign="top">
+
+Rp 8,000 per sandwich, seeded with **120** in stock and a reorder point of **40** (the same numbers as Vanilla).<br />An earthy, dull green tea cream (#7f9a55 to #8fa862, darker than the pandan in Es Teler) with fine dark tea specks, a thin dusting of matcha powder on the top and the rims, small air bubbles and ice crystals on the cut sides, and a matte finish. The textures are baked by `scripts/build_studio3d_flavors.py`; an owner's own `albedo.webp`, `surface.webp` or `frost.webp` dropped into `public/img/studio/flavors/matcha/` replaces the generated one in the Studio.
+
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><b>Marshmallow Mini</b> and <b>Yupi Gummy Bear Mini</b></summary>
+<br />
+<table>
+<tr>
+<td width="40%" valign="top"><img src="./public/img/ingredients/topping-marshmallow-mini.webp" width="100%" alt="Mini marshmallows in cream and pastel pink" /><br /><img src="./public/img/ingredients/topping-gummy-bears.webp" width="100%" alt="Mini gummy bears in red, orange, yellow and green" /></td>
+<td valign="top">
+
+Rp 3,000 each, seeded with **300** in stock and a reorder point of **60** (the same numbers as Rainbow Sprinkles; one portion per sandwich like every topping).<br />In the Studio, 19 marshmallows (about 1 in 5 pastel pink, the rest cream) and 13 gummy bears in four jelly colours drop onto the slab one after another. Both kinds come from one Poisson-disc set, so each spreads evenly on its own and they never overlap when combined, and every piece is seated by a ray cast at the slab's real surface, so it sinks a little into the cream instead of floating. The top slice rests on the tallest piece. These stock and price numbers are a starting point: change them in Menu and MRP.
 
 </td>
 </tr>
@@ -169,7 +204,7 @@ A Rp 3,000 topping, seeded with **300** in stock and a reorder point of **60**.<
 <td width="50%" valign="top">
 <img src="./docs/readme/card-studio.svg" width="100%" alt="A sandwich preview stacked from layers beside bread, flavor and topping pickers" /><br />
 <img src="./docs/readme/icon-studio.svg" width="22" height="22" align="absmiddle" alt="" />&nbsp; <b>Brread! Studio</b><br />
-Pick a base, a flavor and toppings, and the preview updates live in 3D: drag to turn the sandwich a full 360°, zoom in on the crumb, or open the exploded view to see every layer. Ingredients unlock in order, so you can't build an invalid sandwich. On a phone the 3D preview sits first, with the step bar, signature combos and pickers below it, so a choice shows up without scrolling back.
+Pick a base, a flavor and toppings, and the preview updates live in 3D: drag to turn the sandwich a full 360°, zoom in on the crumb, or open the exploded view to see every layer. Ingredients unlock in order, so you can't build an invalid sandwich. On a phone the 3D preview sits first, with the step bar, signature combos and pickers below it, so a choice shows up without scrolling back. Every topping has its own hand-drawn icon (a sauce with drips, sprinkle rods, two marshmallows, a gummy bear) and the four drawn flavors (Neapolitan, Durian Musang King, Es Teler, Matcha) show a drawn swatch instead of a plain colour dot, in the pickers, the signature combos, the order summary, the cart, the 3D caption and the order status receipt. They come from one inline SVG sprite (`partials/ingredient-icons.blade.php`, no extra request) and are told apart by shape, not only by colour. Picking a topping plays a small move on its icon (the bear wobbles, the marshmallow squishes, the sprinkles jiggle, the sauce bends), switched off under `prefers-reduced-motion`.
 </td>
 <td width="50%" valign="top">
 <img src="./docs/readme/card-cart.svg" width="100%" alt="A cart drawer with two sandwiches, quantity pickers and a total" /><br />
@@ -497,8 +532,8 @@ app/
 database/                    migrations and seeders
 resources/views/             storefront pages, staff portal, shared partials
 resources/js/studio3d.js     the Studio's 3D scene: slab models, toppings, lighting, orbit controls
-public/img/studio3d/         baked PBR textures (colour and normal maps) for breads and ice creams
-scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients; setup.ps1 is the Windows setup
+public/img/studio3d/         baked PBR textures (colour and normal maps) for breads, ice creams and the marshmallow skin
+scripts/                     build_studio3d_textures.py re-bakes those textures from public/img/ingredients; build_studio3d_flavors.py bakes the drawn flavors (add a slug to bake only that one: python scripts/build_studio3d_flavors.py matcha); build_studio3d_toppings.py bakes the marshmallow textures and the flat art of the mini toppings; setup.ps1 is the Windows setup
 Makefile                     shortcuts: make setup, serve, test, fresh, docker
 .github/workflows/ci.yml     CI: asset build and the PHPUnit suite
 routes/                      web.php and api.php

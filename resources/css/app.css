@@ -4407,3 +4407,76 @@ body.is-broken .prank-ghost {
 /* The /reviews wall: every customer photo as a polaroid in a loose masonry. */
 .review-wall { columns: 3 280px; column-gap: 28px; }
 .review-wall > * { break-inside: avoid; margin-bottom: 34px; }
+
+/* Hand-drawn ingredient icons (resources/views/partials/ingredient-icons.blade.php). Sized by font-size
+   or width/height; the outline follows currentColor. */
+.ing-icon {
+    display: inline-block;
+    flex: none;
+    width: 1em;
+    height: 1em;
+    overflow: visible;
+    vertical-align: -0.15em;
+    transform-origin: 50% 70%;
+}
+/* A white chip behind a topping icon, so its colours read on the selected (red) pill as well. */
+.ing-chip {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background: #fff;
+    color: #352f29;
+    box-shadow: inset 0 0 0 1px rgba(139, 113, 114, 0.25);
+}
+.ing-chip .ing-icon { width: 1.3rem; height: 1.3rem; }
+.ing-chip__check {
+    position: absolute;
+    right: -0.2rem;
+    bottom: -0.2rem;
+    display: grid;
+    place-items: center;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 9999px;
+    background: #a62d42;
+    color: #fff;
+    box-shadow: 0 0 0 1.5px #fff;
+}
+.ing-chip__check svg { width: 0.62rem; height: 0.62rem; }
+.ing-swatch { width: 100%; height: 100%; }
+
+/* Picking a topping gives its icon a small move of its own: the bear wobbles, the marshmallow squishes,
+   the sprinkles jiggle, the sauce bends. Played once each time the item is switched on. */
+.is-picked .ing-icon--yupi-gummy-bear-mini { animation: ing-wobble 640ms var(--ease-out); }
+.is-picked .ing-icon--marshmallow-mini { animation: ing-squish 560ms var(--ease-out); transform-origin: 50% 90%; }
+.is-picked .ing-icon--rainbow-sprinkles { animation: ing-jiggle 520ms var(--ease-out); }
+.is-picked .ing-icon--chocolate-sauce { animation: ing-bend 600ms var(--ease-out); transform-origin: 50% 15%; }
+@keyframes ing-wobble {
+    20% { transform: rotate(-14deg); }
+    45% { transform: rotate(10deg); }
+    70% { transform: rotate(-5deg); }
+    88% { transform: rotate(2deg); }
+}
+@keyframes ing-squish {
+    25% { transform: scale(1.16, 0.74); }
+    55% { transform: scale(0.92, 1.1); }
+    80% { transform: scale(1.03, 0.97); }
+}
+@keyframes ing-jiggle {
+    20% { transform: translate(-1px, 0) rotate(-8deg); }
+    40% { transform: translate(1px, -1px) rotate(7deg); }
+    60% { transform: translate(-1px, 0) rotate(-4deg); }
+    80% { transform: rotate(2deg); }
+}
+@keyframes ing-bend {
+    30% { transform: skewX(-12deg) scaleY(1.08); }
+    60% { transform: skewX(7deg) scaleY(0.97); }
+    85% { transform: skewX(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .is-picked .ing-icon { animation: none; }
+}

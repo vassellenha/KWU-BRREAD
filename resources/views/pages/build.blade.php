@@ -140,18 +140,23 @@
                                     :class="isActivePreset(preset) ? 'bg-primary-container/15 border-primary shadow-[0_4px_14px_rgba(199,70,89,0.22)]' : 'bg-surface-container-lowest border-transparent hover:border-outline-variant'"
                                 >
                                     <span
-                                        class="w-7 h-7 rounded-full shrink-0 mt-0.5 border border-outline-variant/60 flex items-center justify-center transition-transform duration-200"
+                                        class="relative w-7 h-7 rounded-full shrink-0 mt-0.5 border border-outline-variant/60 flex items-center justify-center overflow-hidden transition-transform duration-200"
                                         :class="isActivePreset(preset) ? 'scale-110' : ''"
-                                        :style="{ backgroundColor: presetSwatch(preset) }"
+                                        :style="iconFor(preset.flavor) ? {} : { backgroundColor: presetSwatch(preset) }"
                                     >
-                                        <span x-show="isActivePreset(preset)" x-cloak class="material-symbols-outlined text-[14px] text-white drop-shadow">check</span>
+                                        <svg x-show="iconFor(preset.flavor)" class="ing-icon ing-swatch absolute inset-0" :class="iconClass(preset.flavor)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(preset.flavor)"></use></svg>
+                                        <span x-show="isActivePreset(preset)" x-cloak class="material-symbols-outlined relative text-[14px] text-white drop-shadow">check</span>
                                     </span>
                                     <div class="min-w-0">
                                         <span class="block font-label-lg text-label-lg text-on-surface leading-tight" x-text="preset.name"></span>
                                         <span class="block font-label-md text-label-md text-on-surface-variant mt-0.5" x-text="preset.bread.replace('Plain ', '').replace('Whole ', '') + ' · ' + preset.flavor"></span>
-                                        <span x-show="preset.toppings.length" class="inline-flex items-center gap-0.5 mt-1 font-label-md text-label-md text-primary">
-                                            <span class="material-symbols-outlined text-[13px]">water_drop</span>
-                                            <span x-text="preset.toppings.join(', ')"></span>
+                                        <span x-show="preset.toppings.length" class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 font-label-md text-label-md text-primary" :class="isActivePreset(preset) ? 'is-picked' : ''">
+                                            <template x-for="name in preset.toppings" :key="name">
+                                                <span class="inline-flex items-center gap-1">
+                                                    <svg x-show="iconFor(name)" class="ing-icon text-[16px]" :class="iconClass(name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(name)"></use></svg>
+                                                    <span x-text="name"></span>
+                                                </span>
+                                            </template>
                                         </span>
                                     </div>
                                 </button>
@@ -203,8 +208,9 @@
                                     class="press-scale hover-lift relative flex flex-col items-center p-space-sm rounded text-center border-2 transition-[border-color,box-shadow] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                     :class="isSelected(component) ? 'border-primary shadow-[0_2px_8px_rgba(199,70,89,0.2)]' : 'border-outline-variant/50'"
                                 >
-                                    <span class="w-10 h-10 rounded-full mb-space-xs border border-outline-variant flex items-center justify-center" :style="{ backgroundColor: component.hex_color }">
-                                        <span x-show="isSelected(component)" x-cloak class="material-symbols-outlined text-[16px] text-white drop-shadow">check</span>
+                                    <span class="relative w-10 h-10 rounded-full mb-space-xs border border-outline-variant flex items-center justify-center overflow-hidden" :style="iconFor(component.name) ? {} : { backgroundColor: component.hex_color }">
+                                        <svg x-show="iconFor(component.name)" class="ing-icon ing-swatch absolute inset-0" :class="iconClass(component.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(component.name)"></use></svg>
+                                        <span x-show="isSelected(component)" x-cloak class="material-symbols-outlined relative text-[16px] text-white drop-shadow">check</span>
                                     </span>
                                     <span class="font-label-md text-label-md text-on-surface leading-tight" x-text="component.name"></span>
                                     <span x-show="component.stock_quantity > 0" class="font-label-md text-label-md text-primary font-bold mt-0.5" x-text="formatPrice(component.price)"></span>
@@ -231,9 +237,15 @@
                                     :disabled="component.stock_quantity <= 0 || toppingLocked"
                                     @click="selectComponent(component, $event)"
                                     class="press-scale inline-flex items-center gap-1.5 px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed"
-                                    :class="isSelected(component) ? 'bg-primary-container text-on-primary-container border-primary-container' : 'bg-surface-container-lowest text-on-surface border-outline-variant/50 hover:border-primary'"
+                                    :class="isSelected(component) ? 'is-picked bg-primary-container text-on-primary-container border-primary-container' : 'bg-surface-container-lowest text-on-surface border-outline-variant/50 hover:border-primary'"
+                                    :aria-pressed="isSelected(component)"
                                 >
-                                    <span class="material-symbols-outlined text-[16px]" x-text="isSelected(component) ? 'done' : 'add'"></span>
+                                    {{-- The topping's own icon on a white chip, with a check badge once picked; items without an icon keep the +/check glyph. --}}
+                                    <span x-show="iconFor(component.name)" class="ing-chip -ml-1.5">
+                                        <svg x-show="iconFor(component.name)" class="ing-icon " :class="iconClass(component.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(component.name)"></use></svg>
+                                        <span x-show="isSelected(component)" x-cloak class="ing-chip__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+                                    </span>
+                                    <span x-show="!iconFor(component.name)" class="material-symbols-outlined text-[16px]" x-text="isSelected(component) ? 'done' : 'add'"></span>
                                     <span x-text="component.name"></span>
                                     <span class="opacity-80" x-text="component.stock_quantity > 0 ? '+' + formatPrice(component.price) : 'Sold Out'"></span>
                                 </button>
@@ -281,8 +293,9 @@
                                             x-transition:enter-end="opacity-100 scale-100"
                                         >
                                         <div x-show="!flavorImage" class="w-full h-full rounded-lg bg-surface-container-highest"></div>
-                                        <img :src="toppingImage('Chocolate Sauce')" x-show="hasChocolateSauce" x-cloak src="" alt="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
-                                        <img :src="toppingImage('Rainbow Sprinkles')" x-show="hasSprinkles" x-cloak src="" alt="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
+                                        <template x-for="topping in selectedToppings" :key="topping.id">
+                                            <img :src="toppingImage(topping.name)" x-show="toppingImage(topping.name)" src="" alt="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
+                                        </template>
                                     </div>
 
                                     <img
@@ -348,7 +361,7 @@
                                 <span x-show="selectedBread && selectedFlavor"> · </span>
                                 <span x-show="selectedFlavor" x-text="selectedFlavor?.name"></span>
                                 <template x-for="topping in selectedToppings" :key="topping.id">
-                                    <span> · <span x-text="topping.name"></span></span>
+                                    <span class="whitespace-nowrap"> · <svg x-show="iconFor(topping.name)" class="ing-icon text-[16px] mr-0.5" :class="iconClass(topping.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(topping.name)"></use></svg><span x-text="topping.name"></span></span>
                                 </template>
                             </p>
                         </div>
@@ -373,12 +386,15 @@
                                 <dd x-text="formatPrice(selectedBread?.price ?? 0)"></dd>
                             </div>
                             <div class="flex justify-between" x-show="selectedFlavor">
-                                <dt x-text="selectedFlavor?.name"></dt>
+                                <dt class="flex items-center gap-1.5 min-w-0">
+                                    <span x-show="iconFor(selectedFlavor?.name)" class="relative w-4 h-4 rounded-full overflow-hidden flex-none"><svg x-show="iconFor(selectedFlavor?.name)" class="ing-icon ing-swatch absolute inset-0" :class="iconClass(selectedFlavor?.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(selectedFlavor?.name)"></use></svg></span>
+                                    <span x-text="selectedFlavor?.name"></span>
+                                </dt>
                                 <dd x-text="formatPrice(selectedFlavor?.price ?? 0)"></dd>
                             </div>
                             <template x-for="topping in selectedToppings" :key="topping.id">
                                 <div class="flex justify-between">
-                                    <dt x-text="topping.name"></dt>
+                                    <dt class="flex items-center gap-1.5 min-w-0"><svg x-show="iconFor(topping.name)" class="ing-icon text-[18px]" :class="iconClass(topping.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(topping.name)"></use></svg><span x-text="topping.name"></span></dt>
                                     <dd x-text="formatPrice(topping.price)"></dd>
                                 </div>
                             </template>

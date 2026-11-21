@@ -26,6 +26,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-surface text-on-surface antialiased font-plus-jakarta">
+    @include('partials.ingredient-icons')
 
     <div id="brread-intro" aria-hidden="true">
         <div class="intro-panel doodle">

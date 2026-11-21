@@ -32,7 +32,7 @@ FLAVOR_ATLAS there:
 Owner textures: a file with the same name in public/img/studio/flavors/<slug>/ replaces the
 generated one in the Studio, so it must follow the same layout.
 
-Run from the project root:  python scripts/build_studio3d_flavors.py
+Run from the project root:  python scripts/build_studio3d_flavors.py  (or name flavors: ... matcha)
 Needs: pillow, numpy, scipy.
 """
 
@@ -487,10 +487,51 @@ def flavor_es_teler(surface, seed):
     return layers
 
 
+def flavor_matcha(surface, seed):
+    """Stone-ground green tea cream: earthy and dull (never neon, never the pandan of Es Teler), with
+    fine dark tea particles all through the block and a thin dusting of matcha powder on the top and rims."""
+    light, deep = srgb("#8fa862"), srgb("#7f9a55")
+    speck_dark, speck_mid = srgb("#5a7a3a"), srgb("#6b8746")
+    powder = srgb("#6f8c40")
+
+    layers = {}
+    for name, region in surface.each():
+        pts = region["pts"]
+        x, y, z = pts
+        # Domain-warped density: the tea was whisked in, so the shade drifts in soft clouds rather than blobs.
+        warp = fbm3(pts, 3.0, seed + 1, octaves=3)
+        drift = fbm3((x + warp * 0.12, y + warp * 0.05, z - warp * 0.08), 2.4, seed + 2, octaves=4)
+        cream = mix(light[None, None, :], deep[None, None, :], smoothstep(-0.55, 0.55, drift))
+        cream = cream * (1 + fbm3(pts, 24.0, seed + 3, octaves=3)[..., None] * 0.03)
+        # A hint of warm grey keeps the green from going synthetic.
+        cream = mix(cream, cream.mean(axis=2, keepdims=True) * np.array([1.04, 1.0, 0.9], np.float32), 0.12)
+
+        # Tea particles: many tiny, a few slightly larger, in loose clusters (Voronoi points, not a repeat).
+        fine = speckles(region, seed + 4, 0.0075, 0.22, 0.0016)
+        coarse = speckles(region, seed + 5, 0.019, 0.08, 0.0032)
+        tone = 0.5 + 0.5 * fbm3(pts, 80.0, seed + 6, octaves=2)
+        speck_col = mix(speck_dark[None, None, :], speck_mid[None, None, :], tone)
+        albedo = mix(cream, speck_col, np.clip(fine * 0.7 + coarse * 0.85, 0, 1))
+
+        # Powder dusting: patchy on the top, a soft band along every rim of the cut sides.
+        grain = 0.5 + 0.5 * fbm3(pts, 160.0, seed + 7, octaves=2)
+        patches = smoothstep(-0.1, 0.55, fbm3(pts, 7.0, seed + 8, octaves=3))
+        rim = 1 - smoothstep(0.0, 0.05, region["inside"])
+        dust = (patches * 0.55 if name == "top" else rim * 0.5) * smoothstep(0.35, 0.8, grain)
+        albedo = mix(albedo, powder * (0.92 + 0.12 * grain[..., None]), np.clip(dust, 0, 1) * 0.6)
+
+        micro = micro_layers(name, region, seed + 400, bubble_density=1.0)
+        rough = 0.64 + fbm3(pts, 20.0, seed + 9, octaves=2) * 0.03 + dust * 0.06 - coarse * 0.03
+        extra_h = coarse * 0.0004 + dust * 0.0003
+        layers[name] = (albedo, rough, extra_h, micro, 0.9)
+    return layers
+
+
 FLAVORS = {
     "neapolitan": dict(build=flavor_neapolitan, seed=4101),
     "durian-musang-king": dict(build=flavor_durian, seed=4202),
     "es-teler": dict(build=flavor_es_teler, seed=4303),
+    "matcha": dict(build=flavor_matcha, seed=4404),
 }
 
 
@@ -632,6 +673,12 @@ def bake_detail():
 
 
 if __name__ == "__main__":
-    bake_detail()
+    import sys
+
+    # python scripts/build_studio3d_flavors.py [slug ...]: bakes only those flavors (and skips detail.webp).
+    only = sys.argv[1:]
+    if not only:
+        bake_detail()
     for slug, spec in FLAVORS.items():
-        bake(slug, spec)
+        if not only or slug in only:
+            bake(slug, spec)

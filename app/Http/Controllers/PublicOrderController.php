@@ -27,9 +27,15 @@ class PublicOrderController extends Controller
         'Neapolitan' => 'ice-neapolitan',
         'Durian Musang King' => 'ice-durian-musang-king',
         'Es Teler' => 'ice-es-teler',
+        'Matcha' => 'ice-matcha',
     ];
 
-    private const TOPPING_ART = ['Chocolate Sauce' => 'top-sauce', 'Rainbow Sprinkles' => 'top-sprinkles'];
+    private const TOPPING_ART = [
+        'Chocolate Sauce' => 'top-sauce',
+        'Rainbow Sprinkles' => 'top-sprinkles',
+        'Marshmallow Mini' => 'top-marshmallow',
+        'Yupi Gummy Bear Mini' => 'top-gummy-bears',
+    ];
 
     public function show(string $token): View
     {
