@@ -59,44 +59,60 @@
             </div>
         </section>
 
-        {{-- 3. THE FLAVORS: full-screen cards that stack over each other, one per flavor on the menu --}}
+        {{-- 3. THE SIGNATURE COMBOS: full-screen cards that stack over each other, one per combo the admin has switched on --}}
         @php
-            // Colours, a line and the picture for each flavor we sell; a flavor added later without an entry here just has no card.
+            // Colours and a built-in picture for each flavor we sell; a combo on a flavor without an entry here gets the neutral pink.
             $flavorCards = [
-                'chocolate' => ['line' => 'Dark, not too sweet. Best on whole wheat, if you ask us.', 'cut' => 'ice-chocolate', 'top' => null, 'bg' => '#4a2c1a', 'ink' => '#f6e3cf', 'photo' => 'product-chocolate'],
-                'neapolitan' => ['line' => 'Vanilla, strawberry and chocolate side by side, so nobody has to pick.', 'cut' => 'ice-neapolitan', 'top' => null, 'bg' => '#f4c3cf', 'ink' => '#4a1f24', 'photo' => 'product-neapolitan'],
-                'es-teler' => ['line' => 'Mango, strawberry and pandan with coconut, jackfruit and avocado. Made for sprinkles.', 'cut' => 'ice-es-teler', 'top' => 'top-sprinkles', 'bg' => '#f8d27e', 'ink' => '#4a3005', 'photo' => 'product-es-teler'],
-                'durian-musang-king' => ['line' => 'Rich Musang King durian cream with chunks of golden custard.', 'cut' => 'ice-durian-musang-king', 'top' => null, 'bg' => '#e3e6a4', 'ink' => '#3b3f0c', 'photo' => 'product-durian'],
-                'matcha' => ['line' => 'Stone-ground green tea cream, earthy and only lightly sweet.', 'cut' => 'ice-matcha', 'top' => null, 'bg' => '#cfd8b4', 'ink' => '#2e3a17', 'photo' => 'product-matcha'],
+                'chocolate' => ['cut' => 'ice-chocolate', 'bg' => '#4a2c1a', 'ink' => '#f6e3cf', 'photo' => 'product-chocolate'],
+                'neapolitan' => ['cut' => 'ice-neapolitan', 'bg' => '#f4c3cf', 'ink' => '#4a1f24', 'photo' => 'product-neapolitan'],
+                'es-teler' => ['cut' => 'ice-es-teler', 'bg' => '#f8d27e', 'ink' => '#4a3005', 'photo' => 'product-es-teler'],
+                'durian-musang-king' => ['cut' => 'ice-durian-musang-king', 'bg' => '#e3e6a4', 'ink' => '#3b3f0c', 'photo' => 'product-durian'],
+                'matcha' => ['cut' => 'ice-matcha', 'bg' => '#cfd8b4', 'ink' => '#2e3a17', 'photo' => 'product-matcha'],
             ];
+            // One topping cut-out per card (the slab picture holds a single overlay): the first of these the combo uses.
+            $toppingCuts = ['sprinkles' => 'top-sprinkles', 'gummies' => 'top-gummy-bears', 'marshmallows' => 'top-marshmallow', 'sauce' => 'top-sauce'];
             // The pictures uploaded for the signature combos in the admin (Menu, Signature combos), newest edit and all.
             $comboPhotos = collect($menu['combos'])->filter(fn ($combo) => $combo['photo'])->values();
             $stageCombo = $comboPhotos->first();
             $drips = ['cream', 'vanilla', 'strawberry', 'chocolate', 'peach'];
-            $cards = collect($menu['flavors'])
-                ->map(fn ($name) => ['name' => $name, 'key' => \Illuminate\Support\Str::slug($name), 'combo' => $comboPhotos->firstWhere('flavor', $name)] + ($flavorCards[\Illuminate\Support\Str::slug($name)] ?? []))
-                ->filter(fn ($card) => isset($card['cut']))
-                ->values();
+            $cards = collect($menu['combos'])->map(function ($combo) use ($flavorCards, $toppingCuts) {
+                $look = $flavorCards[\Illuminate\Support\Str::slug($combo['flavor'])] ?? ['cut' => null, 'bg' => '#f4c3cf', 'ink' => '#4a1f24', 'photo' => null];
+                $top = collect($toppingCuts)->first(fn ($cut, $flag) => ! empty($combo['state'][$flag]));
+
+                return $look + [
+                    'name' => $combo['name'],
+                    'flavor' => $combo['flavor'],
+                    'line' => $combo['desc'],
+                    'price' => $combo['price'],
+                    'top' => $top,
+                    'image' => $combo['photo'] ? $combo['image'] : ($look['photo'] ? '/img/marketing/'.$look['photo'].'.jpg' : null),
+                ];
+            })->values();
         @endphp
         <section class="about-stack relative">
-            @foreach ($cards as $i => $flavor)
-                <article class="about-card about-card--{{ $flavor['key'] }}" style="--bg: {{ $flavor['bg'] }}; --ink: {{ $flavor['ink'] }}" data-view>
+            @foreach ($cards as $i => $card)
+                <article class="about-card" style="--bg: {{ $card['bg'] }}; --ink: {{ $card['ink'] }}" data-view>
                     @include('partials.drip', ['flavor' => $drips[$i % count($drips)], 'seed' => $i % 3, 'drops' => false])
-                    <span class="about-card-word" aria-hidden="true">{{ $flavor['name'] }}</span>
+                    <span class="about-card-word" aria-hidden="true">{{ $card['name'] }}</span>
                     <div class="about-card-body">
                         <div>
-                            <p class="font-hand text-[30px] leading-none -rotate-2 origin-left opacity-80">flavor no. {{ $i + 1 }}</p>
-                            <h2 class="about-card-title">{{ $flavor['name'] }}</h2>
-                            <p class="about-card-line">{{ $flavor['line'] }}</p>
+                            <p class="font-hand text-[30px] leading-none -rotate-2 origin-left opacity-80">signature no. {{ $i + 1 }}</p>
+                            <h2 class="about-card-title">{{ $card['name'] }}</h2>
+                            <p class="about-card-line">{{ $card['line'] }}</p>
+                            <p class="about-card-line font-bold">Rp {{ number_format($card['price'], 0, ',', '.') }}</p>
                         </div>
                         <div class="about-card-art">
-                            <div class="about-card-photo"><img src="{{ $flavor['combo']['image'] ?? '/img/marketing/'.$flavor['photo'].'.jpg' }}" alt="{{ $flavor['combo'] ? $flavor['combo']['name'].', '.$flavor['name'].' ice cream sandwich' : $flavor['name'].' ice cream sandwich' }}" loading="lazy"></div>
-                            <div class="about-card-slab">
-                                <img src="/img/cutout/{{ $flavor['cut'] }}.webp" alt="" loading="lazy">
-                                @if ($flavor['top'])
-                                    <img class="about-card-topping" src="/img/cutout/{{ $flavor['top'] }}.webp" alt="" loading="lazy">
-                                @endif
-                            </div>
+                            @if ($card['image'])
+                                <div class="about-card-photo"><img src="{{ $card['image'] }}" alt="{{ $card['name'] }}, {{ $card['flavor'] }} ice cream sandwich" loading="lazy"></div>
+                            @endif
+                            @if ($card['cut'])
+                                <div class="about-card-slab">
+                                    <img src="/img/cutout/{{ $card['cut'] }}.webp" alt="" loading="lazy">
+                                    @if ($card['top'])
+                                        <img class="about-card-topping" src="/img/cutout/{{ $card['top'] }}.webp" alt="" loading="lazy">
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </article>
@@ -118,11 +134,11 @@
                 <div class="about-track-wrap">
                     <div class="about-track">
                         @foreach ([
-                            ['n' => '1', 'img' => '/img/marketing/step-bread.jpg', 'alt' => 'Stacks of plain white and whole wheat sandwich bread', 'title' => 'It starts with a loaf', 'text' => 'Soft white sandwich bread, or whole wheat for people who want it less sweet. Sliced, never toasted.', 'tilt' => '-2deg'],
-                            ['n' => '2', 'img' => '/img/marketing/step-icecream.jpg', 'alt' => 'Slabs of chocolate, neapolitan, es teler, durian musang king and matcha ice cream on a marble counter', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. '.(\App\Support\HomeMenu::join($menu['flavors']) ?: 'Plenty of flavors').'.', 'tilt' => '1.5deg'],
-                            ['n' => '3', 'img' => '/img/marketing/product-drizzle.jpg', 'alt' => 'Whole wheat ice cream sandwich with chocolate ice cream and chocolate sauce poured over it', 'title' => 'You pick the top', 'text' => (\App\Support\HomeMenu::join($menu['toppings'], 'or') ?: 'A topping').', any mix of them, or none. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
-                            ['n' => '4', 'img' => '/img/marketing/step-packaged.jpg', 'alt' => 'A brown cardboard Brread! delivery box', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
-                            ['n' => '5', 'img' => '/img/marketing/hero-held.jpg', 'alt' => 'A hand holding a strawberry ice cream sandwich with sprinkles', 'title' => 'And into your hands', 'text' => 'Around '.\App\Support\ShopSettings::get()['delivery_minutes'].' minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
+                            ['n' => '1', 'img' => '/img/marketing/how-bread.jpg', 'alt' => 'Stacks of plain white and whole wheat sandwich bread on a wooden board', 'title' => 'It starts with a loaf', 'text' => 'Soft white sandwich bread, or whole wheat for people who want it less sweet. Sliced, never toasted.', 'tilt' => '-2deg'],
+                            ['n' => '2', 'img' => '/img/marketing/how-icecream.jpg', 'alt' => 'Blocks of chocolate, es teler, matcha, durian and neapolitan ice cream on a marble counter', 'title' => 'A block becomes slabs', 'text' => 'Real dairy ice cream, frozen as a block and cut about 4.2 cm thick. '.(\App\Support\HomeMenu::join($menu['flavors']) ?: 'Plenty of flavors').'.', 'tilt' => '1.5deg'],
+                            ['n' => '3', 'img' => '/img/marketing/how-toppings.jpg', 'alt' => 'Bowls of mini marshmallows, gummy bears and rainbow sprinkles', 'title' => 'You pick the top', 'text' => (\App\Support\HomeMenu::join($menu['toppings'], 'or') ?: 'A topping').', any mix of them, or none. It gets assembled when you order, not before.', 'tilt' => '-1deg'],
+                            ['n' => '4', 'img' => '/img/marketing/how-box.jpg', 'alt' => 'A brown cardboard Brread! box with a scalloped edge', 'title' => 'Into the cold box', 'text' => 'Every order goes straight into an insulated box that keeps it frozen for '.\App\Support\ShopSettings::get()['frozen_minutes'].' minutes.', 'tilt' => '2deg'],
+                            ['n' => '5', 'img' => '/img/marketing/how-combos.jpg', 'alt' => 'Five finished ice cream sandwiches with different toppings', 'title' => 'And into your hands', 'text' => 'Around '.\App\Support\ShopSettings::get()['delivery_minutes'].' minutes later, somewhere in Jakarta, it is yours. Eat it fast.', 'tilt' => '-1.5deg'],
                         ] as $step)
                             <article class="about-panel">
                                 <div class="relative">

@@ -96,15 +96,20 @@ class HomeMenuTest extends TestCase
         $this->assertSame('', HomeMenu::join([]));
     }
 
-    public function test_about_shows_a_card_for_each_flavor_we_sell_and_none_for_the_hidden_ones(): void
+    public function test_about_shows_a_card_for_each_signature_combo_and_none_for_the_hidden_flavors(): void
     {
         $html = $this->get('/about')->assertOk()->getContent();
+        $combos = HomeMenu::get(public: true)['combos'];
 
-        foreach (['Chocolate', 'Neapolitan', 'Es Teler', 'Durian Musang King', 'Matcha'] as $flavor) {
-            $this->assertStringContainsString('<h2 class="about-card-title">'.$flavor.'</h2>', $html);
+        $this->assertNotEmpty($combos);
+        foreach ($combos as $combo) {
+            $this->assertStringContainsString('<h2 class="about-card-title">'.e($combo['name']).'</h2>', $html);
         }
-        $this->assertStringNotContainsString('<h2 class="about-card-title">Vanilla</h2>', $html);
-        $this->assertStringNotContainsString('<h2 class="about-card-title">Strawberry</h2>', $html);
+        $this->assertSame(count($combos), substr_count($html, 'class="about-card-title"'));
+        $this->assertStringNotContainsString('<h2 class="about-card-title">Classic Vanilla Slab</h2>', $html);
         $this->assertStringNotContainsString('product-vanilla', $html);
+
+        SignatureCombo::where('name', 'Es Teler Sprinkle Stack')->update(['name' => 'Es Teler Party']);
+        $this->get('/about')->assertSee('<h2 class="about-card-title">Es Teler Party</h2>', false);
     }
 }
