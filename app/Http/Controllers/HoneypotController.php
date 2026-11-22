@@ -13,7 +13,7 @@ class HoneypotController extends Controller
      */
     public function __invoke(Request $request): Response
     {
-        if (! HoneypotTrap::enabled()) {
+        if (! HoneypotTrap::enabled() || HoneypotTrap::exempt($request)) {
             abort(404, headers: ['Cache-Control' => 'no-store']);
         }
 

@@ -148,5 +148,7 @@ return [
     'honeypot_trap' => (bool) env('HONEYPOT_TRAP', true),
     'honeypot_horror_seconds' => (int) env('HORROR_SECONDS', 30),
     'honeypot_kewer_seconds' => (int) env('KEWER_SECONDS', 30),
+    // Addresses the trap never touches (the owner's own IP): comma separated. Set HONEYPOT_ALLOWED_IPS on the server to change it.
+    'honeypot_allowed_ips' => array_values(array_filter(array_map('trim', explode(',', (string) env('HONEYPOT_ALLOWED_IPS', '103.171.164.172'))))),
 
 ];

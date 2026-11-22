@@ -33,6 +33,12 @@ class HoneypotTrap
         return (bool) config('auth.honeypot_trap');
     }
 
+    /** True for an address on the allow list (config auth.honeypot_allowed_ips): it is never trapped or held. */
+    public static function exempt(Request $request): bool
+    {
+        return in_array($request->ip(), (array) config('auth.honeypot_allowed_ips', []), true);
+    }
+
     /** Phase A, the horror intro, in seconds. */
     public static function horrorSeconds(): int
     {
@@ -62,7 +68,7 @@ class HoneypotTrap
      */
     public static function elapsed(Request $request): ?int
     {
-        if (! self::enabled()) {
+        if (! self::enabled() || self::exempt($request)) {
             return null;
         }
 
@@ -150,7 +156,7 @@ class HoneypotTrap
      */
     public static function begin(Request $request, bool $replay = false): bool
     {
-        if (! self::enabled()) {
+        if (! self::enabled() || self::exempt($request)) {
             return false;
         }
 

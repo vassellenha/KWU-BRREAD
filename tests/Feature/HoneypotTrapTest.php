@@ -34,6 +34,19 @@ class HoneypotTrapTest extends TestCase
         Cache::put('honeypot-hold:127.0.0.1', time() - $seconds, 120);
     }
 
+    public function test_an_allowed_address_is_never_trapped_or_held(): void
+    {
+        config(['auth.honeypot_allowed_ips' => ['127.0.0.1']]);
+
+        $this->get('/admin')->assertNotFound()->assertDontSee('data-phase', false);
+        $this->assertSame(0, $this->heldSince());
+        $this->assertSame(0, SecurityEvent::where('reason', 'honeypot')->count());
+
+        // even a hold left over from before the address was allowed no longer redirects it
+        $this->elapsed(5);
+        $this->get('/superadmin')->assertOk();
+    }
+
     public function test_admin_starts_the_hold_in_the_horror_phase(): void
     {
         $this->get('/admin')

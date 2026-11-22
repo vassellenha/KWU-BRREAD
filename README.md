@@ -585,3 +585,6 @@ Built by [Vassell Enha Atthayya](https://github.com/vassellenha).
 
 **Paid status and the tracking stamps.** An order now goes pending, confirmed, paid. Staff press **Confirm** (the tracking link goes live), then **Sudah Dibayar** once the money is in (`paid_at`, a new "Paid" tab in the staff Orders page, migration `add_paid_status_to_orders`, which also lets PostgreSQL's status check accept `paid`). The customer's tracking page has four stamps, Masuk, Dikonfirmasi, Dibayar and Siap Nikmati, each with its own icon: a bag, a check, a wallet and the sandwich, an hourglass while that step is the one being waited on and a cross when the order is cancelled. A confirmed but unpaid order shows "Menunggu bayar" and the printed receipt says Lunas once paid. The first WhatsApp message to a buyer is plain text now (the emoji arrived as a broken symbol) and ends with a picture link of the sandwich matching the order's ice cream (`public/img/marketing/product-*.jpg`); WhatsApp's `wa.me` link cannot attach a file, so the picture shows as the link preview.
 
+
+
+**Honeypot allow list.** Addresses in `HONEYPOT_ALLOWED_IPS` (comma separated, set on the server; `config/auth.php` defaults it to the owner's own IP) are never trapped or held: `/admin` is a plain 404 for them and an old hold no longer redirects them. Everyone else meets the trap as before.
