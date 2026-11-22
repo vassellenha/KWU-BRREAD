@@ -535,6 +535,8 @@ php artisan test
 
 GitHub Actions (`.github/workflows/ci.yml`) builds the assets and runs the suite on every push to `main` and on every pull request, and the badge at the top shows the result.
 
+CI fails on any PHPUnit warning, not only on failed tests, so a data provider must pass exactly as many arguments as its test method accepts.
+
 The feature tests cover both login portals, role access, ordering with stock deduction, the order tracking page with its print receipt and barcode, the MRP, HR, accounting, sales and menu modules, and the batch save endpoints (all or nothing, per-row errors, version conflicts, roles, throttling).
 
 <img src="./docs/readme/banner-10.svg" width="100%" alt="Section 10: The Layout" />

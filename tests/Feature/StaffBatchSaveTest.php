@@ -311,7 +311,7 @@ class StaffBatchSaveTest extends TestCase
     }
 
     #[DataProvider('bulkRoutes')]
-    public function test_a_guest_is_sent_to_sign_in(string $route): void
+    public function test_a_guest_is_sent_to_sign_in(string $route, string $role): void
     {
         $this->postJson(route($route), ['rows' => [1 => ['version' => 'x']]])->assertUnauthorized();
         $this->post(route($route))->assertRedirect();
