@@ -1091,6 +1091,52 @@ export function createStudio3D(
             .catch(() => {}); // the plain colour stays: still a usable preview
     };
 
+    // A second skin over the slab that fades in on top of whatever flavor is showing, so one flavor can melt
+    // into another with no swap (the About page turns chocolate into matcha this way, driven by the scroll).
+    const mixMaterial = createFlavorMaterial();
+    mixMaterial.transparent = true;
+    mixMaterial.opacity = 0;
+    const mixMesh = new THREE.Mesh(iceGeometry, [mixMaterial, mixMaterial]);
+    mixMesh.scale.setScalar(1.003);
+    mixMesh.visible = false;
+    ice.add(mixMesh);
+    let mixSlug = null;
+    const setFlavorMix = (flavor, amount) => {
+        const spec = flavor ? PROCEDURAL_FLAVORS[flavor] : null;
+        const a = Math.min(1, Math.max(0, amount || 0));
+        if (!spec) {
+            mixMesh.visible = false;
+            return;
+        }
+        if (mixSlug !== spec.slug) {
+            mixSlug = spec.slug;
+            loadFlavor(spec.slug)
+                .then((maps) => {
+                    if (mixSlug !== spec.slug) return;
+                    [maps.albedo, maps.surface, maps.frost, maps.detail].forEach((texture) => renderer.initTexture(texture));
+                    const u = mixMaterial.userData.slab;
+                    u.slabAlbedo.value = maps.albedo;
+                    u.slabSurface.value = maps.surface;
+                    u.slabFrost.value = maps.frost;
+                    u.slabDetail.value = maps.detail;
+                    u.slabSss.value = spec.sss;
+                    mixMaterial.sheen = spec.sheen;
+                    mixMaterial.needsUpdate = true;
+                    mixReady = true;
+                })
+                .catch(() => {});
+        }
+        if (a <= 0.001) {
+            mixMesh.visible = false; // already loading in the background, so the fade starts without a pop
+            return;
+        }
+        mixMaterial.opacity = a;
+        mixMaterial.transparent = a < 0.999;
+        mixMaterial.depthWrite = a >= 0.999;
+        mixMesh.visible = mixReady;
+    };
+    let mixReady = false;
+
     // --- Controls --------------------------------------------------------------------------------
     const controls = new OrbitControls(camera, canvas);
     controls.enablePan = false;
@@ -1363,6 +1409,7 @@ export function createStudio3D(
             setView(DEFAULT_VIEW.azimuth, DEFAULT_VIEW.polar);
         },
         setView,
+        setFlavorMix,
         // Draw calls and GPU resources of the last frame, for performance checks.
         info() {
             const { calls, triangles } = renderer.info.render;
@@ -1412,7 +1459,7 @@ export function createStudio3D(
             [breadGeometry, iceGeometry, sprinkles.geometry, marshmallows.geometry, gummies.geometry].forEach((geometry) => geometry.dispose());
             marshmallowMaps?.then((maps) => maps.forEach((texture) => texture.dispose())).catch(() => {});
             sauce.traverse((child) => child.geometry?.dispose());
-            [breadFace, breadCrust, iceFace, iceSide, flavorMaterial, flavorFallback, sauceMaterial, sprinkles.material, marshmallows.material, gummies.material, floor.material].forEach((m) => m.dispose());
+            [breadFace, breadCrust, iceFace, iceSide, flavorMaterial, flavorFallback, mixMaterial, sauceMaterial, sprinkles.material, marshmallows.material, gummies.material, floor.material].forEach((m) => m.dispose());
             shadowTexture.dispose();
             floor.geometry.dispose();
             environment.dispose();

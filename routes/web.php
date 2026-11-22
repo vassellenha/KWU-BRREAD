@@ -50,6 +50,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
     Route::middleware($rolesFor(User::MODULE_ORDERS))->prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [OrderManagementController::class, 'index'])->name('index');
         Route::post('/{order}/confirm', [OrderManagementController::class, 'confirm'])->name('confirm');
+        Route::post('/{order}/paid', [OrderManagementController::class, 'markPaid'])->name('paid');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
     });
 

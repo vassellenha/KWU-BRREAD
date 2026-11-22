@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Component;
 use App\Models\Employee;
 use App\Models\Expense;
+use App\Models\Order;
 use App\Models\StockMovement;
 use App\Models\User;
 use Database\Seeders\ComponentSeeder;
@@ -330,5 +331,68 @@ class StaffBatchSaveTest extends TestCase
             ->assertOk()->assertSee('batchForm', false);
         $this->actingAs($this->admin)->get(route('staff.orders.index'))
             ->assertOk()->assertSee('x-grid-nav.list', false);
+    }
+
+    public function test_all_orders_leaves_out_cancelled_ones_and_the_cancelled_tab_shows_them(): void
+    {
+        foreach ([['Kept Pending', Order::STATUS_PENDING], ['Gone Cancelled', Order::STATUS_CANCELLED]] as $n => [$name, $status]) {
+            Order::create([
+                'order_number' => 'BRREAD-T'.$n,
+                'total_price' => 14000,
+                'status' => $status,
+                'customer_name' => $name,
+                'customer_phone' => '081234567890',
+            ]);
+        }
+
+        $this->actingAs($this->admin)->get(route('staff.orders.index'))
+            ->assertOk()->assertSee('Kept Pending')->assertDontSee('Gone Cancelled');
+        $this->actingAs($this->admin)->get(route('staff.orders.index', ['status' => 'cancelled']))
+            ->assertOk()->assertSee('Gone Cancelled')->assertDontSee('Kept Pending');
+    }
+
+    public function test_staff_mark_a_confirmed_order_paid_and_the_steps_are_enforced(): void
+    {
+        $order = Order::create([
+            'order_number' => 'BRREAD-PAID1',
+            'total_price' => 12000,
+            'status' => Order::STATUS_PENDING,
+            'customer_name' => 'Jamal',
+            'customer_phone' => '086464646',
+        ]);
+
+        // pending orders must be confirmed first
+        $this->actingAs($this->admin)->post(route('staff.orders.paid', $order))->assertSessionHas('error');
+        $this->assertSame(Order::STATUS_PENDING, $order->fresh()->status);
+
+        $this->actingAs($this->admin)->post(route('staff.orders.confirm', $order));
+        $this->actingAs($this->admin)->get(route('staff.orders.index'))->assertSee('Sudah Dibayar');
+
+        $this->actingAs($this->admin)->post(route('staff.orders.paid', $order))->assertSessionHas('success');
+        $fresh = $order->fresh();
+        $this->assertTrue($fresh->isPaid());
+        $this->assertNotNull($fresh->paid_at);
+
+        $this->actingAs($this->admin)->get(route('staff.orders.index', ['status' => 'paid']))->assertSee('BRREAD-PAID1');
+        $this->actingAs($this->admin)->post(route('staff.orders.paid', $order))->assertSessionHas('info');
+
+        $order->update(['status' => Order::STATUS_CANCELLED]);
+        $this->actingAs($this->admin)->post(route('staff.orders.paid', $order))->assertSessionHas('error');
+    }
+
+    public function test_the_whatsapp_message_is_plain_text_with_a_picture_link(): void
+    {
+        $order = Order::create([
+            'order_number' => 'BRREAD-WA001',
+            'total_price' => 12000,
+            'status' => Order::STATUS_PENDING,
+            'customer_name' => 'Jamal',
+            'customer_phone' => '086464646',
+        ]);
+
+        $text = urldecode(parse_url($order->whatsapp_url, PHP_URL_QUERY));
+        $this->assertStringContainsString('Halo Kak Jamal!', $text);
+        $this->assertStringContainsString('/img/marketing/product-', $text);
+        $this->assertSame(1, preg_match('/^[\x20-\x7E\n]+$/', $text), 'the message must be plain ASCII');
     }
 }

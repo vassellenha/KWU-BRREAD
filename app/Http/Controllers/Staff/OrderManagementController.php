@@ -21,8 +21,12 @@ class OrderManagementController extends Controller
 
         $query = Order::with(['orderItems.component'])->latest();
 
-        if ($status !== 'all' && in_array($status, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_CANCELLED], true)) {
+        if ($status !== 'all' && in_array($status, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_CANCELLED], true)) {
             $query->where('status', $status);
+        } else {
+            // "Semua Pesanan" leaves out cancelled orders; they live in their own tab.
+            $status = 'all';
+            $query->where('status', '!=', Order::STATUS_CANCELLED);
         }
 
         if ($search !== '') {
@@ -42,6 +46,7 @@ class OrderManagementController extends Controller
             'total' => Order::count(),
             'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
             'confirmed' => Order::where('status', Order::STATUS_CONFIRMED)->count(),
+            'paid' => Order::where('status', Order::STATUS_PAID)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
             'avg_rating' => round((float) Order::whereNotNull('rating')->avg('rating'), 1),
             'reviews_count' => Order::whereNotNull('rating')->count(),
@@ -76,6 +81,31 @@ class OrderManagementController extends Controller
             ]);
 
             return ['success', "Pesanan #{$order->order_number} berhasil dikonfirmasi! Tautan tracking publik telah aktif."];
+        });
+
+        return back()->with(...$outcome);
+    }
+
+    public function markPaid(Order $order): RedirectResponse
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($order->isCancelled()) {
+                return ['error', 'Pesanan yang sudah dibatalkan tidak dapat ditandai dibayar.'];
+            }
+
+            if ($order->isPending()) {
+                return ['error', "Konfirmasi pesanan #{$order->order_number} dulu sebelum menandainya dibayar."];
+            }
+
+            if ($order->isPaid()) {
+                return ['info', "Pesanan #{$order->order_number} sudah ditandai dibayar sebelumnya."];
+            }
+
+            $order->update(['status' => Order::STATUS_PAID, 'paid_at' => now()]);
+
+            return ['success', "Pesanan #{$order->order_number} ditandai sudah dibayar. Halaman tracking pembeli ikut berubah."];
         });
 
         return back()->with(...$outcome);

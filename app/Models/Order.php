@@ -15,6 +15,8 @@ class Order extends Model
 
     public const STATUS_CONFIRMED = 'confirmed';
 
+    public const STATUS_PAID = 'paid';
+
     public const STATUS_PROCESSING = 'processing';
 
     public const STATUS_COMPLETED = 'completed';
@@ -27,6 +29,7 @@ class Order extends Model
         'status',
         'confirmation_token',
         'confirmed_at',
+        'paid_at',
         'cancelled_at',
         'customer_name',
         'customer_phone',
@@ -39,6 +42,7 @@ class Order extends Model
     protected $casts = [
         'total_price' => 'decimal:2',
         'confirmed_at' => 'datetime',
+        'paid_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'review_hidden_at' => 'datetime',
@@ -64,6 +68,17 @@ class Order extends Model
     public function isConfirmed(): bool
     {
         return $this->status === self::STATUS_CONFIRMED;
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === self::STATUS_PAID;
+    }
+
+    /** Past the confirm step: confirmed and waiting for payment, or already paid. */
+    public function hasBeenConfirmed(): bool
+    {
+        return $this->isConfirmed() || $this->isPaid();
     }
 
     public function isCancelled(): bool
@@ -97,12 +112,28 @@ class Order extends Model
 
         $formattedTotal = 'Rp '.number_format((float) $this->total_price, 0, ',', '.');
 
-        $message = "Halo Kak {$this->customer_name}! Terima kasih telah memesan di Brread! 🍦🥪\n\n"
+        // Plain text only (no emoji: they arrive as a broken symbol on some phones). wa.me cannot attach a file, so
+        // the picture of the sandwich goes in as a link and WhatsApp shows it as a preview under the message.
+        $message = "Halo Kak {$this->customer_name}! Terima kasih telah memesan di Brread!\n\n"
             ."Kami ingin mengonfirmasi pesanan Anda:\n"
-            ."• No. Pesanan: #{$this->order_number}\n"
-            ."• Total: {$formattedTotal}\n\n"
-            .'Apakah pesanan ini sudah benar dan siap kami proses?';
+            ."- No. Pesanan: #{$this->order_number}\n"
+            ."- Total: {$formattedTotal}\n\n"
+            ."Apakah pesanan ini sudah benar dan siap kami proses?\n\n"
+            .$this->whatsappPictureUrl();
 
         return 'https://wa.me/'.$rawPhone.'?text='.rawurlencode($message);
+    }
+
+    /** A picture of the sandwich for the WhatsApp message, matched to the order's ice cream. */
+    private function whatsappPictureUrl(): string
+    {
+        $pictures = [
+            'Chocolate' => 'product-chocolate', 'Matcha' => 'product-matcha', 'Strawberry' => 'product-strawberry',
+            'Vanilla' => 'product-vanilla', 'Es Teler' => 'product-es-teler', 'Neapolitan' => 'product-neapolitan',
+            'Durian Musang King' => 'product-durian',
+        ];
+        $flavor = $this->orderItems->first(fn ($item) => $item->component?->category === 'ice_cream')?->component?->name;
+
+        return asset('img/marketing/'.($pictures[$flavor] ?? 'product-es-teler').'.jpg');
     }
 }

@@ -1,7 +1,7 @@
 {{-- Print-only receipt. Hidden on screen; the @media print rules in order-status.css swap it in for the page. --}}
 @php
-    $stampClass = $order->isConfirmed() ? 'confirmed' : ($order->isCancelled() ? 'cancelled' : 'pending');
-    $stampText = $order->isConfirmed() ? 'Terkonfirmasi' : ($order->isCancelled() ? 'Dibatalkan' : 'Menunggu');
+    $stampClass = $order->hasBeenConfirmed() ? 'confirmed' : ($order->isCancelled() ? 'cancelled' : 'pending');
+    $stampText = $order->isPaid() ? 'Lunas' : ($order->isConfirmed() ? 'Terkonfirmasi' : ($order->isCancelled() ? 'Dibatalkan' : 'Menunggu'));
 @endphp
 <section class="os-print" aria-hidden="true">
     <div class="rcpt">
@@ -22,6 +22,10 @@
                 @if ($order->confirmed_at)
                     <dt>Dikonfirmasi</dt>
                     <dd>{{ $order->confirmed_at->format('d M Y, H:i') }} WIB</dd>
+                @endif
+                @if ($order->paid_at)
+                    <dt>Dibayar</dt>
+                    <dd>{{ $order->paid_at->format('d M Y, H:i') }} WIB</dd>
                 @endif
                 <dt>Pembeli</dt>
                 <dd>{{ $order->customer_name }}</dd>

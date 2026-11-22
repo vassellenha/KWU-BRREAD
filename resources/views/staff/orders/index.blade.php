@@ -110,6 +110,7 @@
                     'all' => 'Semua Pesanan',
                     'pending' => 'Pending',
                     'confirmed' => 'Confirmed',
+                    'paid' => 'Paid',
                     'cancelled' => 'Cancelled',
                 ];
             @endphp
@@ -240,6 +241,11 @@
                                         <span class="material-symbols-outlined text-[14px] shrink-0">check_circle</span>
                                         Confirmed
                                     </span>
+                                @elseif ($order->isPaid())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-300">
+                                        <span class="material-symbols-outlined text-[14px] shrink-0">payments</span>
+                                        Paid
+                                    </span>
                                 @elseif ($order->isCancelled())
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
                                         <span class="material-symbols-outlined text-[14px] shrink-0">cancel</span>
@@ -329,6 +335,21 @@
                                             >
                                                 <span class="material-symbols-outlined text-[14px] shrink-0">check</span>
                                                 <span>Confirm</span>
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    {{-- MARK PAID BUTTON --}}
+                                    @if ($order->isConfirmed())
+                                        <form method="POST" action="{{ route('staff.orders.paid', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} ditandai sudah dibayar dan halaman tracking pembeli ikut berubah." data-confirm-title="Tandai sudah dibayar?" data-confirm-label="Ya, sudah dibayar" data-cancel-label="Kembali">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-700 text-white hover:bg-sky-800 font-label-md text-[11px] font-semibold shadow-sm transition-colors"
+                                                title="Tandai pesanan sudah dibayar"
+                                            >
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">payments</span>
+                                                <span>Sudah Dibayar</span>
                                             </button>
                                         </form>
                                     @endif

@@ -10,13 +10,14 @@
         $errors = $errors ?? new \Illuminate\Support\ViewErrorBag();
         $rupiah = fn (float $amount): string => 'Rp ' . number_format($amount, 0, ',', '.');
 
-        $state = $order->isConfirmed() ? 'confirmed' : ($order->isPending() ? 'pending' : ($order->isCancelled() ? 'cancelled' : 'other'));
+        $state = $order->hasBeenConfirmed() ? 'confirmed' : ($order->isPending() ? 'pending' : ($order->isCancelled() ? 'cancelled' : 'other'));
         $art = fn (string $name): string => asset('img/cutout/' . $name . '.webp');
         $first = $creations->first();
 
-        $statusText = $order->isConfirmed() ? 'Pesanan Terkonfirmasi'
+        $statusText = $order->isPaid() ? 'Pesanan Sudah Dibayar'
+            : ($order->isConfirmed() ? 'Pesanan Terkonfirmasi'
             : ($order->isPending() ? 'Menunggu Konfirmasi'
-            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status)));
+            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status))));
 
         $tracker = [
             'state' => $state,
@@ -30,6 +31,7 @@
         {{-- Icon sprite: drawn inline so the page needs no icon font. --}}
         <svg class="os-sprite" aria-hidden="true" focusable="false">
             <defs>
+                <symbol id="osi-wallet" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 012-2H18v3M3.5 7.5v10a2 2 0 002 2h16v-11H5.5a2 2 0 01-2-2zM16.5 13.5h2"/></symbol>
                 <symbol id="osi-check" viewBox="0 0 24 24"><path d="M4.5 12.8l4.8 4.7L19.5 6.8"/></symbol>
                 <symbol id="osi-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
                 <symbol id="osi-hourglass" viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M8 3v4l4 5-4 5v4M16 3v4l-4 5 4 5v4"/></symbol>
@@ -105,6 +107,12 @@
                                     <dd>{{ $order->confirmed_at->format('d M Y, H:i') }} WIB</dd>
                                 </div>
                             @endif
+                            @if ($order->paid_at)
+                                <div>
+                                    <dt>Dibayar</dt><i class="tk__lead" aria-hidden="true"></i>
+                                    <dd>{{ $order->paid_at->format('d M Y, H:i') }} WIB</dd>
+                                </div>
+                            @endif
                         </dl>
 
                         <div class="tk__actions">
@@ -124,10 +132,10 @@
                                     <span class="os-step__time">{{ $order->created_at->format('H:i') }} WIB</span>
                                 </li>
 
-                                <li class="os-step {{ $order->isConfirmed() ? 'is-done' : ($order->isCancelled() ? 'is-stopped' : 'is-current') }}" style="--i: 1">
+                                <li class="os-step {{ $order->hasBeenConfirmed() ? 'is-done' : ($order->isCancelled() ? 'is-stopped' : 'is-current') }}" style="--i: 1">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
-                                            <use href="#{{ $order->isConfirmed() ? 'osi-check' : ($order->isCancelled() ? 'osi-x' : 'osi-hourglass') }}"/>
+                                            <use href="#{{ $order->hasBeenConfirmed() ? 'osi-check' : ($order->isCancelled() ? 'osi-x' : 'osi-hourglass') }}"/>
                                         </svg>
                                     </span>
                                     <span class="os-step__label">2. Dikonfirmasi</span>
@@ -136,10 +144,20 @@
                                     </span>
                                 </li>
 
-                                <li class="os-step {{ $order->isConfirmed() ? 'is-ready' : 'is-todo' }}" style="--i: 2">
+                                <li class="os-step {{ $order->isPaid() ? 'is-done' : ($order->isConfirmed() ? 'is-current' : 'is-todo') }}" style="--i: 2">
+                                    <span class="os-node">
+                                        <svg class="os-ico" aria-hidden="true">
+                                            <use href="#{{ $order->isPaid() ? 'osi-wallet' : ($order->isConfirmed() ? 'osi-hourglass' : 'osi-wallet') }}"/>
+                                        </svg>
+                                    </span>
+                                    <span class="os-step__label">3. Dibayar</span>
+                                    <span class="os-step__time">{{ $order->paid_at ? $order->paid_at->format('H:i') . ' WIB' : ($order->isConfirmed() ? 'Menunggu bayar' : '-') }}</span>
+                                </li>
+
+                                <li class="os-step {{ $order->isPaid() ? 'is-ready' : 'is-todo' }}" style="--i: 3">
                                     <span class="os-node"><svg class="os-ico" aria-hidden="true"><use href="#osi-cone"/></svg></span>
-                                    <span class="os-step__label">3. Siap Nikmati</span>
-                                    <span class="os-step__time">{{ $order->isConfirmed() ? 'Di konter toko' : '-' }}</span>
+                                    <span class="os-step__label">4. Siap Nikmati</span>
+                                    <span class="os-step__time">{{ $order->isPaid() ? 'Di konter toko' : '-' }}</span>
                                 </li>
                             </ol>
                         </div>
@@ -147,12 +165,15 @@
                         {{-- LIVE STATUS LINE --}}
                         <div class="os-note" role="status">
                             <span class="os-note__icon" aria-hidden="true">
-                                <svg class="os-ico"><use href="#{{ $order->isConfirmed() ? 'osi-star' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass') }}"/></svg>
+                                <svg class="os-ico"><use href="#{{ $order->isPaid() ? 'osi-star' : ($order->isConfirmed() ? 'osi-wallet' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass')) }}"/></svg>
                             </span>
                             <p>
-                                @if ($order->isConfirmed())
-                                    <b>Pesananmu udah dikonfirmasi!</b>
+                                @if ($order->isPaid())
+                                    <b>Pembayaran diterima, makasih!</b>
                                     Sandwich-nya disiapkan dan bisa diambil di konter toko.
+                                @elseif ($order->isConfirmed())
+                                    <b>Pesananmu udah dikonfirmasi!</b>
+                                    Tinggal selesaikan pembayaran ke admin. Begitu admin menandai lunas, halaman ini ikut berubah dan sandwich-nya langsung disiapkan.
                                 @elseif ($order->isCancelled())
                                     <b>Pesanan ini dibatalkan.</b>
                                     Stok bahannya sudah dikembalikan ke gudang.

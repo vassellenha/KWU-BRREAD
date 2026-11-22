@@ -34,12 +34,18 @@ function countUp(el) {
     requestAnimationFrame(step);
 }
 
+// How far the chocolate slab has melted into matcha (0 to 1), eased, while the slab is pulled apart.
+function matchaMixAt(p) {
+    const t = Math.min(1, Math.max(0, (p - 0.26) / 0.3));
+    return t * t * (3 - 2 * t);
+}
+
 // The pinned 3D chapter: which sandwich to show at each point of the scroll.
 function sandwichStateAt(p) {
     return {
         bread: 'Plain White Bread',
-        flavor: p < 0.42 ? 'Chocolate' : 'Matcha',
-        flavorColor: p < 0.42 ? '#6B4226' : '#8DB255',
+        flavor: 'Chocolate',
+        flavorColor: '#6B4226',
         sauce: false,
         sprinkles: p >= 0.62,
         exploded: p >= 0.22 && p < 0.86,
@@ -176,7 +182,8 @@ export function initAbout(root, { reducedMotion = false } = {}) {
             const p = stagePin.p;
             studio.setView(-28 + p * 340, 66 - Math.sin(p * Math.PI) * 10);
             const next = sandwichStateAt(p);
-            const key = `${next.flavor}${next.sprinkles}${next.exploded}`;
+            const key = `${next.sprinkles}${next.exploded}`;
+            studio.setFlavorMix('Matcha', matchaMixAt(p));
             if (key !== studioKey) {
                 studioKey = key;
                 studio.setState(next).catch(() => {});
