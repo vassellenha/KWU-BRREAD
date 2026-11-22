@@ -238,7 +238,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-xl items-center" data-reveal-group>
                     <div class="lg:col-span-6" data-reveal>
                         <div class="relative w-full h-[400px] rounded-lg overflow-hidden -rotate-1 shadow-[0_14px_30px_rgba(113,59,44,0.16)]">
-                            <img class="w-full h-full object-cover object-[50%_40%]" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up" src="/img/marketing/heritage-uncle.jpg" loading="lazy">
+                            <img class="w-full h-full object-cover object-[50%_40%]" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up" src="/img/marketing/heritage-uncle-hd.jpg" loading="lazy">
                             <div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent flex items-end p-space-lg">
                                 <p class="font-title-md text-title-md text-surface-container-lowest">Orchard Road, Singapore</p>
                             </div>

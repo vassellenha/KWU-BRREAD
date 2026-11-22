@@ -47,7 +47,7 @@
             <div class="about-sticky about-origin">
                 <p class="about-origin-note font-hand">where it comes from</p>
                 <figure class="about-origin-frame">
-                    <img src="/img/marketing/heritage-uncle.jpg" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up">
+                    <img src="/img/marketing/heritage-uncle-hd.jpg" alt="One of the ice cream uncles of Orchard Road at his cart, giving a thumbs up">
                     <span class="about-origin-shade" aria-hidden="true"></span>
                     <figcaption class="about-origin-tag font-hand">Orchard Road, Singapore</figcaption>
                 </figure>
