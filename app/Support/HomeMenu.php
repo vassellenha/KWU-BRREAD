@@ -144,6 +144,7 @@ class HomeMenu
             'tag' => implode(' + ', [$flavor->name, ...$toppingNames]),
             'category' => [Str::slug($combo->bread->name)],
             'name' => $combo->name,
+            'flavor' => $flavor->name,
             'desc' => ucfirst(self::breadLabel($combo->bread->name)).' bread with '.Str::lower($flavor->name).' ice cream'
                 .($toppingNames ? ', topped with '.self::join(array_map(Str::lower(...), $toppingNames), 'and').'.' : '.'),
             'price' => $combo->price(),

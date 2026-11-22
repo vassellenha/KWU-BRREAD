@@ -216,6 +216,28 @@ class SignatureComboTest extends TestCase
         $this->assertFalse(collect(HomeMenu::get(public: true)['combos'])->firstWhere('id', $combo->id)['photo']);
     }
 
+    public function test_about_uses_the_photo_uploaded_for_a_combo_and_goes_back_when_it_is_removed(): void
+    {
+        // A combo on a flavor About shows (vanilla and strawberry are held back from the public pages).
+        $combo = SignatureCombo::with('flavor')->get()->first(fn ($combo) => ! in_array(strtolower($combo->flavor->name), ['vanilla', 'strawberry'], true));
+        $this->assertNotNull($combo);
+
+        $this->actingAs($this->admin)
+            ->put(route('staff.menu.combos.update', $combo), $this->payload($combo->name) + ['photo' => UploadedFile::fake()->image('card.jpg', 800, 800)])
+            ->assertSessionHasNoErrors();
+
+        $url = $combo->fresh()->photo->url();
+        $html = $this->get('/about')->assertOk()->getContent();
+        $this->assertStringContainsString('<img src="'.e($url).'" alt="'.e($combo->name.', '.$combo->fresh()->flavor->name).' ice cream sandwich"', $html);
+        $this->assertStringContainsString('class="about-stage-photo" src="'.e($url).'"', $html);
+
+        $this->actingAs($this->admin)
+            ->put(route('staff.menu.combos.update', $combo), $this->payload($combo->name) + ['remove_photo' => '1'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertStringNotContainsString(e($url), $this->get('/about')->getContent());
+    }
+
     public function test_a_combo_photo_must_be_a_real_picture(): void
     {
         $combo = SignatureCombo::firstOrFail();

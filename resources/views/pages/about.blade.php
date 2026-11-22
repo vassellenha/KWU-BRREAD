@@ -69,9 +69,12 @@
                 'durian-musang-king' => ['line' => 'Rich Musang King durian cream with chunks of golden custard.', 'cut' => 'ice-durian-musang-king', 'top' => null, 'bg' => '#e3e6a4', 'ink' => '#3b3f0c', 'photo' => 'product-durian'],
                 'matcha' => ['line' => 'Stone-ground green tea cream, earthy and only lightly sweet.', 'cut' => 'ice-matcha', 'top' => null, 'bg' => '#cfd8b4', 'ink' => '#2e3a17', 'photo' => 'product-matcha'],
             ];
+            // The pictures uploaded for the signature combos in the admin (Menu, Signature combos), newest edit and all.
+            $comboPhotos = collect($menu['combos'])->filter(fn ($combo) => $combo['photo'])->values();
+            $stageCombo = $comboPhotos->first();
             $drips = ['cream', 'vanilla', 'strawberry', 'chocolate', 'peach'];
             $cards = collect($menu['flavors'])
-                ->map(fn ($name) => ['name' => $name, 'key' => \Illuminate\Support\Str::slug($name)] + ($flavorCards[\Illuminate\Support\Str::slug($name)] ?? []))
+                ->map(fn ($name) => ['name' => $name, 'key' => \Illuminate\Support\Str::slug($name), 'combo' => $comboPhotos->firstWhere('flavor', $name)] + ($flavorCards[\Illuminate\Support\Str::slug($name)] ?? []))
                 ->filter(fn ($card) => isset($card['cut']))
                 ->values();
         @endphp
@@ -87,7 +90,7 @@
                             <p class="about-card-line">{{ $flavor['line'] }}</p>
                         </div>
                         <div class="about-card-art">
-                            <div class="about-card-photo"><img src="/img/marketing/{{ $flavor['photo'] }}.jpg" alt="{{ $flavor['name'] }} ice cream sandwich" loading="lazy"></div>
+                            <div class="about-card-photo"><img src="{{ $flavor['combo']['image'] ?? '/img/marketing/'.$flavor['photo'].'.jpg' }}" alt="{{ $flavor['combo'] ? $flavor['combo']['name'].', '.$flavor['name'].' ice cream sandwich' : $flavor['name'].' ice cream sandwich' }}" loading="lazy"></div>
                             <div class="about-card-slab">
                                 <img src="/img/cutout/{{ $flavor['cut'] }}.webp" alt="" loading="lazy">
                                 @if ($flavor['top'])
@@ -165,7 +168,7 @@
                     </div>
                     <div class="lg:col-span-7 h-full min-h-[280px]">
                         <div data-about-stage-wrap class="about-stage-wrap">
-                            <img class="about-stage-photo" src="/img/marketing/product-es-teler.jpg" alt="White bread ice cream sandwich with es teler ice cream and rainbow sprinkles" loading="lazy">
+                            <img class="about-stage-photo" src="{{ $stageCombo['image'] ?? '/img/marketing/product-es-teler.jpg' }}" alt="{{ $stageCombo ? $stageCombo['name'].', '.$stageCombo['desc'] : 'White bread ice cream sandwich with es teler ice cream and rainbow sprinkles' }}" loading="lazy">
                             <div data-about-stage class="stage-fade about-stage" role="img" aria-label="3D ice cream sandwich that comes apart as you scroll"></div>
                         </div>
                     </div>
@@ -183,6 +186,7 @@
                 $tilts = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg', '1.5deg', '-2deg', '1deg', '-1deg', '2deg'];
                 $launch = ['community-mjordan.jpg', 'product-es-teler.jpg', 'community-targaryen.jpg', 'hero-held.jpg', 'product-chocolate.jpg', 'product-drizzle.jpg', 'step-packaged.jpg', 'community-rizky.jpg', 'product-neapolitan.jpg', 'step-icecream.jpg'];
                 $frames = \App\Support\ReviewFeed::photos(10)->pluck('photo')
+                    ->concat($comboPhotos->pluck('image'))
                     ->concat(array_map(fn ($file) => '/img/marketing/'.$file, $launch))
                     ->take(10)
                     ->values()
