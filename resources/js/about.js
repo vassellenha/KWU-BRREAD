@@ -38,8 +38,8 @@ function countUp(el) {
 function sandwichStateAt(p) {
     return {
         bread: 'Plain White Bread',
-        flavor: 'Strawberry',
-        flavorColor: '#F8B8C4',
+        flavor: p < 0.42 ? 'Chocolate' : 'Matcha',
+        flavorColor: p < 0.42 ? '#6B4226' : '#8DB255',
         sauce: false,
         sprinkles: p >= 0.62,
         exploded: p >= 0.22 && p < 0.86,
@@ -176,7 +176,7 @@ export function initAbout(root, { reducedMotion = false } = {}) {
             const p = stagePin.p;
             studio.setView(-28 + p * 340, 66 - Math.sin(p * Math.PI) * 10);
             const next = sandwichStateAt(p);
-            const key = `${next.sprinkles}${next.exploded}`;
+            const key = `${next.flavor}${next.sprinkles}${next.exploded}`;
             if (key !== studioKey) {
                 studioKey = key;
                 studio.setState(next).catch(() => {});

@@ -1031,33 +1031,6 @@ html.no-intro .about-line > span {
     object-fit: contain;
 }
 
-.about-wall {
-    overflow: hidden;
-    padding-block: 1.1rem;
-}
-.about-wall-row {
-    display: flex;
-    gap: clamp(1rem, 2.5vw, 2.25rem);
-    width: max-content;
-    padding-inline: clamp(0.5rem, 1.25vw, 1.125rem);
-    will-change: transform;
-}
-.about-wall-photo {
-    flex: none;
-    width: clamp(200px, 27vw, 400px);
-    aspect-ratio: 4 / 3;
-    padding: 8px 8px 22px;
-    background: #fff;
-    border-radius: 4px;
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
-    transform: rotate(var(--tilt, 0deg));
-}
-.about-wall-photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
 .about-stamp {
     position: relative;
     width: min(74vw, 320px);

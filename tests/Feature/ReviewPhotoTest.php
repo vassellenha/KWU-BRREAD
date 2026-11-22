@@ -151,7 +151,6 @@ class ReviewPhotoTest extends TestCase
             ->assertDontSee('081234567890');
 
         $this->get('/reviews')->assertOk()->assertSee('Siti R.')->assertSee('Andi P.');
-        $this->get('/about')->assertOk()->assertSee($withPhoto->fresh()->reviewPhoto->url(), false);
     }
 
     public function test_the_reviews_page_shows_at_most_thirty_photos(): void
