@@ -14,15 +14,17 @@
         $art = fn (string $name): string => asset('img/cutout/' . $name . '.webp');
         $first = $creations->first();
 
-        $statusText = $order->isPaid() ? 'Pesanan Sudah Dibayar'
+        $statusText = $order->isCompleted() ? 'Pesanan Diterima'
+            : ($order->isPaid() ? 'Pesanan Sudah Dibayar'
             : ($order->isConfirmed() ? 'Pesanan Terkonfirmasi'
             : ($order->isPending() ? 'Menunggu Konfirmasi'
-            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status))));
+            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status)))));
 
         $tracker = [
             'state' => $state,
             'total' => $creations->count(),
             'since' => $order->created_at->toIso8601String(),
+            'received' => $order->isCompleted(),
         ];
     @endphp
 
@@ -144,20 +146,20 @@
                                     </span>
                                 </li>
 
-                                <li class="os-step {{ $order->isPaid() ? 'is-done' : ($order->isConfirmed() ? 'is-current' : 'is-todo') }}" style="--i: 2">
+                                <li class="os-step {{ $order->hasBeenPaid() ? 'is-done' : ($order->isConfirmed() ? 'is-current' : 'is-todo') }}" style="--i: 2">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
-                                            <use href="#{{ $order->isPaid() ? 'osi-wallet' : ($order->isConfirmed() ? 'osi-hourglass' : 'osi-wallet') }}"/>
+                                            <use href="#{{ $order->hasBeenPaid() ? 'osi-wallet' : ($order->isConfirmed() ? 'osi-hourglass' : 'osi-wallet') }}"/>
                                         </svg>
                                     </span>
                                     <span class="os-step__label">3. Dibayar</span>
                                     <span class="os-step__time">{{ $order->paid_at ? $order->paid_at->format('H:i') . ' WIB' : ($order->isConfirmed() ? 'Menunggu bayar' : '-') }}</span>
                                 </li>
 
-                                <li class="os-step {{ $order->isPaid() ? 'is-ready' : 'is-todo' }}" style="--i: 3">
-                                    <span class="os-node"><svg class="os-ico" aria-hidden="true"><use href="#osi-cone"/></svg></span>
-                                    <span class="os-step__label">4. Siap Nikmati</span>
-                                    <span class="os-step__time">{{ $order->isPaid() ? 'Di konter toko' : '-' }}</span>
+                                <li class="os-step {{ $order->isCompleted() ? 'is-done' : ($order->isPaid() ? 'is-ready' : 'is-todo') }}" style="--i: 3">
+                                    <span class="os-node"><svg class="os-ico" aria-hidden="true"><use href="#{{ $order->isCompleted() ? 'osi-check' : 'osi-cone' }}"/></svg></span>
+                                    <span class="os-step__label">{{ $order->isCompleted() ? '4. Diterima' : '4. Siap Nikmati' }}</span>
+                                    <span class="os-step__time">{{ $order->isCompleted() ? ($order->received_at ? $order->received_at->format('H:i') . ' WIB' : '-') : ($order->isPaid() ? 'Di konter toko' : '-') }}</span>
                                 </li>
                             </ol>
                         </div>
@@ -165,10 +167,13 @@
                         {{-- LIVE STATUS LINE --}}
                         <div class="os-note" role="status">
                             <span class="os-note__icon" aria-hidden="true">
-                                <svg class="os-ico"><use href="#{{ $order->isPaid() ? 'osi-star' : ($order->isConfirmed() ? 'osi-wallet' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass')) }}"/></svg>
+                                <svg class="os-ico"><use href="#{{ $order->hasBeenPaid() ? 'osi-star' : ($order->isConfirmed() ? 'osi-wallet' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass')) }}"/></svg>
                             </span>
                             <p>
-                                @if ($order->isPaid())
+                                @if ($order->isCompleted())
+                                    <b>Pesanan sudah kamu terima. Makasih!</b>
+                                    Semoga sandwich-nya enak. Kalau sempat, tulis ulasan di bawah ya.
+                                @elseif ($order->isPaid())
                                     <b>Pembayaran diterima, makasih!</b>
                                     Sandwich-nya disiapkan dan bisa diambil di konter toko.
                                 @elseif ($order->isConfirmed())
@@ -184,6 +189,18 @@
                                 @endif
                             </p>
                         </div>
+
+                        {{-- RECEIVED: the customer closes the order once the sandwich is in hand --}}
+                        @if ($order->isPaid() && ! $viewOnly)
+                            <form class="os-receive" method="POST" action="{{ route('order.received', $order->confirmation_token) }}">
+                                @csrf
+                                <p>Sandwich-nya sudah sampai di tanganmu? Tekan tombol ini supaya admin tahu pesananmu sudah diterima.</p>
+                                <button type="submit" class="os-btn os-btn--butter">
+                                    <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
+                                    <span>Pesanan Diterima</span>
+                                </button>
+                            </form>
+                        @endif
 
                         {{-- CUSTOMER --}}
                         <dl class="os-who">
@@ -522,7 +539,7 @@
         class="os-screen"
         style="padding: 0; max-width: none"
         x-data="reviewPopup({{ \Illuminate\Support\Js::from([
-            'open' => (bool) (session('success') && $order->hasReview()),
+            'open' => (bool) (session('success') && ! session('received') && $order->hasReview()),
             'rating' => (int) ($order->rating ?? 5),
             'text' => $order->review_text ?? '',
         ]) }})"

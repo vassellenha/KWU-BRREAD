@@ -1,7 +1,7 @@
 {{-- Print-only receipt. Hidden on screen; the @media print rules in order-status.css swap it in for the page. --}}
 @php
     $stampClass = $order->hasBeenConfirmed() ? 'confirmed' : ($order->isCancelled() ? 'cancelled' : 'pending');
-    $stampText = $order->isPaid() ? 'Lunas' : ($order->isConfirmed() ? 'Terkonfirmasi' : ($order->isCancelled() ? 'Dibatalkan' : 'Menunggu'));
+    $stampText = $order->hasBeenPaid() ? 'Lunas' : ($order->isConfirmed() ? 'Terkonfirmasi' : ($order->isCancelled() ? 'Dibatalkan' : 'Menunggu'));
 @endphp
 <section class="os-print" aria-hidden="true">
     <div class="rcpt">

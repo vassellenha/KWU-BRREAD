@@ -152,7 +152,7 @@ export function registerOrderFx(Alpine) {
                 this.updateClock();
                 this._tick = setInterval(() => this.updateClock(), 1000);
             }
-            if (this.state === 'confirmed') {
+            if (this.state === 'confirmed' && !config.received) {
                 // The third stamp lands at ~2.3s: celebrate right then.
                 setTimeout(() => {
                     const node = this.$root.querySelector('.os-step.is-ready .os-node');

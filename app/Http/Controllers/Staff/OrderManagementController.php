@@ -21,7 +21,7 @@ class OrderManagementController extends Controller
 
         $query = Order::with(['orderItems.component'])->latest();
 
-        if ($status !== 'all' && in_array($status, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_CANCELLED], true)) {
+        if ($status !== 'all' && in_array($status, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_COMPLETED, Order::STATUS_CANCELLED], true)) {
             $query->where('status', $status);
         } else {
             // "Semua Pesanan" leaves out cancelled orders; they live in their own tab.
@@ -47,6 +47,7 @@ class OrderManagementController extends Controller
             'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
             'confirmed' => Order::where('status', Order::STATUS_CONFIRMED)->count(),
             'paid' => Order::where('status', Order::STATUS_PAID)->count(),
+            'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
             'avg_rating' => round((float) Order::whereNotNull('rating')->avg('rating'), 1),
             'reviews_count' => Order::whereNotNull('rating')->count(),
@@ -99,7 +100,7 @@ class OrderManagementController extends Controller
                 return ['error', "Konfirmasi pesanan #{$order->order_number} dulu sebelum menandainya dibayar."];
             }
 
-            if ($order->isPaid()) {
+            if ($order->hasBeenPaid()) {
                 return ['info', "Pesanan #{$order->order_number} sudah ditandai dibayar sebelumnya."];
             }
 
@@ -119,6 +120,10 @@ class OrderManagementController extends Controller
 
             if ($order->isCancelled()) {
                 return ['info', "Pesanan #{$order->order_number} sudah berstatus batal."];
+            }
+
+            if ($order->isCompleted()) {
+                return ['error', "Pesanan #{$order->order_number} sudah diterima pelanggan, jadi tidak bisa dibatalkan."];
             }
 
             $tally = [];

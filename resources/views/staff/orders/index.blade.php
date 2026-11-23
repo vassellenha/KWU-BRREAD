@@ -111,6 +111,7 @@
                     'pending' => 'Pending',
                     'confirmed' => 'Confirmed',
                     'paid' => 'Paid',
+                    'completed' => 'Diterima',
                     'cancelled' => 'Cancelled',
                 ];
             @endphp
@@ -246,6 +247,11 @@
                                         <span class="material-symbols-outlined text-[14px] shrink-0">payments</span>
                                         Paid
                                     </span>
+                                @elseif ($order->isCompleted())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300" title="{{ $order->received_at ? 'Diterima '.$order->received_at->format('d M Y, H:i').' WIB' : '' }}">
+                                        <span class="material-symbols-outlined text-[14px] shrink-0">inventory_2</span>
+                                        Diterima
+                                    </span>
                                 @elseif ($order->isCancelled())
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
                                         <span class="material-symbols-outlined text-[14px] shrink-0">cancel</span>
@@ -355,7 +361,7 @@
                                     @endif
 
                                     {{-- CANCEL BUTTON --}}
-                                    @if (!$order->isCancelled())
+                                    @if (!$order->isCancelled() && !$order->isCompleted())
                                         <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dibatalkan dan stok bahan dipulihkan." data-confirm-title="Batalkan pesanan?" data-confirm-label="Ya, batalkan" data-cancel-label="Kembali" data-confirm-tone="danger">
                                             @csrf
                                             <button

@@ -1396,3 +1396,17 @@ input.sr-only:focus-visible + .os-photo { outline: 3px dashed var(--rasp-d); out
 /* Ingredient icons on the receipt lines (sprite in partials/ingredient-icons.blade.php). */
 .os-rcpt__icon { width: 1.15em; height: 1.15em; margin-right: 0.25em; vertical-align: -0.22em; color: #352f29; }
 .os-rcpt__icon--swatch { border-radius: 9999px; }
+
+/* ---------- "Pesanan Diterima" button ---------- */
+
+.os-receive {
+    margin-top: 18px;
+    padding: 14px 15px;
+    border: var(--line);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 4px 4px 0 var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+}
+.os-receive p { margin: 0 0 12px; }

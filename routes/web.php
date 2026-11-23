@@ -139,6 +139,7 @@ Route::get('/privacy', function () {
 })->name('privacy');
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
+Route::post('/order/status/{token}/received', [PublicOrderController::class, 'receive'])->middleware('throttle:10,1')->name('order.received');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
 Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
 Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');

@@ -30,6 +30,7 @@ class Order extends Model
         'confirmation_token',
         'confirmed_at',
         'paid_at',
+        'received_at',
         'cancelled_at',
         'customer_name',
         'customer_phone',
@@ -43,6 +44,7 @@ class Order extends Model
         'total_price' => 'decimal:2',
         'confirmed_at' => 'datetime',
         'paid_at' => 'datetime',
+        'received_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'review_hidden_at' => 'datetime',
@@ -75,10 +77,22 @@ class Order extends Model
         return $this->status === self::STATUS_PAID;
     }
 
-    /** Past the confirm step: confirmed and waiting for payment, or already paid. */
+    /** The customer pressed "Pesanan Diterima": the last step of an order. */
+    public function isCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
+    /** Paid, or past paid (received): the money is in either way. */
+    public function hasBeenPaid(): bool
+    {
+        return $this->isPaid() || $this->isCompleted();
+    }
+
+    /** Past the confirm step: confirmed and waiting for payment, paid, or received. */
     public function hasBeenConfirmed(): bool
     {
-        return $this->isConfirmed() || $this->isPaid();
+        return $this->isConfirmed() || $this->hasBeenPaid();
     }
 
     public function isCancelled(): bool
