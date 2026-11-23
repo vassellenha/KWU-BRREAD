@@ -374,6 +374,22 @@
                                             </button>
                                         </form>
                                     @endif
+
+                                    {{-- DELETE BUTTON (admin only) --}}
+                                    @if (auth()->user()->isAdmin())
+                                        <form method="POST" action="{{ route('staff.orders.destroy', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dihapus permanen dari semua laporan. Stok bahan dipulihkan. Tidak bisa dibatalkan." data-confirm-title="Hapus pesanan?" data-confirm-label="Ya, hapus" data-cancel-label="Kembali" data-confirm-tone="danger">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button
+                                                type="submit"
+                                                class="press-scale inline-flex items-center gap-0.5 px-2 py-1 rounded-full bg-surface-container text-error hover:bg-error-container hover:text-on-error-container font-label-md text-[11px] font-medium transition-colors"
+                                                title="Hapus pesanan permanen"
+                                            >
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">delete</span>
+                                                <span>Hapus</span>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

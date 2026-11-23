@@ -52,6 +52,8 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::post('/{order}/confirm', [OrderManagementController::class, 'confirm'])->name('confirm');
         Route::post('/{order}/paid', [OrderManagementController::class, 'markPaid'])->name('paid');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
+        // Deleting wipes the order for good (and drops it from the charts), so only the admin may do it.
+        Route::delete('/{order}', [OrderManagementController::class, 'destroy'])->middleware('role:'.User::ROLE_ADMIN)->name('destroy');
     });
 
     Route::middleware($rolesFor(User::MODULE_MRP))->prefix('mrp')->name('mrp.')->group(function () {

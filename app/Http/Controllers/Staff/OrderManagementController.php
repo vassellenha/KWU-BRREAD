@@ -152,4 +152,41 @@ class OrderManagementController extends Controller
 
         return back()->with(...$outcome);
     }
+
+    /**
+     * Permanently removes an order, for dummy or test orders that should not sit in the reports.
+     * Stock the order still holds is returned first; a cancelled order already gave it back.
+     */
+    public function destroy(Order $order): RedirectResponse
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $number = $order->order_number;
+
+            if (! $order->isCancelled()) {
+                $tally = [];
+                foreach ($order->orderItems as $item) {
+                    $tally[$item->component_id] = ($tally[$item->component_id] ?? 0) + $item->quantity;
+                }
+
+                foreach ($tally as $componentId => $quantity) {
+                    $component = Component::whereKey($componentId)->lockForUpdate()->first();
+                    $component?->recordStockMovement(
+                        type: StockMovement::TYPE_ADJUSTMENT,
+                        quantityChange: $quantity,
+                        userId: auth()->id(),
+                        orderId: $order->id,
+                        note: "Restorasi stok penghapusan pesanan #{$number}",
+                    );
+                }
+            }
+
+            // Order items and the review photo go with it (cascade); stock history keeps its rows.
+            $order->delete();
+
+            return ['success', "Pesanan #{$number} dihapus permanen dan stok bahan dipulihkan."];
+        });
+
+        return back()->with(...$outcome);
+    }
 }
