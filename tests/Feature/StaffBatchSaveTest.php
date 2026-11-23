@@ -392,7 +392,8 @@ class StaffBatchSaveTest extends TestCase
 
         $text = urldecode(parse_url($order->whatsapp_url, PHP_URL_QUERY));
         $this->assertStringContainsString('Halo Kak Jamal!', $text);
-        $this->assertStringContainsString('/img/marketing/product-', $text);
+        $this->assertStringContainsString('Rp 12.000 dengan scan QRIS', $text);
+        $this->assertStringContainsString('/img/qris.jpg', $text);
         $this->assertSame(1, preg_match('/^[\x20-\x7E\n]+$/', $text), 'the message must be plain ASCII');
     }
 }

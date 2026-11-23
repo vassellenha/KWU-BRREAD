@@ -131,7 +131,7 @@ Route::get('/about', function () {
 })->name('about');
 
 Route::get('/contact', function () {
-    return view('pages.contact');
+    return view('pages.contact', ['menu' => HomeMenu::get(public: true)]);
 })->name('contact');
 
 Route::get('/privacy', function () {
