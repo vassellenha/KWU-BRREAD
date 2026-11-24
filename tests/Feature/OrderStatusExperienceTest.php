@@ -66,12 +66,13 @@ class OrderStatusExperienceTest extends TestCase
             ->assertOk()
             ->assertSee('os-hero--confirmed', false)
             ->assertSee('1. Masuk')
-            ->assertSee('2. Pembayaran berhasil')
-            ->assertSee('3. Pesanan disiapkan')
-            ->assertSee('4. Pesanan siap diambil')
-            // confirmed but not paid yet: the payment stamp waits, the rest are still empty
+            // nothing past "Masuk" has happened: every other step waits under its waiting label
+            ->assertSee('2. Menunggu pembayaran')
+            ->assertSee('3. Pesanan diterima')
+            ->assertSee('4. Pesanan dikemas')
             ->assertSee('Menunggu bayar')
-            ->assertDontSee('os-step is-ready', false)
+            ->assertDontSee('Pembayaran berhasil')
+            ->assertDontSee('Pesanan siap diambil')
             ->assertSee('orderTracker', false);
     }
 
@@ -85,8 +86,10 @@ class OrderStatusExperienceTest extends TestCase
             ->assertSee('os-hero--confirmed', false)
             ->assertSee('os-step is-current', false)
             ->assertSee('osi-wallet', false)
+            ->assertSee('2. Pembayaran berhasil')
+            ->assertSee('3. Pesanan diterima')
+            ->assertSee('4. Pesanan dikemas')
             ->assertSee('Pembayaran berhasil, makasih!')
-            ->assertSee('Pembayaran Berhasil')
             ->assertDontSee('Menunggu bayar');
     }
 

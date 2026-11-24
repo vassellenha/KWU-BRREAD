@@ -92,6 +92,18 @@ class OrderStagesTest extends TestCase
             ->assertOk()->assertSee($processing->order_number)->assertDontSee($confirmed->order_number);
     }
 
+    public function test_a_preparing_order_still_packs_until_staff_mark_it_ready(): void
+    {
+        $order = $this->order(Order::STATUS_PROCESSING);
+        $order->forceFill(['paid_at' => now(), 'preparing_at' => now()])->save();
+
+        $this->get('/order/status/'.$order->confirmation_token)
+            ->assertOk()
+            ->assertSee('3. Pesanan disiapkan')
+            ->assertSee('4. Pesanan dikemas')
+            ->assertDontSee('4. Pesanan siap diambil');
+    }
+
     public function test_tracking_page_shows_the_four_steps_and_the_ready_state(): void
     {
         $order = $this->order(Order::STATUS_READY);
