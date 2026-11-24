@@ -18,7 +18,7 @@ class ContactInfo
     ];
 
     /**
-     * @return array{name: string, phone: string, phone_href: string, whatsapp: string, whatsapp_url: ?string, whatsapp_links: list<array{name: string, number: string, url: string}>, instagram: string, instagram_url: string}
+     * @return array{name: string, phone: string, phone_href: string, whatsapp: string, whatsapp_url: ?string, whatsapp_links: list<array{name: string, number: string, url: string, style: string}>, instagram: string, instagram_url: string}
      */
     public static function get(): array
     {
@@ -34,11 +34,17 @@ class ContactInfo
         foreach (explode(',', $whatsapp) as $entry) {
             [$name, $number] = array_pad(explode(':', $entry, 2), -2, '');
             $number = trim($number);
+            $style = '';
+            if (preg_match('/\(([^)]*)\)\s*$/', $number, $match)) {
+                $style = in_array(strtolower(trim($match[1])), ContactStyles::ALL, true) ? strtolower(trim($match[1])) : '';
+                $number = trim(preg_replace('/\([^)]*\)\s*$/', '', $number));
+            }
             if ($number !== '') {
                 $links[] = [
                     'name' => trim($name) !== '' ? trim($name) : $number,
                     'number' => $number,
                     'url' => 'https://wa.me/'.ltrim(self::international($number), '+'),
+                    'style' => $style,
                 ];
             }
         }

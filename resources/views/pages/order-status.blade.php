@@ -136,7 +136,7 @@
                                     <span class="os-step__time">{{ $order->created_at->format('H:i') }} WIB</span>
                                 </li>
 
-                                {{-- Every step that has not happened yet waits with the turning hourglass and its own waiting label. --}}
+                                {{-- Steps not reached yet show a still hourglass and a waiting label; only the step being waited on turns. --}}
                                 <li class="os-step {{ $order->hasBeenPaid() ? 'is-done' : ($order->isCancelled() ? 'is-stopped' : 'is-current') }}" style="--i: 1">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
@@ -149,17 +149,17 @@
                                     </span>
                                 </li>
 
-                                <li class="os-step {{ $order->hasBeenPrepared() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : 'is-current') }}" style="--i: 2">
+                                <li class="os-step {{ $order->hasBeenPrepared() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : ($order->isPaid() ? 'is-current' : 'is-todo is-waiting')) }}" style="--i: 2">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
                                             <use href="#{{ $order->hasBeenPrepared() ? 'osi-cone' : ($order->isCancelled() ? 'osi-cone' : 'osi-hourglass') }}"/>
                                         </svg>
                                     </span>
-                                    <span class="os-step__label">{{ $order->hasBeenPrepared() ? '3. Pesanan disiapkan' : '3. Pesanan diterima' }}</span>
+                                    <span class="os-step__label">{{ $order->hasBeenPrepared() ? '3. Pesanan disiapkan' : '3. Pesanan dalam antrean' }}</span>
                                     <span class="os-step__time">{{ $order->preparing_at ? $order->preparing_at->format('H:i') . ' WIB' : ($order->isPaid() ? 'Segera disiapkan' : '-') }}</span>
                                 </li>
 
-                                <li class="os-step {{ $order->isReady() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : 'is-current') }}" style="--i: 3">
+                                <li class="os-step {{ $order->isReady() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : ($order->isProcessing() ? 'is-current' : 'is-todo is-waiting')) }}" style="--i: 3">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
                                             <use href="#{{ $order->isReady() ? 'osi-check' : ($order->isCancelled() ? 'osi-bag' : 'osi-hourglass') }}"/>

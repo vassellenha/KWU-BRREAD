@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Support\ContactStyles;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -29,6 +30,16 @@ class PhoneNumberList implements ValidationRule
                 $fail('Keep each name to 30 characters.');
 
                 return;
+            }
+
+            // An optional message style in brackets after the number: "0821 3601 9367 (ceria)".
+            if (preg_match('/\(([^)]*)\)\s*$/', $number, $match)) {
+                if (! in_array(strtolower(trim($match[1])), ContactStyles::ALL, true)) {
+                    $fail('The message style must be '.implode(' or ', ContactStyles::ALL).'.');
+
+                    return;
+                }
+                $number = trim(preg_replace('/\([^)]*\)\s*$/', '', $number));
             }
 
             (new PhoneNumber)->validate($attribute, trim($number), $fail);

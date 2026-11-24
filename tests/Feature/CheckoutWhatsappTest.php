@@ -77,4 +77,22 @@ class CheckoutWhatsappTest extends TestCase
         $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => '0811111111, abc'])
             ->assertSessionHasErrors('contact_whatsapp');
     }
+
+    public function test_each_admin_can_have_a_message_style(): void
+    {
+        SiteSetting::put(['contact_whatsapp' => 'Atmint Pasel: 0821 3601 9367 (ceria), Atmint Sandi: 0811 6362 805 (formal)']);
+
+        $this->get('/menu')->assertOk()
+            ->assertSee('&quot;style&quot;:&quot;ceria&quot;', false)
+            ->assertSee('"style":"formal"', false);
+    }
+
+    public function test_an_unknown_message_style_is_refused(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $payload = ['contact_name' => 'x', 'contact_phone' => '0812 3456 7890', 'instagram_handle' => 'brread'];
+
+        $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => 'Atmint Pasel: 0821 3601 9367 (galak)'])
+            ->assertSessionHasErrors('contact_whatsapp');
+    }
 }

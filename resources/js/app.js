@@ -784,22 +784,47 @@ Alpine.data('cartDrawer', () => ({
         Alpine.store('cart').open = false;
     },
 
-    // The first WhatsApp message to the shop, ready to send: name, number, order id and total (plain text).
-    buildWaUrl(waBase, orderNumber, total, name, phone) {
-        if (!waBase) return '';
+    // The first WhatsApp message to the admin, ready to send: name, number, order id and total.
+    buildWaUrl(admin, orderNumber, total, name, phone) {
+        if (!admin?.url) return '';
 
-        const text = [
-            'Halo Brread! Saya mau konfirmasi pesanan.',
-            '',
-            `Nama: ${name}`,
-            `No. HP: ${phone}`,
-            `No. Pesanan: #${orderNumber}`,
-            `Total: ${formatPrice(total)}`,
-            '',
-            'Mohon info cara pembayarannya ya. Terima kasih!',
-        ].join('\n');
+        // The admin's name from Contact in the panel; a bare number (no name set) falls back to the shop.
+        const adminName = /[A-Za-z]/.test(admin.name || '') ? admin.name : 'Brread!';
+        const money = formatPrice(total);
 
-        return `${waBase}?text=${encodeURIComponent(text)}`;
+        // Each admin has a message style set in the panel: "ceria" (playful, emoji) or "formal" (corporate).
+        const text = admin.style === 'formal'
+            ? [
+                `Halo, ${adminName}.`,
+                '',
+                'Dengan hormat,',
+                'Saya bermaksud mengonfirmasi pesanan dengan rincian berikut:',
+                '',
+                `Nama: ${name}`,
+                `Nomor HP: ${phone}`,
+                `Nomor Pesanan: #${orderNumber}`,
+                `Total Pembayaran: ${money}`,
+                '',
+                'Mohon informasi mengenai metode dan tata cara pembayarannya.',
+                'Atas perhatian dan bantuannya, saya ucapkan terima kasih.',
+                '',
+                'Hormat saya,',
+                name,
+            ].join('\n')
+            : [
+                `Haloo ${adminName}! 👋🍦`,
+                'Aku mau konfirmasi pesanan nih 🥪✨',
+                '',
+                `👤 Nama: ${name}`,
+                `📱 No. HP: ${phone}`,
+                `🧾 No. Pesanan: #${orderNumber}`,
+                `💰 Total: ${money}`,
+                '',
+                'Mohon info cara pembayarannya ya 🙏',
+                'Makasih banyak! 💖',
+            ].join('\n');
+
+        return `${admin.url}?text=${encodeURIComponent(text)}`;
     },
 
     // Step before the order is sent: the customer checks the name and number they typed.
@@ -818,8 +843,8 @@ Alpine.data('cartDrawer', () => ({
         this.confirming = true;
     },
 
-    // adminUrl is the wa.me link of the admin the customer picked ('' when no number is set).
-    async checkout(adminUrl = '') {
+    // admin is the one the customer picked ({ name, url, style }), or null when no number is set.
+    async checkout(admin = null) {
         const cart = Alpine.store('cart');
         this.errorMessage = '';
         this.confirming = false;
@@ -844,7 +869,7 @@ Alpine.data('cartDrawer', () => ({
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
-            this.waUrl = this.buildWaUrl(adminUrl, res.data.order_number, res.data.total_price, name, phone);
+            this.waUrl = this.buildWaUrl(admin, res.data.order_number, res.data.total_price, name, phone);
             cart.clear();
 
             // The order is in; the customer now confirms it with the shop on WhatsApp. A short pause lets the

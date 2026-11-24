@@ -303,6 +303,8 @@
     animation: os-stamp-sm 520ms var(--snap) calc(0.95s + var(--i, 0) * 0.55s) both;
 }
 .is-done .os-node .os-ico, .is-ready .os-node .os-ico, .is-stopped .os-node .os-ico { opacity: 1; }
+/* A step still ahead shows its hourglass standing still, a little faded. */
+.is-todo.is-waiting .os-node .os-ico { opacity: 0.55; }
 .is-current .os-node { border-color: var(--c); animation: os-spin-dash 9s linear infinite; }
 .is-current .os-node .os-ico { opacity: 1; animation: os-tick 2.4s var(--spring) infinite; }
 @keyframes os-stamp-sm {

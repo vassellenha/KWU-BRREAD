@@ -32,8 +32,8 @@
             </div>
             <div>
                 <label for="contact_whatsapp" class="{{ $label }}">WhatsApp (optional)</label>
-                <input id="contact_whatsapp" name="contact_whatsapp" type="text" inputmode="tel" value="{{ old('contact_whatsapp', $contact['whatsapp']) }}" placeholder="Atmint Pasel: 0821 3601 9367, Atmint Sandi: 0811 6362 805" class="{{ $field }}">
-                <p class="mt-1 text-[12px] text-on-surface-variant">Boleh sampai 3 admin, pisahkan dengan koma. Format: Nama: nomor. Kalau lebih dari satu, pembeli memilih sendiri mau chat siapa.</p>
+                <input id="contact_whatsapp" name="contact_whatsapp" type="text" inputmode="tel" value="{{ old('contact_whatsapp', $contact['whatsapp']) }}" placeholder="Atmint Pasel: 0821 3601 9367 (ceria), Atmint Sandi: 0811 6362 805 (formal)" class="{{ $field }}">
+                <p class="mt-1 text-[12px] text-on-surface-variant">Boleh sampai 3 admin, pisahkan dengan koma. Format: Nama: nomor (gaya). Gaya pesan WhatsApp-nya: ceria (pakai emoji) atau formal (korporat); kosongkan untuk ceria. Kalau lebih dari satu, pembeli memilih sendiri mau chat siapa.</p>
             </div>
             <div>
                 <label for="instagram_handle" class="{{ $label }}">Instagram</label>

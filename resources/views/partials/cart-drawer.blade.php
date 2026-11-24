@@ -1,5 +1,5 @@
 @php($shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_links'])
-<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp[0]['url'] ?? '' }}" data-wa-admins='@json(array_map(fn ($l) => ['name' => $l['name'], 'url' => $l['url']], $shopWhatsapp), JSON_HEX_APOS)' @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
+<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp[0]['url'] ?? '' }}" data-wa-admins='@json(array_map(fn ($l) => ['name' => $l['name'], 'url' => $l['url'], 'style' => $l['style']], $shopWhatsapp), JSON_HEX_APOS)' @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
@@ -240,7 +240,7 @@
                 <template x-if="admins.length === 0">
                     <button
                         type="button"
-                        @click="checkout('')"
+                        @click="checkout(null)"
                         class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
                     >
                         <span class="material-symbols-outlined text-[20px]">check</span>
@@ -250,7 +250,7 @@
                 <template x-for="admin in admins" :key="admin.url">
                     <button
                         type="button"
-                        @click="checkout(admin.url)"
+                        @click="checkout(admin)"
                         class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
                     >
                         <span class="material-symbols-outlined text-[20px]">forum</span>

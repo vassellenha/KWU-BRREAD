@@ -68,7 +68,7 @@ class OrderStatusExperienceTest extends TestCase
             ->assertSee('1. Masuk')
             // nothing past "Masuk" has happened: every other step waits under its waiting label
             ->assertSee('2. Menunggu pembayaran')
-            ->assertSee('3. Pesanan diterima')
+            ->assertSee('3. Pesanan dalam antrean')
             ->assertSee('4. Pesanan dikemas')
             ->assertSee('Menunggu bayar')
             ->assertDontSee('Pembayaran berhasil')
@@ -87,7 +87,7 @@ class OrderStatusExperienceTest extends TestCase
             ->assertSee('os-step is-current', false)
             ->assertSee('osi-wallet', false)
             ->assertSee('2. Pembayaran berhasil')
-            ->assertSee('3. Pesanan diterima')
+            ->assertSee('3. Pesanan dalam antrean')
             ->assertSee('4. Pesanan dikemas')
             ->assertSee('Pembayaran berhasil, makasih!')
             ->assertDontSee('Menunggu bayar');
