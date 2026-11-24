@@ -1,5 +1,8 @@
-@php($shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_links'])
-<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp[0]['url'] ?? '' }}" data-wa-admins='@json(array_map(fn ($l) => ['name' => $l['name'], 'url' => $l['url'], 'style' => $l['style']], $shopWhatsapp), JSON_HEX_APOS)' @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
+@php
+    $shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_links'];
+    $waAdmins = array_map(fn ($link) => ['name' => $link['name'], 'url' => $link['url'], 'style' => $link['style']], $shopWhatsapp);
+@endphp
+<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp[0]['url'] ?? '' }}" data-wa-admins="{{ json_encode($waAdmins) }}" @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
