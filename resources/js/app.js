@@ -813,7 +813,7 @@ Alpine.data('cartDrawer', () => ({
             ].join('\n')
             : [
                 `Haloo ${adminName}! ^_^ <3`,
-                'Aku mau konfirmasi pesanan nih ~(^o^)~',
+                'Aku mau konfirmasi pesanan nih \\(^o^)/',
                 '',
                 `* Nama: ${name}`,
                 `* No. HP: ${phone}`,
