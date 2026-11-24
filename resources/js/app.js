@@ -812,16 +812,16 @@ Alpine.data('cartDrawer', () => ({
                 name,
             ].join('\n')
             : [
-                `Haloo ${adminName}! 👋🍦`,
-                'Aku mau konfirmasi pesanan nih 🥪✨',
+                `Haloo ${adminName}! 🌸🩷`,
+                'Aku mau konfirmasi pesanan nih 🍓🎀✨',
                 '',
-                `👤 Nama: ${name}`,
+                `🧸 Nama: ${name}`,
                 `📱 No. HP: ${phone}`,
                 `🧾 No. Pesanan: #${orderNumber}`,
-                `💰 Total: ${money}`,
+                `🍦 Total: ${money}`,
                 '',
-                'Mohon info cara pembayarannya ya 🙏',
-                'Makasih banyak! 💖',
+                'Mohon info cara pembayarannya ya kak 🥺👉👈💕',
+                'Makasih banyak banyak! 🩷🎀🌷',
             ].join('\n');
 
         return `${admin.url}?text=${encodeURIComponent(text)}`;

@@ -83,7 +83,7 @@ class CheckoutWhatsappTest extends TestCase
         SiteSetting::put(['contact_whatsapp' => 'Atmint Pasel: 0821 3601 9367 (ceria), Atmint Sandi: 0811 6362 805 (formal)']);
 
         $this->get('/menu')->assertOk()
-            ->assertSee('&quot;style&quot;:&quot;ceria&quot;', false)
+            ->assertSee('"style":"ceria"', false)
             ->assertSee('"style":"formal"', false);
     }
 
