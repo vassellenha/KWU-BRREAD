@@ -792,7 +792,7 @@ Alpine.data('cartDrawer', () => ({
         const adminName = /[A-Za-z]/.test(admin.name || '') ? admin.name : 'Brread!';
         const money = formatPrice(total);
 
-        // Each admin has a message style set in the panel: "ceria" (playful, emoji) or "formal" (corporate).
+        // Each admin has a message style set in the panel: "ceria" (playful, text emoticons only: real emoji arrive broken in WhatsApp) or "formal" (corporate).
         const text = admin.style === 'formal'
             ? [
                 `Halo, ${adminName}.`,
@@ -812,16 +812,16 @@ Alpine.data('cartDrawer', () => ({
                 name,
             ].join('\n')
             : [
-                `Haloo ${adminName}! 🌸🩷`,
-                'Aku mau konfirmasi pesanan nih 🍓🎀✨',
+                `Haloo ${adminName}! ^_^ <3`,
+                'Aku mau konfirmasi pesanan nih ~(^o^)~',
                 '',
-                `🧸 Nama: ${name}`,
-                `📱 No. HP: ${phone}`,
-                `🧾 No. Pesanan: #${orderNumber}`,
-                `🍦 Total: ${money}`,
+                `* Nama: ${name}`,
+                `* No. HP: ${phone}`,
+                `* No. Pesanan: #${orderNumber}`,
+                `* Total: ${money}`,
                 '',
-                'Mohon info cara pembayarannya ya kak 🥺👉👈💕',
-                'Makasih banyak banyak! 🩷🎀🌷',
+                'Mohon info cara pembayarannya ya kak :3',
+                'Makasih banyak banyak! <3 (>_<)/ <3',
             ].join('\n');
 
         return `${admin.url}?text=${encodeURIComponent(text)}`;
