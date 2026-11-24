@@ -19,7 +19,7 @@ class Order extends Model
 
     public const STATUS_PROCESSING = 'processing';
 
-    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_READY = 'ready';
 
     public const STATUS_CANCELLED = 'cancelled';
 
@@ -30,7 +30,8 @@ class Order extends Model
         'confirmation_token',
         'confirmed_at',
         'paid_at',
-        'received_at',
+        'preparing_at',
+        'ready_at',
         'cancelled_at',
         'customer_name',
         'customer_phone',
@@ -44,7 +45,8 @@ class Order extends Model
         'total_price' => 'decimal:2',
         'confirmed_at' => 'datetime',
         'paid_at' => 'datetime',
-        'received_at' => 'datetime',
+        'preparing_at' => 'datetime',
+        'ready_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'review_hidden_at' => 'datetime',
@@ -77,19 +79,31 @@ class Order extends Model
         return $this->status === self::STATUS_PAID;
     }
 
-    /** The customer pressed "Pesanan Diterima": the last step of an order. */
-    public function isCompleted(): bool
+    /** Staff are preparing the sandwich ("Pesanan disiapkan"). */
+    public function isProcessing(): bool
     {
-        return $this->status === self::STATUS_COMPLETED;
+        return $this->status === self::STATUS_PROCESSING;
     }
 
-    /** Paid, or past paid (received): the money is in either way. */
+    /** The last step: the order is ready to be picked up at the counter ("Pesanan siap diambil"). */
+    public function isReady(): bool
+    {
+        return $this->status === self::STATUS_READY;
+    }
+
+    /** Paid, or past paid (being prepared, ready): the money is in either way. */
     public function hasBeenPaid(): bool
     {
-        return $this->isPaid() || $this->isCompleted();
+        return $this->isPaid() || $this->hasBeenPrepared();
     }
 
-    /** Past the confirm step: confirmed and waiting for payment, paid, or received. */
+    /** Being prepared, or ready for pickup. */
+    public function hasBeenPrepared(): bool
+    {
+        return $this->isProcessing() || $this->isReady();
+    }
+
+    /** Past the confirm step: confirmed and waiting for payment, or any later step. */
     public function hasBeenConfirmed(): bool
     {
         return $this->isConfirmed() || $this->hasBeenPaid();

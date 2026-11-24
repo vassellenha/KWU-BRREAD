@@ -126,10 +126,12 @@
                                 <dt class="font-hand text-[24px] leading-none text-primary">follow</dt>
                                 <dd class="mt-1"><a href="{{ $cp['instagram_url'] }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ '@'.$cp['instagram'] }}</a></dd>
                             </dl>
-                            @if ($cp['whatsapp_url'])
+                            @if ($cp['whatsapp_links'])
                                 <dl>
                                     <dt class="font-hand text-[24px] leading-none text-primary">chat</dt>
-                                    <dd class="mt-1"><a href="{{ $cp['whatsapp_url'] }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ $cp['whatsapp'] }}</a></dd>
+                                    @foreach ($cp['whatsapp_links'] as $link)
+                                        <dd class="mt-1"><a href="{{ $link['url'] }}" target="_blank" rel="noopener" class="font-headline-sm text-[22px] font-bold text-on-surface hover:text-primary transition-colors">{{ $link['name'] === $link['number'] ? $link['number'] : $link['name'].': '.$link['number'] }}</a></dd>
+                                    @endforeach
                                 </dl>
                             @endif
                         </div>

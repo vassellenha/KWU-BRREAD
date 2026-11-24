@@ -21,7 +21,10 @@ class OrderManagementController extends Controller
 
         $query = Order::with(['orderItems.component'])->latest();
 
-        if ($status !== 'all' && in_array($status, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_COMPLETED, Order::STATUS_CANCELLED], true)) {
+        if ($status === Order::STATUS_PENDING) {
+            // "Masuk" holds every order that has not been paid yet: waiting for confirmation, or confirmed and waiting to pay.
+            $query->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_CONFIRMED]);
+        } elseif (in_array($status, [Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_READY, Order::STATUS_CANCELLED], true)) {
             $query->where('status', $status);
         } else {
             // "Semua Pesanan" leaves out cancelled orders; they live in their own tab.
@@ -47,7 +50,8 @@ class OrderManagementController extends Controller
             'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
             'confirmed' => Order::where('status', Order::STATUS_CONFIRMED)->count(),
             'paid' => Order::where('status', Order::STATUS_PAID)->count(),
-            'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
+            'processing' => Order::where('status', Order::STATUS_PROCESSING)->count(),
+            'ready' => Order::where('status', Order::STATUS_READY)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
             'avg_rating' => round((float) Order::whereNotNull('rating')->avg('rating'), 1),
             'reviews_count' => Order::whereNotNull('rating')->count(),
@@ -112,6 +116,56 @@ class OrderManagementController extends Controller
         return back()->with(...$outcome);
     }
 
+    public function markPreparing(Order $order): RedirectResponse
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($order->isCancelled()) {
+                return ['error', 'Pesanan yang sudah dibatalkan tidak dapat disiapkan.'];
+            }
+
+            if (! $order->hasBeenPaid()) {
+                return ['error', "Catat pembayaran pesanan #{$order->order_number} dulu sebelum menyiapkannya."];
+            }
+
+            if ($order->hasBeenPrepared()) {
+                return ['info', "Pesanan #{$order->order_number} sudah ditandai disiapkan sebelumnya."];
+            }
+
+            $order->update(['status' => Order::STATUS_PROCESSING, 'preparing_at' => now()]);
+
+            return ['success', "Pesanan #{$order->order_number} ditandai sedang disiapkan. Halaman tracking pembeli ikut berubah."];
+        });
+
+        return back()->with(...$outcome);
+    }
+
+    public function markReady(Order $order): RedirectResponse
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($order->isCancelled()) {
+                return ['error', 'Pesanan yang sudah dibatalkan tidak dapat ditandai siap diambil.'];
+            }
+
+            if ($order->isReady()) {
+                return ['info', "Pesanan #{$order->order_number} sudah ditandai siap diambil sebelumnya."];
+            }
+
+            if (! $order->isProcessing()) {
+                return ['error', "Tandai pesanan #{$order->order_number} sedang disiapkan dulu sebelum siap diambil."];
+            }
+
+            $order->update(['status' => Order::STATUS_READY, 'ready_at' => now()]);
+
+            return ['success', "Pesanan #{$order->order_number} ditandai siap diambil. Halaman tracking pembeli ikut berubah."];
+        });
+
+        return back()->with(...$outcome);
+    }
+
     public function cancel(Order $order): RedirectResponse
     {
         $outcome = DB::transaction(function () use ($order) {
@@ -122,8 +176,8 @@ class OrderManagementController extends Controller
                 return ['info', "Pesanan #{$order->order_number} sudah berstatus batal."];
             }
 
-            if ($order->isCompleted()) {
-                return ['error', "Pesanan #{$order->order_number} sudah diterima pelanggan, jadi tidak bisa dibatalkan."];
+            if ($order->isReady()) {
+                return ['error', "Pesanan #{$order->order_number} sudah siap diambil, jadi tidak bisa dibatalkan."];
             }
 
             $tally = [];

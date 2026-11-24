@@ -51,6 +51,8 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::get('/', [OrderManagementController::class, 'index'])->name('index');
         Route::post('/{order}/confirm', [OrderManagementController::class, 'confirm'])->name('confirm');
         Route::post('/{order}/paid', [OrderManagementController::class, 'markPaid'])->name('paid');
+        Route::post('/{order}/preparing', [OrderManagementController::class, 'markPreparing'])->name('preparing');
+        Route::post('/{order}/ready', [OrderManagementController::class, 'markReady'])->name('ready');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
         // Deleting wipes the order for good (and drops it from the charts), so only the admin may do it.
         Route::delete('/{order}', [OrderManagementController::class, 'destroy'])->middleware('role:'.User::ROLE_ADMIN)->name('destroy');
@@ -141,7 +143,6 @@ Route::get('/privacy', function () {
 })->name('privacy');
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
-Route::post('/order/status/{token}/received', [PublicOrderController::class, 'receive'])->middleware('throttle:10,1')->name('order.received');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
 Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
 Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');

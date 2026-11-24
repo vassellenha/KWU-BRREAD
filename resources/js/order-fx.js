@@ -152,10 +152,10 @@ export function registerOrderFx(Alpine) {
                 this.updateClock();
                 this._tick = setInterval(() => this.updateClock(), 1000);
             }
-            if (this.state === 'confirmed' && !config.received) {
-                // The third stamp lands at ~2.3s: celebrate right then.
+            if (this.state === 'confirmed' && config.celebrate) {
+                // The stamps land one after another by ~2.3s: celebrate right then, on the step being waited for.
                 setTimeout(() => {
-                    const node = this.$root.querySelector('.os-step.is-ready .os-node');
+                    const node = this.$root.querySelector('.os-step.is-current .os-node');
                     const box = node?.getBoundingClientRect();
                     confetti({
                         x: box ? (box.left + box.width / 2) / window.innerWidth : 0.5,

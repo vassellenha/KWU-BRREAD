@@ -77,7 +77,7 @@
             <p class="font-headline-sm text-headline-sm text-on-surface font-extrabold tabular-nums">
                 {{ number_format($stats['confirmed'], 0, ',', '.') }}
             </p>
-            <span class="text-[11px] text-on-surface-variant mt-0.5 block">Siap diproses / tracking aktif</span>
+            <span class="text-[11px] text-on-surface-variant mt-0.5 block">Menunggu pembayaran / tracking aktif</span>
         </div>
 
         {{-- Reviews --}}
@@ -108,11 +108,11 @@
             @php
                 $statusTabs = [
                     'all' => 'Semua Pesanan',
-                    'pending' => 'Pending',
-                    'confirmed' => 'Confirmed',
-                    'paid' => 'Paid',
-                    'completed' => 'Diterima',
-                    'cancelled' => 'Cancelled',
+                    'pending' => 'Masuk',
+                    'paid' => 'Pembayaran Berhasil',
+                    'processing' => 'Disiapkan',
+                    'ready' => 'Siap Diambil',
+                    'cancelled' => 'Dibatalkan',
                 ];
             @endphp
             @foreach ($statusTabs as $tabKey => $tabLabel)
@@ -247,10 +247,15 @@
                                         <span class="material-symbols-outlined text-[14px] shrink-0">payments</span>
                                         Paid
                                     </span>
-                                @elseif ($order->isCompleted())
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300" title="{{ $order->received_at ? 'Diterima '.$order->received_at->format('d M Y, H:i').' WIB' : '' }}">
+                                @elseif ($order->isProcessing())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-800 border border-orange-300" title="{{ $order->preparing_at ? 'Disiapkan '.$order->preparing_at->format('d M Y, H:i').' WIB' : '' }}">
+                                        <span class="material-symbols-outlined text-[14px] shrink-0">bakery_dining</span>
+                                        Disiapkan
+                                    </span>
+                                @elseif ($order->isReady())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300" title="{{ $order->ready_at ? 'Siap '.$order->ready_at->format('d M Y, H:i').' WIB' : '' }}">
                                         <span class="material-symbols-outlined text-[14px] shrink-0">inventory_2</span>
-                                        Diterima
+                                        Siap Diambil
                                     </span>
                                 @elseif ($order->isCancelled())
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
@@ -360,8 +365,30 @@
                                         </form>
                                     @endif
 
+                                    {{-- MARK PREPARING BUTTON --}}
+                                    @if ($order->isPaid())
+                                        <form method="POST" action="{{ route('staff.orders.preparing', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} ditandai sedang disiapkan dan tracking pembeli ikut berubah." data-confirm-title="Mulai siapkan pesanan?" data-confirm-label="Ya, disiapkan" data-cancel-label="Kembali">
+                                            @csrf
+                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-600 text-white hover:bg-orange-700 font-label-md text-[11px] font-semibold shadow-sm transition-colors" title="Tandai pesanan sedang disiapkan">
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">bakery_dining</span>
+                                                <span>Disiapkan</span>
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    {{-- MARK READY BUTTON --}}
+                                    @if ($order->isProcessing())
+                                        <form method="POST" action="{{ route('staff.orders.ready', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} ditandai siap diambil di konter." data-confirm-title="Pesanan siap diambil?" data-confirm-label="Ya, siap diambil" data-cancel-label="Kembali">
+                                            @csrf
+                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-700 text-white hover:bg-emerald-800 font-label-md text-[11px] font-semibold shadow-sm transition-colors" title="Tandai pesanan siap diambil">
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">inventory_2</span>
+                                                <span>Siap Diambil</span>
+                                            </button>
+                                        </form>
+                                    @endif
+
                                     {{-- CANCEL BUTTON --}}
-                                    @if (!$order->isCancelled() && !$order->isCompleted())
+                                    @if (!$order->isCancelled() && !$order->isReady())
                                         <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dibatalkan dan stok bahan dipulihkan." data-confirm-title="Batalkan pesanan?" data-confirm-label="Ya, batalkan" data-cancel-label="Kembali" data-confirm-tone="danger">
                                             @csrf
                                             <button

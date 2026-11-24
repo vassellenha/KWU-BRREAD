@@ -18,7 +18,7 @@ class ContactInfo
     ];
 
     /**
-     * @return array{name: string, phone: string, phone_href: string, whatsapp: string, whatsapp_url: ?string, instagram: string, instagram_url: string}
+     * @return array{name: string, phone: string, phone_href: string, whatsapp: string, whatsapp_url: ?string, whatsapp_links: list<array{name: string, number: string, url: string}>, instagram: string, instagram_url: string}
      */
     public static function get(): array
     {
@@ -29,12 +29,27 @@ class ContactInfo
         $whatsapp = $value('contact_whatsapp');
         $instagram = ltrim($value('instagram_handle') ?: (string) config('services.instagram.handle'), '@');
 
+        $links = [];
+        // "Atmint Pasel: 0821 3601 9367, Atmint Sandi: 0811 6362 805" (the name is optional).
+        foreach (explode(',', $whatsapp) as $entry) {
+            [$name, $number] = array_pad(explode(':', $entry, 2), -2, '');
+            $number = trim($number);
+            if ($number !== '') {
+                $links[] = [
+                    'name' => trim($name) !== '' ? trim($name) : $number,
+                    'number' => $number,
+                    'url' => 'https://wa.me/'.ltrim(self::international($number), '+'),
+                ];
+            }
+        }
+
         return [
             'name' => $value('contact_name'),
             'phone' => $phone,
             'phone_href' => 'tel:'.self::international($phone, keepPlus: true),
             'whatsapp' => $whatsapp,
-            'whatsapp_url' => $whatsapp !== '' ? 'https://wa.me/'.ltrim(self::international($whatsapp), '+') : null,
+            'whatsapp_url' => $links[0]['url'] ?? null,
+            'whatsapp_links' => $links,
             'instagram' => $instagram,
             'instagram_url' => 'https://www.instagram.com/'.rawurlencode($instagram).'/',
         ];

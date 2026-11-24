@@ -96,38 +96,6 @@ class PublicOrderController extends Controller
         ]);
     }
 
-    /** The customer confirms the paid order reached them. Only a paid order can be received, and only once. */
-    public function receive(Request $request, string $token): RedirectResponse
-    {
-        // A signed-in account is staff or the superadmin: they may look at the page, never receive the order for the customer.
-        if ($request->user()) {
-            return back()->with('error', 'Akun staf hanya bisa melihat. Pesanan hanya bisa diterima oleh pelanggan.');
-        }
-
-        $outcome = DB::transaction(function () use ($token) {
-            $order = Order::where('confirmation_token', $token)->lockForUpdate()->firstOrFail();
-
-            if ($order->isCancelled()) {
-                return ['error', 'Pesanan yang dibatalkan tidak bisa diterima.'];
-            }
-
-            if ($order->isCompleted()) {
-                return ['info', 'Pesanan ini sudah kamu tandai diterima. Makasih!'];
-            }
-
-            if (! $order->isPaid()) {
-                return ['error', 'Pesanan baru bisa diterima setelah pembayarannya dicatat admin.'];
-            }
-
-            $order->update(['status' => Order::STATUS_COMPLETED, 'received_at' => now()]);
-
-            return ['success', 'Makasih! Pesananmu sudah ditandai diterima. Selamat menikmati.'];
-        });
-
-        // The thank-you popup of the review form also listens to "success"; this flash only needs the banner.
-        return back()->with(...$outcome)->with('received', $outcome[0] === 'success');
-    }
-
     public function submitReview(Request $request, string $token): RedirectResponse|JsonResponse
     {
         $order = Order::where('confirmation_token', $token)->firstOrFail();

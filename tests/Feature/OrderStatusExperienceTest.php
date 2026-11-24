@@ -66,16 +66,16 @@ class OrderStatusExperienceTest extends TestCase
             ->assertOk()
             ->assertSee('os-hero--confirmed', false)
             ->assertSee('1. Masuk')
-            ->assertSee('2. Dikonfirmasi')
-            ->assertSee('3. Dibayar')
-            ->assertSee('4. Siap Nikmati')
-            // confirmed but not paid yet: the payment stamp waits, the last one is still empty
+            ->assertSee('2. Pembayaran berhasil')
+            ->assertSee('3. Pesanan disiapkan')
+            ->assertSee('4. Pesanan siap diambil')
+            // confirmed but not paid yet: the payment stamp waits, the rest are still empty
             ->assertSee('Menunggu bayar')
             ->assertDontSee('os-step is-ready', false)
             ->assertSee('orderTracker', false);
     }
 
-    public function test_a_paid_order_stamps_the_payment_and_is_ready_to_enjoy(): void
+    public function test_a_paid_order_stamps_the_payment_and_waits_to_be_prepared(): void
     {
         $order = $this->orderWith(['Plain White Bread', 'Strawberry', 'Rainbow Sprinkles']);
         $order->forceFill(['status' => Order::STATUS_PAID, 'paid_at' => now()])->save();
@@ -83,10 +83,10 @@ class OrderStatusExperienceTest extends TestCase
         $this->get($this->statusUrl($order))
             ->assertOk()
             ->assertSee('os-hero--confirmed', false)
-            ->assertSee('os-step is-ready', false)
+            ->assertSee('os-step is-current', false)
             ->assertSee('osi-wallet', false)
-            ->assertSee('Pembayaran diterima')
-            ->assertSee('Pesanan Sudah Dibayar')
+            ->assertSee('Pembayaran berhasil, makasih!')
+            ->assertSee('Pembayaran Berhasil')
             ->assertDontSee('Menunggu bayar');
     }
 

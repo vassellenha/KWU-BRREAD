@@ -748,13 +748,17 @@ Alpine.data('cartDrawer', () => ({
     errorMessage: '',
     orderSuccess: null,
     // The shop's WhatsApp link from Contact in the panel ("" until the superadmin sets a number).
-    waBase: '',
+    admins: [],
     waUrl: '',
 
     formatPrice,
 
     init() {
-        this.waBase = this.$el.dataset.waUrl || '';
+        try {
+            this.admins = JSON.parse(this.$el.dataset.waAdmins || '[]');
+        } catch {
+            this.admins = [];
+        }
 
         this.$watch('$store.cart.open', (isOpen) => {
             document.documentElement.classList.toggle('overflow-hidden', isOpen);
@@ -781,8 +785,8 @@ Alpine.data('cartDrawer', () => ({
     },
 
     // The first WhatsApp message to the shop, ready to send: name, number, order id and total (plain text).
-    buildWaUrl(orderNumber, total, name, phone) {
-        if (!this.waBase) return '';
+    buildWaUrl(waBase, orderNumber, total, name, phone) {
+        if (!waBase) return '';
 
         const text = [
             'Halo Brread! Saya mau konfirmasi pesanan.',
@@ -795,7 +799,7 @@ Alpine.data('cartDrawer', () => ({
             'Mohon info cara pembayarannya ya. Terima kasih!',
         ].join('\n');
 
-        return `${this.waBase}?text=${encodeURIComponent(text)}`;
+        return `${waBase}?text=${encodeURIComponent(text)}`;
     },
 
     // Step before the order is sent: the customer checks the name and number they typed.
@@ -814,7 +818,8 @@ Alpine.data('cartDrawer', () => ({
         this.confirming = true;
     },
 
-    async checkout() {
+    // adminUrl is the wa.me link of the admin the customer picked ('' when no number is set).
+    async checkout(adminUrl = '') {
         const cart = Alpine.store('cart');
         this.errorMessage = '';
         this.confirming = false;
@@ -839,7 +844,7 @@ Alpine.data('cartDrawer', () => ({
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
-            this.waUrl = this.buildWaUrl(res.data.order_number, res.data.total_price, name, phone);
+            this.waUrl = this.buildWaUrl(adminUrl, res.data.order_number, res.data.total_price, name, phone);
             cart.clear();
 
             // The order is in; the customer now confirms it with the shop on WhatsApp. A short pause lets the

@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\ReviewPhoto;
 use App\Models\SiteSetting;
 use App\Rules\PhoneNumber;
+use App\Rules\PhoneNumberList;
 use App\Support\ContactInfo;
 use App\Support\ShopSettings;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +40,7 @@ class SiteController extends Controller
         $validated = $request->validate([
             'contact_name' => ['nullable', 'string', 'max:60'],
             'contact_phone' => ['required', 'string', new PhoneNumber],
-            'contact_whatsapp' => ['nullable', 'string', new PhoneNumber],
+            'contact_whatsapp' => ['nullable', 'string', new PhoneNumberList],
             'instagram_handle' => ['required', 'string', 'max:30', 'regex:/^@?[A-Za-z0-9._]{1,30}$/'],
         ], [
             'instagram_handle.regex' => 'Use only letters, numbers, dots and underscores, like brread.official.',

@@ -35,14 +35,14 @@ class OrderDeleteTest extends TestCase
         return Order::where('order_number', $number)->firstOrFail();
     }
 
-    public function test_the_admin_deletes_a_received_order_and_the_stock_comes_back(): void
+    public function test_the_admin_deletes_a_ready_order_and_the_stock_comes_back(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $bread = Component::where('category', 'bread')->firstOrFail();
         $before = $bread->stock_quantity;
 
         $order = $this->placeOrder();
-        $order->forceFill(['status' => Order::STATUS_COMPLETED, 'paid_at' => now(), 'received_at' => now()])->save();
+        $order->forceFill(['status' => Order::STATUS_READY, 'paid_at' => now(), 'preparing_at' => now(), 'ready_at' => now()])->save();
         $this->assertSame($before - 2, $bread->fresh()->stock_quantity);
 
         $this->actingAs($admin)->delete(route('staff.orders.destroy', $order))->assertSessionHas('success');

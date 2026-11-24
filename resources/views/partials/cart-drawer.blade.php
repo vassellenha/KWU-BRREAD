@@ -1,5 +1,5 @@
-@php($shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_url'])
-<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp }}" @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
+@php($shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_links'])
+<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp[0]['url'] ?? '' }}" data-wa-admins='@json(array_map(fn ($l) => ['name' => $l['name'], 'url' => $l['url']], $shopWhatsapp), JSON_HEX_APOS)' @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
@@ -236,14 +236,27 @@
             </div>
 
             <div class="flex flex-col gap-space-xs">
-                <button
-                    type="button"
-                    @click="checkout()"
-                    class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
-                >
-                    <span class="material-symbols-outlined text-[20px]">check</span>
-                    Confirm and chat on WhatsApp
-                </button>
+                {{-- One button per admin: the customer picks who to chat with. No admin number set: just place the order. --}}
+                <template x-if="admins.length === 0">
+                    <button
+                        type="button"
+                        @click="checkout('')"
+                        class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">check</span>
+                        Confirm order
+                    </button>
+                </template>
+                <template x-for="admin in admins" :key="admin.url">
+                    <button
+                        type="button"
+                        @click="checkout(admin.url)"
+                        class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">forum</span>
+                        <span x-text="admins.length > 1 ? 'Confirm and chat ' + admin.name : 'Confirm and chat on WhatsApp'"></span>
+                    </button>
+                </template>
                 <button
                     type="button"
                     @click="confirming = false; $nextTick(() => document.getElementById('cart-name')?.focus())"
