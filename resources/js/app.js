@@ -747,10 +747,15 @@ Alpine.data('cartDrawer', () => ({
     confirming: false,
     errorMessage: '',
     orderSuccess: null,
+    // The shop's WhatsApp link from Contact in the panel ("" until the superadmin sets a number).
+    waBase: '',
+    waUrl: '',
 
     formatPrice,
 
     init() {
+        this.waBase = this.$el.dataset.waUrl || '';
+
         this.$watch('$store.cart.open', (isOpen) => {
             document.documentElement.classList.toggle('overflow-hidden', isOpen);
 
@@ -764,6 +769,7 @@ Alpine.data('cartDrawer', () => ({
             this.confirming = false;
             if (this.orderSuccess) {
                 this.orderSuccess = null;
+                this.waUrl = '';
                 this.customerName = '';
                 this.customerPhone = '';
             }
@@ -772,6 +778,24 @@ Alpine.data('cartDrawer', () => ({
 
     close() {
         Alpine.store('cart').open = false;
+    },
+
+    // The first WhatsApp message to the shop, ready to send: name, number, order id and total (plain text).
+    buildWaUrl(orderNumber, total, name, phone) {
+        if (!this.waBase) return '';
+
+        const text = [
+            'Halo Brread! Saya mau konfirmasi pesanan.',
+            '',
+            `Nama: ${name}`,
+            `No. HP: ${phone}`,
+            `No. Pesanan: #${orderNumber}`,
+            `Total: ${formatPrice(total)}`,
+            '',
+            'Mohon info cara pembayarannya ya. Terima kasih!',
+        ].join('\n');
+
+        return `${this.waBase}?text=${encodeURIComponent(text)}`;
     },
 
     // Step before the order is sent: the customer checks the name and number they typed.
@@ -805,6 +829,8 @@ Alpine.data('cartDrawer', () => ({
         }
 
         this.submitting = true;
+        const name = this.customerName.trim();
+        const phone = this.customerPhone.trim();
 
         try {
             const res = await axios.post('/api/orders', {
@@ -813,7 +839,16 @@ Alpine.data('cartDrawer', () => ({
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
+            this.waUrl = this.buildWaUrl(res.data.order_number, res.data.total_price, name, phone);
             cart.clear();
+
+            // The order is in; the customer now confirms it with the shop on WhatsApp. A short pause lets the
+            // "Order placed" card show first, and the card keeps a link in case the redirect does not happen.
+            if (this.waUrl) {
+                setTimeout(() => {
+                    window.location.href = this.waUrl;
+                }, 700);
+            }
         } catch (e) {
             const errors = e.response?.data?.errors ?? {};
             this.errorMessage =

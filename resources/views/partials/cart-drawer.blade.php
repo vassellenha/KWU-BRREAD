@@ -1,4 +1,5 @@
-<div x-data="cartDrawer()" @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
+@php($shopWhatsapp = \App\Support\ContactInfo::get()['whatsapp_url'])
+<div x-data="cartDrawer()" data-wa-url="{{ $shopWhatsapp }}" @keydown.escape.window="confirming ? (confirming = false) : close()" x-cloak class="font-plus-jakarta">
     {{-- Scrim --}}
     <div
         x-show="$store.cart.open"
@@ -48,6 +49,16 @@
                 <p class="font-body-sm text-body-sm text-on-primary-container/90 mt-1">
                     Order number: <span class="font-mono font-bold" x-text="orderSuccess"></span>
                 </p>
+                <template x-if="waUrl">
+                    <div class="mt-space-sm">
+                        <p class="font-body-sm text-body-sm text-on-primary-container/90">Opening WhatsApp so you can confirm with the shop. Just press send.</p>
+                        <a :href="waUrl" class="press-scale mt-space-xs inline-flex items-center gap-space-xs rounded-full bg-on-primary-container px-space-lg py-space-xs font-label-lg text-label-lg text-primary-container">
+                            <span class="material-symbols-outlined text-[18px]">forum</span>
+                            Open WhatsApp
+                        </a>
+                    </div>
+                </template>
+                <p x-show="!waUrl" class="font-body-sm text-body-sm text-on-primary-container/90 mt-1">The shop will message you on WhatsApp to confirm and arrange payment.</p>
                 <button type="button" @click="close()" class="mt-space-md font-label-lg text-label-lg text-on-primary-container underline decoration-on-primary-container/50 underline-offset-2 hover:decoration-on-primary-container transition-colors duration-200">
                     Keep browsing
                 </button>
@@ -199,7 +210,7 @@
                     <span class="material-symbols-outlined text-[26px]">verified_user</span>
                 </span>
                 <h2 id="order-confirm-title" class="font-headline-sm text-headline-sm text-on-surface">Is this correct?</h2>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">Check your details before we place the order.</p>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">Check your details. After you confirm, WhatsApp opens with your order ready to send to the shop.</p>
             </div>
 
             <dl class="flex flex-col gap-space-xs">
@@ -231,7 +242,7 @@
                     class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
                 >
                     <span class="material-symbols-outlined text-[20px]">check</span>
-                    Yes, place my order
+                    Confirm and chat on WhatsApp
                 </button>
                 <button
                     type="button"
