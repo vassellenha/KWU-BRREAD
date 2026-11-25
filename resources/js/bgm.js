@@ -1,344 +1,355 @@
 // Background music for the customer pages: window.brreadBgm.toggle(), setMuted(bool), isMuted(), isAvailable().
-// Web Audio only, no loop=true: each cycle hands over to a second source with an equal-power crossfade, and the
-// position is derived from a stored start time so the music carries on across page loads instead of restarting.
+// Two <audio> elements stream the file through Web Audio (no decoding step, so a new page starts within a moment),
+// and no loop attribute: each cycle hands over to the second element with an equal-power crossfade. The position is
+// derived from a stored start time, so the music carries on across page loads instead of restarting.
 // Never on a staff, superadmin, trap or sign-in page: no context, no fetch, no button, no ducking.
 const BLOCKED = /^\/(staff|superadmin|admin|administrator|wp-admin|login|dashboard|panel|cpanel|phpmyadmin|backend)(\/|$)/i;
 const allowed = !BLOCKED.test(location.pathname) && document.body?.hasAttribute('data-customer-site');
 
 if (allowed) {
-const SRC = '/audio/brread-bgm.mp3';
-const MUTE_KEY = 'brread-bgm-muted';
-const POS_KEY = 'brread-bgm-pos';
-const HINT_KEY = 'brread-bgm-hinted';
-const OK_KEY = 'brread-bgm-ok';
-const ALIVE_KEY = 'brread-bgm-alive';
-const RESUME_FADE = 0.25;
-const TARGET = 0.45;
-const FADE_IN = 0.8;
-const FADE_OUT = 0.4;
-const CROSSFADE = 2.5;
-const SILENCE = 10 ** (-50 / 20);
-const DUCK_LEVEL = 0.6;
-const DUCK_ON = new Set(['register', 'marimba', 'chime']);
+    const SRC = '/audio/brread-bgm.mp3';
+    const MUTE_KEY = 'brread-bgm-muted';
+    const POS_KEY = 'brread-bgm-pos';
+    const HINT_KEY = 'brread-bgm-hinted';
+    const OK_KEY = 'brread-bgm-ok';
+    const ALIVE_KEY = 'brread-bgm-alive';
+    const TARGET = 0.45;
+    const FADE_IN = 0.8;
+    const RESUME_FADE = 0.25;
+    const FADE_OUT = 0.4;
+    const CROSSFADE = 2.5;
+    const DUCK_LEVEL = 0.6;
+    const DUCK_ON = new Set(['register', 'marimba', 'chime']);
+    // Measured once on the shipped file (-50 dB): it starts on the first sample and its last 0.8 s is silence.
+    const TRIM_START = 0.03;
+    const DEV = Number(localStorage.getItem('brreadBgmDevLength')); // dev only: a short loop to watch the crossfade
+    const TRIM_LENGTH = DEV > 3 * CROSSFADE ? DEV : 118.9;
+    const PERIOD = TRIM_LENGTH - CROSSFADE;
 
-const store = {
-    get(key) {
-        try { return localStorage.getItem(key); } catch { return null; }
-    },
-    set(key, value) {
-        try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
-    },
-};
+    const store = {
+        get(key) {
+            try { return localStorage.getItem(key); } catch { return null; }
+        },
+        set(key, value) {
+            try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+        },
+    };
 
-let muted = store.get(MUTE_KEY) === '1';
-let available = null; // null: still checking
-let ctx = null;
-let level = null; // mute fades, 0..TARGET
-let duck = null; // ducking under loud sound effects
-let buffer = null;
-let trimStart = 0;
-let trimLength = 0;
-let loading = null;
-let playing = false;
-let voices = [];
-let nextAt = 0;
-let timer = null;
-let startedOnce = false;
-let aliveTimer = null;
+    let muted = store.get(MUTE_KEY) === '1';
+    let available = null; // null: still checking
+    let ctx = null;
+    let level = null; // mute fades, 0..TARGET
+    let duck = null; // ducking under loud sound effects
+    let primed = null; // the first voice, already downloading
+    let voices = [];
+    let playing = false;
+    let startedOnce = false;
+    let timer = null;
+    let aliveTimer = null;
+    let nextAt = 0;
+    let pending = null;
 
-const fadeCurve = (rising) => Float32Array.from({ length: 48 }, (_, i) => Math.sin((rising ? i / 47 : 1 - i / 47) * Math.PI / 2));
+    const fadeCurve = (rising) => Float32Array.from({ length: 48 }, (_, i) => Math.sin((rising ? i / 47 : 1 - i / 47) * Math.PI / 2));
+    const introShowing = () => Boolean(document.getElementById('brread-intro')) && !document.documentElement.classList.contains('no-intro');
+    const markAlive = () => store.set(ALIVE_KEY, String(Date.now()));
 
-function buttons() {
-    return document.querySelectorAll('[data-bgm-toggle]');
-}
+    // ---- button -------------------------------------------------------------------------------------------------
 
-function syncButtons() {
-    const on = available === true && !muted;
-    buttons().forEach((button) => {
-        button.hidden = available !== true;
-        button.setAttribute('aria-pressed', on ? 'true' : 'false');
-        button.setAttribute('aria-label', on ? 'Matikan musik latar' : 'Nyalakan musik latar');
-        button.title = on ? 'Matikan musik latar' : 'Nyalakan musik latar';
-        button.classList.toggle('is-playing', on && playing);
-    });
-}
-
-function setAvailable(value) {
-    available = value;
-    syncButtons();
-}
-
-// ---- loading -------------------------------------------------------------------------------------------------
-
-async function checkFile() {
-    try {
-        const response = await fetch(SRC, { method: 'HEAD', cache: 'no-cache' });
-        const type = response.headers.get('content-type') || '';
-        setAvailable(response.ok && type.startsWith('audio'));
-        if (available) hint();
-    } catch {
-        setAvailable(false);
+    function syncButtons() {
+        const on = available === true && !muted;
+        document.querySelectorAll('[data-bgm-toggle]').forEach((button) => {
+            button.hidden = available !== true;
+            button.setAttribute('aria-pressed', on ? 'true' : 'false');
+            button.setAttribute('aria-label', on ? 'Matikan musik latar' : 'Nyalakan musik latar');
+            button.title = on ? 'Matikan musik latar' : 'Nyalakan musik latar';
+            button.classList.toggle('is-playing', on && playing);
+        });
     }
-}
 
-function context() {
-    if (ctx) return ctx;
-    const shared = window.brreadSfx?.context?.();
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    ctx = shared || (AudioCtx ? new AudioCtx() : null);
-    if (!ctx) return null;
+    function setAvailable(value) {
+        available = value;
+        store.set(OK_KEY, value ? '1' : '0');
+        syncButtons();
+    }
 
-    level = ctx.createGain();
-    level.gain.value = 0;
-    duck = ctx.createGain();
-    level.connect(duck).connect(ctx.destination);
-    return ctx;
-}
+    function hint() {
+        if (store.get(HINT_KEY)) return;
+        store.set(HINT_KEY, '1');
+        document.querySelectorAll('[data-bgm-toggle]').forEach((button) => {
+            button.classList.add('bgm-hint');
+            setTimeout(() => button.classList.remove('bgm-hint'), 4000);
+        });
+    }
 
-// The decoded buffer minus the silence at both ends, so the loop point has no gap.
-function trim(decoded) {
-    const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
-    const loud = (i) => channels.some((data) => Math.abs(data[i]) > SILENCE);
-    let first = 0;
-    let last = decoded.length - 1;
-    while (first < last && !loud(first)) first++;
-    while (last > first && !loud(last)) last--;
-    trimStart = first / decoded.sampleRate;
-    trimLength = (last - first + 1) / decoded.sampleRate;
+    // ---- audio graph --------------------------------------------------------------------------------------------
 
-    const dev = Number(store.get('brreadBgmDevLength')); // dev only: a short loop to watch the crossfade
-    if (dev > 2 * CROSSFADE && dev < trimLength) trimLength = dev;
-}
+    function context() {
+        if (ctx) return ctx;
+        const shared = window.brreadSfx?.context?.();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        ctx = shared || (AudioCtx ? new AudioCtx() : null);
+        if (!ctx) return null;
 
-function load() {
-    if (buffer) return Promise.resolve(true);
-    loading ??= (async () => {
-        try {
-            const response = await fetch(SRC);
-            if (!response.ok) throw new Error('missing');
-            const decoded = await context().decodeAudioData(await response.arrayBuffer());
-            trim(decoded);
-            buffer = decoded;
-            return trimLength > CROSSFADE * 3;
-        } catch {
-            return false;
+        level = ctx.createGain();
+        level.gain.value = 0;
+        duck = ctx.createGain();
+        level.connect(duck).connect(ctx.destination);
+        return ctx;
+    }
+
+    // One <audio> element, buffering from the moment it is made.
+    function makeVoice() {
+        const element = new Audio();
+        element.preload = 'auto';
+        element.src = SRC;
+        element.addEventListener('error', () => {
+            if (available !== false && !startedOnce) setAvailable(false);
+        });
+        return { element, gain: null };
+    }
+
+    const whenReady = (element) => new Promise((resolve, reject) => {
+        if (element.readyState >= 3) return resolve();
+        element.addEventListener('canplay', resolve, { once: true });
+        element.addEventListener('error', () => reject(new Error('audio')), { once: true });
+    });
+
+    async function connect(voice) {
+        await whenReady(voice.element);
+        if (!voice.gain) {
+            voice.gain = ctx.createGain();
+            voice.gain.gain.value = 0;
+            ctx.createMediaElementSource(voice.element).connect(voice.gain).connect(level);
         }
-    })();
-    return loading.then((ok) => {
-        if (!ok) setAvailable(false);
-        return ok;
-    });
-}
-
-// ---- playing -------------------------------------------------------------------------------------------------
-
-const period = () => trimLength - Math.min(CROSSFADE, trimLength / 4);
-const cross = () => Math.min(CROSSFADE, trimLength / 4);
-
-function position() {
-    let saved = null;
-    try { saved = JSON.parse(store.get(POS_KEY)); } catch { /* none yet */ }
-    const length = Math.round(trimLength * 1000);
-    if (!saved || saved.length !== length || !Number.isFinite(saved.start)) {
-        saved = { start: Date.now(), length };
-        store.set(POS_KEY, JSON.stringify(saved));
     }
-    const p = period();
-    return (((Date.now() - saved.start) / 1000) % p + p) % p;
-}
 
-function startVoice(when, offset, fadeIn) {
-    const source = ctx.createBufferSource();
-    const gain = ctx.createGain();
-    source.buffer = buffer;
-    source.connect(gain).connect(level);
+    // Starts the voice at `offset` seconds into the loop, fading in; lines the next hand-over up.
+    async function startVoice(voice, offset, fadeIn) {
+        await connect(voice);
+        voice.element.currentTime = TRIM_START + offset + 0.06; // the small lead covers the seek
+        await voice.element.play();
 
-    gain.gain.setValueAtTime(0, when);
-    if (fadeIn > 0) gain.gain.setValueCurveAtTime(fadeCurve(true), when, fadeIn);
-    else gain.gain.setValueAtTime(1, when);
+        const now = ctx.currentTime;
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(0, now);
+        if (fadeIn > 0) voice.gain.gain.setValueCurveAtTime(fadeCurve(true), now, fadeIn);
+        else if (fadeIn === 0) voice.gain.gain.setValueAtTime(1, now);
+        // null: the caller schedules the fade itself
 
-    // The tail of this voice fades out while the next one fades in.
-    const remaining = trimLength - offset;
-    const fadeStart = when + remaining - cross();
-    if (remaining > cross() + fadeIn) gain.gain.setValueCurveAtTime(fadeCurve(false), fadeStart, cross());
+        voices.push(voice);
+        nextAt = now + (PERIOD - offset);
+        pending = null;
+    }
 
-    source.start(when, trimStart + offset);
-    source.stop(when + remaining + 0.05);
-    const voice = { source, gain };
-    voices.push(voice);
-    source.onended = () => {
-        voices = voices.filter((v) => v !== voice);
-        try { gain.disconnect(); } catch { /* already gone */ }
-    };
-    nextAt = when + (period() - offset);
-}
+    function retire(voice, after) {
+        setTimeout(() => {
+            try { voice.element.pause(); } catch { /* gone */ }
+            try { voice.gain?.disconnect(); } catch { /* gone */ }
+            voices = voices.filter((v) => v !== voice);
+        }, after * 1000 + 150);
+    }
 
-// A light look-ahead on the audio clock: the next voice is scheduled a little before it is needed.
-function tick() {
-    if (!playing || !ctx || ctx.state !== 'running') return;
-    if (ctx.currentTime >= nextAt - 1) startVoice(nextAt, 0, cross());
-}
+    // The next voice is made (and starts buffering) well ahead, then started right at the hand-over.
+    function tick() {
+        if (!playing || !ctx) return;
+        const left = nextAt - ctx.currentTime;
 
-function rampLevel(to, seconds) {
-    const now = ctx.currentTime;
-    level.gain.cancelScheduledValues(now);
-    level.gain.setValueAtTime(level.gain.value, now);
-    level.gain.linearRampToValueAtTime(to, now + seconds);
-}
+        if (left < 6 && !pending) {
+            pending = makeVoice();
+            connect(pending).catch(() => {});
+        }
+        if (left <= 0.05 && pending) {
+            const incoming = pending;
+            const outgoing = voices[voices.length - 1];
+            pending = 'starting';
+            startVoice(incoming, -0.06, null).then(() => {
+                // Equal-power crossfade: the old voice fades out while the new one fades in.
+                const now = ctx.currentTime;
+                incoming.gain.gain.cancelScheduledValues(now);
+                incoming.gain.gain.setValueAtTime(0, now);
+                incoming.gain.gain.setValueCurveAtTime(fadeCurve(true), now, CROSSFADE);
+                if (outgoing?.gain) {
+                    outgoing.gain.gain.cancelScheduledValues(now);
+                    outgoing.gain.gain.setValueAtTime(outgoing.gain.gain.value, now);
+                    outgoing.gain.gain.setValueCurveAtTime(fadeCurve(false), now, CROSSFADE);
+                    retire(outgoing, CROSSFADE);
+                }
+            }).catch(() => { pending = null; });
+        }
+    }
 
-async function begin() {
-    if (playing || muted || available === false || document.hidden || !context()) return;
-    if (introShowing()) return; // wait for the intro; the next gesture or the poll starts it
-    playing = true; // claimed up front: two quick gestures must not start two copies
-    if (!(await load())) {
+    function position() {
+        let saved = null;
+        try { saved = JSON.parse(store.get(POS_KEY)); } catch { /* none yet */ }
+        const length = Math.round(TRIM_LENGTH * 1000);
+        if (!saved || saved.length !== length || !Number.isFinite(saved.start)) {
+            saved = { start: Date.now(), length };
+            store.set(POS_KEY, JSON.stringify(saved));
+        }
+        return (((Date.now() - saved.start) / 1000) % PERIOD + PERIOD) % PERIOD;
+    }
+
+    function rampLevel(to, seconds) {
+        const now = ctx.currentTime;
+        level.gain.cancelScheduledValues(now);
+        level.gain.setValueAtTime(level.gain.value, now);
+        level.gain.linearRampToValueAtTime(to, now + seconds);
+    }
+
+    async function begin() {
+        if (playing || muted || available === false || document.hidden || !context()) return;
+        if (introShowing()) return; // the poll or the next gesture starts it
+        playing = true; // claimed up front: two quick gestures must not start two copies
+        try {
+            if (ctx.state === 'suspended') await ctx.resume();
+            if (muted || document.hidden) throw new Error('stopped');
+            const voice = primed ?? makeVoice();
+            primed = null;
+            // Music was playing on the previous page a moment ago: pick up quickly instead of fading in from silence.
+            const fade = Date.now() - Number(store.get(ALIVE_KEY) || 0) < 5000 ? RESUME_FADE : FADE_IN;
+            await startVoice(voice, position(), fade);
+            rampLevel(TARGET, fade);
+            startedOnce = true;
+            setAvailable(true);
+            timer = setInterval(tick, 200);
+            markAlive();
+            aliveTimer = setInterval(markAlive, 2000);
+            syncButtons();
+        } catch {
+            // Not allowed to play yet (no gesture) or stopped meanwhile: the next gesture tries again.
+            playing = false;
+            voices.forEach(({ element }) => element.pause());
+            voices = [];
+            syncButtons();
+        }
+    }
+
+    function end() {
+        if (!playing) return;
         playing = false;
-        return;
+        clearInterval(timer);
+        clearInterval(aliveTimer);
+        store.set(ALIVE_KEY, '0');
+        syncButtons();
+        if (!ctx) return;
+        rampLevel(0, FADE_OUT);
+        const stopping = voices;
+        voices = [];
+        pending = null;
+        setTimeout(() => stopping.forEach(({ element }) => { try { element.pause(); } catch { /* gone */ } }), FADE_OUT * 1000 + 60);
     }
-    if (muted || document.hidden) {
-        playing = false;
-        return;
+
+    function setMuted(value) {
+        muted = Boolean(value);
+        store.set(MUTE_KEY, muted ? '1' : '0');
+        if (muted) end();
+        else begin();
+        syncButtons();
     }
-    if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-    startedOnce = true;
-    // Music was playing on the previous page a moment ago: pick up quickly instead of fading in from silence.
-    const fade = Date.now() - Number(store.get(ALIVE_KEY) || 0) < 5000 ? RESUME_FADE : FADE_IN;
-    startVoice(ctx.currentTime + 0.05, position(), fade);
-    rampLevel(TARGET, fade);
-    timer = setInterval(tick, 250);
-    markAlive();
-    aliveTimer = setInterval(markAlive, 2000);
-    syncButtons();
-}
 
-function end() {
-    if (!playing) return;
-    playing = false;
-    clearInterval(timer);
-    clearInterval(aliveTimer);
-    store.set(ALIVE_KEY, '0');
-    syncButtons();
-    if (!ctx) return;
-    rampLevel(0, FADE_OUT);
-    const stopping = voices;
-    voices = [];
-    setTimeout(() => stopping.forEach(({ source }) => { try { source.stop(); } catch { /* already stopped */ } }), FADE_OUT * 1000 + 60);
-}
+    function toggle() {
+        setMuted(!muted);
+    }
 
-function setMuted(value) {
-    muted = Boolean(value);
-    store.set(MUTE_KEY, muted ? '1' : '0');
-    if (muted) end();
-    else begin();
-    syncButtons();
-}
+    // ---- ducking under the loud sound effects -------------------------------------------------------------------
 
-function toggle() {
-    setMuted(!muted);
-}
+    function duckFor(seconds) {
+        if (!ctx || !duck) return;
+        const now = ctx.currentTime;
+        duck.gain.cancelScheduledValues(now);
+        duck.gain.setValueAtTime(duck.gain.value, now);
+        duck.gain.linearRampToValueAtTime(DUCK_LEVEL, now + 0.08);
+        duck.gain.setValueAtTime(DUCK_LEVEL, now + seconds);
+        duck.gain.linearRampToValueAtTime(1, now + seconds + 0.6);
+    }
 
-// ---- ducking under the loud sound effects -------------------------------------------------------------------
-
-function duckFor(seconds) {
-    if (!ctx || !duck) return;
-    const now = ctx.currentTime;
-    duck.gain.cancelScheduledValues(now);
-    duck.gain.setValueAtTime(duck.gain.value, now);
-    duck.gain.linearRampToValueAtTime(DUCK_LEVEL, now + 0.08);
-    duck.gain.setValueAtTime(DUCK_LEVEL, now + seconds);
-    duck.gain.linearRampToValueAtTime(1, now + seconds + 0.6);
-}
-
-function hookDucking() {
     const sfx = window.brreadSfx;
-    if (!sfx) return;
-    const previous = sfx.onPlay;
-    sfx.onPlay = (name, opts) => {
-        previous?.(name, opts);
-        if (DUCK_ON.has(name)) duckFor(name === 'marimba' ? 0.9 : 0.6);
-    };
-}
-
-// ---- first visit hint, gestures, visibility, button ----------------------------------------------------------
-
-function hint() {
-    if (store.get(HINT_KEY)) return;
-    store.set(HINT_KEY, '1');
-    buttons().forEach((button) => {
-        button.classList.add('bgm-hint');
-        setTimeout(() => button.classList.remove('bgm-hint'), 4000);
-    });
-}
-
-['pointerdown', 'keydown', 'touchstart'].forEach((type) => {
-    window.addEventListener(type, () => {
-        if (muted || available !== true) return;
-        if (!playing) begin();
-        else if (ctx?.state === 'suspended' && !document.hidden) ctx.resume().catch(() => {});
-    }, { passive: true, capture: true });
-});
-
-document.addEventListener('visibilitychange', () => {
-    if (!ctx || !playing) return;
-    if (document.hidden) ctx.suspend().catch(() => {});
-    else ctx.resume().catch(() => {});
-});
-
-window.addEventListener('storage', (event) => {
-    if (event.key !== MUTE_KEY) return;
-    muted = event.newValue === '1';
-    if (muted) end();
-    syncButtons();
-});
-
-// The intro covers the page for a few seconds; the music starts once it is gone.
-const introShowing = () => Boolean(document.getElementById('brread-intro')) && !document.documentElement.classList.contains('no-intro');
-const markAlive = () => store.set(ALIVE_KEY, String(Date.now()));
-window.addEventListener('pagehide', () => {
-    if (playing) markAlive();
-});
-
-// Starts by itself when the browser already allows audio (an earlier page had a gesture), so moving between pages
-// carries the music on without a gap. Otherwise the first gesture starts it.
-function autoStart() {
-    if (startedOnce || muted || available !== true) return;
-    if (introShowing()) {
-        setTimeout(autoStart, 100);
-        return;
+    if (sfx) {
+        const previous = sfx.onPlay;
+        sfx.onPlay = (name, opts) => {
+            previous?.(name, opts);
+            if (DUCK_ON.has(name)) duckFor(name === 'marimba' ? 0.9 : 0.6);
+        };
     }
-    if (navigator.userActivation?.hasBeenActive || ctx?.state === 'running') begin();
-}
 
-document.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-bgm-toggle]') : null;
-    if (!button) return;
-    store.set(HINT_KEY, '1');
-    button.classList.remove('bgm-hint');
-    window.brreadSfx?.play?.('tick');
-    toggle();
-});
+    // ---- start, gestures, visibility ----------------------------------------------------------------------------
 
-hookDucking();
+    // Starts by itself when the browser already allows audio (an earlier page had a gesture), so moving between
+    // pages carries the music on. Otherwise the first gesture starts it.
+    function autoStart() {
+        if (playing || muted || available !== true) return;
+        if (introShowing()) {
+            setTimeout(autoStart, 100);
+            return;
+        }
+        begin();
+    }
 
-// This module is imported after the page has loaded, so it may be too late for DOMContentLoaded.
-const init = () => {
-    if (store.get(OK_KEY) === '1') setAvailable(true); // the button shows at once on every page after the first
-    if (muted) {
+    ['pointerdown', 'keydown', 'touchstart'].forEach((type) => {
+        window.addEventListener(type, () => {
+            if (!muted && available === true && !playing) begin();
+        }, { passive: true, capture: true });
+    });
+
+    // A hidden tab stops the music; coming back restarts it at the right place in the loop.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (!playing) return;
+            end();
+            store.set(ALIVE_KEY, '0');
+            resumeOnShow = true;
+        } else if (resumeOnShow) {
+            resumeOnShow = false;
+            if (!muted) begin();
+        }
+    });
+    let resumeOnShow = false;
+
+    window.addEventListener('pagehide', () => {
+        if (playing) markAlive();
+    });
+
+    window.addEventListener('storage', (event) => {
+        if (event.key !== MUTE_KEY) return;
+        muted = event.newValue === '1';
+        if (muted) end();
+        syncButtons();
+    });
+
+    document.addEventListener('click', (event) => {
+        const button = event.target instanceof Element ? event.target.closest('[data-bgm-toggle]') : null;
+        if (!button) return;
+        store.set(HINT_KEY, '1');
+        button.classList.remove('bgm-hint');
+        window.brreadSfx?.play?.('tick');
+        toggle();
+    });
+
+    async function checkFile() {
+        try {
+            const response = await fetch(SRC, { method: 'HEAD', cache: 'no-cache' });
+            setAvailable(response.ok && (response.headers.get('content-type') || '').startsWith('audio'));
+            if (available) hint();
+        } catch {
+            setAvailable(false);
+        }
+    }
+
+    // This module is imported after the page has loaded, so it may be too late for DOMContentLoaded.
+    const init = () => {
+        if (store.get(OK_KEY) === '1') setAvailable(true); // the button shows at once on every page after the first
+        if (muted) {
+            if (available !== true) checkFile();
+            return;
+        }
         if (available !== true) checkFile();
-        return;
-    }
-    // Fetch and decode right away, before any gesture, so there is nothing left to wait for when the page is ready.
-    context();
-    load().then((ok) => {
-        store.set(OK_KEY, ok ? '1' : '0');
-        if (!ok) return;
-        setAvailable(true);
-        hint();
+        else hint();
+        if (context()) primed = makeVoice(); // starts downloading now, before any gesture
         autoStart();
-    });
-};
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-else init();
-document.addEventListener('alpine:initialized', syncButtons);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+    document.addEventListener('alpine:initialized', syncButtons);
 
-window.brreadBgm = { toggle, setMuted, isMuted: () => muted, isAvailable: () => available === true };
+    window.brreadBgm = { toggle, setMuted, isMuted: () => muted, isAvailable: () => available === true };
 }

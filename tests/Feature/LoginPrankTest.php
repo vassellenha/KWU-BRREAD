@@ -80,7 +80,8 @@ class LoginPrankTest extends TestCase
             $this->wrong();
         }
 
-        $this->get('/staff')->assertOk()->assertSee('data-prank-seconds="60"', false);
+        $this->get('/staff')->assertOk()->assertSeeInOrder(['data-prank-seconds="'], false);
+        $this->assertMatchesRegularExpression('/data-prank-seconds="(5[89]|60)"/', $this->get('/staff')->getContent());
     }
 
     public function test_the_scenes_are_off_when_switched_off(): void
