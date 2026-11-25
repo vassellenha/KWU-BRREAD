@@ -53,7 +53,7 @@
     var GROUPS = [
         ['Clicks', ['click', 'tock', 'tick', 'softtick', 'tockup', 'tockdown', 'blipup', 'blipdown', 'pop', 'popsoft', 'plop']],
         ['Hover', ['hover']],
-        ['Materials', ['thump', 'clink', 'snap', 'puf', 'scoop', 'sprinkle', 'swish', 'whoosh', 'poof']],
+        ['Materials', ['thump', 'clink', 'snap', 'puf', 'scoop', 'sprinkle', 'squish', 'gummy', 'drizzle', 'swish', 'whoosh', 'poof']],
         ['Confirmations', ['ding', 'bell', 'unlock', 'register', 'chime', 'marimba', 'sparkle', 'plopding']]
     ];
     var measured = {};

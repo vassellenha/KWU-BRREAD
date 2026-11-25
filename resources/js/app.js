@@ -1209,7 +1209,9 @@ Alpine.data('brreadBuilder', () => ({
             });
         }
 
-        window.brreadSfx?.play({ bread: 'puf', ice_cream: 'scoop' }[component.category] ?? 'sprinkle');
+        // Each pick has its own sound: bread, ice cream, and a different one for every kind of topping.
+        const toppingSound = /marshmallow/i.test(component.name) ? 'squish' : /yupi|gummy/i.test(component.name) ? 'gummy' : /sauce|choco/i.test(component.name) ? 'drizzle' : 'sprinkle';
+        window.brreadSfx?.play({ bread: 'puf', ice_cream: 'scoop' }[component.category] ?? toppingSound);
 
         if (component.category === 'bread') {
             this.selectedBread = component;

@@ -338,6 +338,21 @@ const RECIPES = {
         const count = 4 + Math.floor(Math.random() * 3);
         for (let i = 0; i < count; i++) clink(t, r, l, { g: 0.35, at: Math.random() * 0.17, base: 1.1 + Math.random() * 0.8 });
     }, 'toppings: small clinks'],
+    squish: [0.14, (t, r, l) => {
+        tone(t, r, l, { f0: 330, f1: 170, sweep: 0.06, dur: 0.1, gain: 0.6, lp: 900, atk: 0.003 });
+        noise(t, l, { f0: 600, dur: 0.05, gain: 0.2, atk: 0.004 });
+    }, 'marshmallow: soft squish'],
+    gummy: [0.2, (t, r, l) => {
+        tone(t, r, l, { type: 'triangle', f0: 420, f1: 620, sweep: 0.05, dur: 0.09, gain: 0.45, lp: 1500, atk: 0.004 });
+        tone(t, r, l, { f0: 620, f1: 380, sweep: 0.06, dur: 0.1, at: 0.07, gain: 0.35, lp: 1400, atk: 0.004 });
+        thump(t, r, l, { g: 0.3 });
+    }, 'gummy: chewy rubbery press'],
+    drizzle: [0.32, (t, r, l) => {
+        noise(t, l, { f0: 1800, f1: 700, dur: 0.22, gain: 0.25, q: 0.7, lp: 2200, atk: 0.02 });
+        for (let i = 0; i < 3; i++) {
+            tone(t, r, l, { f0: 500 + Math.random() * 400, f1: 280, sweep: 0.04, at: 0.03 + Math.random() * 0.17, dur: 0.06, gain: 0.25, lp: 1800, atk: 0.004 });
+        }
+    }, 'chocolate sauce: liquid drizzle with small bubbles'],
     swish: [0.34, (t, r, l) => noise(t, l, { kind: 'bandpass', f0: 400, f1: 1800, dur: 0.32, gain: 0.35, q: 1.2, lp: 2600, atk: 0.04 }), 'noise sweep up'],
     whoosh: [0.28, (t, r, l, o) => {
         const closing = o.dir === 'down';
@@ -377,7 +392,7 @@ const RECIPES = {
 
 // Loudness per recipe, measured offline so the loudest click peaks near -10 dBFS (hover near -26) before the
 // limiter. Re-measure with /sfx-lab after changing a voice.
-const TRIM = {"click": 0.162, "tock": 0.16, "tick": 0.155, "softtick": 0.166, "tockup": 0.172, "tockdown": 0.194, "blipup": 0.17, "blipdown": 0.179, "pop": 0.172, "popsoft": 0.238, "plop": 0.239, "hover": 0.121, "thump": 0.262, "clink": 0.25, "snap": 0.212, "puf": 0.283, "scoop": 0.322, "sprinkle": 0.401, "swish": 1.125, "whoosh": 1.084, "poof": 0.376, "ding": 0.375, "bell": 0.326, "unlock": 0.389, "register": 0.268, "chime": 0.345, "marimba": 0.435, "sparkle": 0.516, "plopding": 0.904};
+const TRIM = {"click": 0.162, "tock": 0.21, "tick": 0.174, "softtick": 0.171, "tockup": 0.128, "tockdown": 0.184, "blipup": 0.15, "blipdown": 0.191, "pop": 0.181, "popsoft": 0.224, "plop": 0.219, "hover": 0.12, "thump": 0.254, "clink": 0.258, "snap": 0.231, "puf": 0.314, "scoop": 0.323, "sprinkle": 0.422, "squish": 0.319, "gummy": 0.316, "drizzle": 0.63, "swish": 1.009, "whoosh": 1.23, "poof": 0.355, "ding": 0.367, "bell": 0.32, "unlock": 0.384, "register": 0.265, "chime": 0.338, "marimba": 0.437, "sparkle": 0.536, "plopding": 1.04};
 
 // plop then ding, the quick add on the menu: both parts are scheduled on the audio clock, not with a timer.
 const SEQUENCES = { plopding: [['plop', 0], ['ding', 0.1]] };
@@ -525,16 +540,11 @@ function setSmallSpeaker(value) {
 
 // [selector, sound, options]. The innermost element that matches (or carries data-sfx) wins.
 const CLICK_REGISTRY = [
-    ['.site-nav-link, .site-nav-sheet-link, .site-nav-logo, footer a[href]', 'click'],
     ['.menu-tile', 'snap'],
-    ['a[href^="http"], a[href^="tel:"], a[href^="mailto:"], a[href*="wa.me"]', 'pop', { gain: 0.5 }],
     ['.btn-chunky', 'pop'],
-    ['summary, [role="tab"], [aria-expanded]', 'tick'],
 ];
-const HOVER_REGISTRY = [
-    ['.product-card, .menu-tile, .about-card-line', 'hover'],
-    ['[role="tab"], summary', 'hover'],
-];
+// No automatic hover sound: sounds are for things that do something, not for passing the mouse over a page.
+const HOVER_REGISTRY = [];
 
 function soundFor(target, registry, attribute) {
     for (let el = target; el && el !== document.documentElement; el = el.parentElement) {
@@ -581,13 +591,6 @@ document.addEventListener('mouseover', (event) => {
     if (now - lastHover < HOVER_GAP_MS) return;
     lastHover = now;
     play(hit.name, { gain: 0.8 });
-});
-
-// Form fields on the customer pages get the soft pop when focused.
-document.addEventListener('focusin', (event) => {
-    if (event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select')) {
-        play('pop', { gain: 0.4 });
-    }
 });
 
 window.addEventListener('storage', (event) => {
