@@ -13,7 +13,8 @@ if (allowed) {
     const HINT_KEY = 'brread-bgm-hinted';
     const OK_KEY = 'brread-bgm-ok';
     const ALIVE_KEY = 'brread-bgm-alive';
-    const TARGET = 0.08;
+    const TARGET = 0.3; // times the element volume below: about 3% overall
+    const ELEMENT_VOLUME = 0.1;
     const FADE_IN = 0.8;
     const RESUME_FADE = 0.25;
     const FADE_OUT = 0.4;
@@ -101,6 +102,7 @@ if (allowed) {
     function makeVoice() {
         const element = new Audio();
         element.preload = 'auto';
+        element.volume = ELEMENT_VOLUME; // applies even if a browser routes the element around the audio graph
         element.src = SRC;
         element.addEventListener('error', () => {
             if (available !== false && !startedOnce) setAvailable(false);
