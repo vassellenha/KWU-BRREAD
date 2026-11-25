@@ -1053,6 +1053,12 @@ Alpine.data('brreadBuilder', () => ({
         studio3d?.resetView();
     },
 
+    // The picks as chips for the toolbar under the viewer: bread, flavor, then each topping.
+    get summaryChips() {
+        const chip = (c) => ({ key: `${c.category}-${c.id}`, name: c.name, icon: this.iconFor(c.name), iconClass: this.iconClass(c.name) });
+        return [this.selectedBread, this.selectedFlavor, ...this.selectedToppings].filter(Boolean).map(chip);
+    },
+
     snapshotState() {
         return {
             bread: this.selectedBread?.id ?? null,

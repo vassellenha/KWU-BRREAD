@@ -336,8 +336,8 @@
                             </div>
                         </div>
 
-                        <div class="w-full flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-lowest/95 backdrop-blur-md px-space-sm py-space-xs rounded-lg shadow-sm border border-outline-variant/30 z-10">
-                            <div class="flex items-center gap-space-xs">
+                        <div class="w-full min-w-0 flex flex-col gap-space-xs bg-surface-container-lowest/95 backdrop-blur-md px-space-sm py-space-xs rounded-lg shadow-sm border border-outline-variant/30 z-10">
+                            <div class="flex flex-wrap items-center gap-space-xs">
                                 <button type="button" @click="toggleExplodedView()" :aria-pressed="explodedView" data-tip="Pull the layers apart to see each one" class="press-scale px-space-sm py-1.5 rounded hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1.5 transition-colors duration-200" :class="explodedView ? 'bg-primary-container/20 text-primary' : ''">
                                     <span class="material-symbols-outlined text-[16px] text-primary">unfold_more</span>
                                     Layers
@@ -356,14 +356,27 @@
                                     <span class="hidden sm:inline">Redo</span>
                                 </button>
                             </div>
-                            <p class="font-body-sm text-body-sm text-on-surface-variant text-center sm:text-right">
-                                <span x-show="selectedBread" x-text="selectedBread?.name"></span>
-                                <span x-show="selectedBread && selectedFlavor"> · </span>
-                                <span x-show="selectedFlavor" x-text="selectedFlavor?.name"></span>
-                                <template x-for="topping in selectedToppings" :key="topping.id">
-                                    <span class="whitespace-nowrap"> · <svg x-show="iconFor(topping.name)" class="ing-icon text-[16px] mr-0.5" :class="iconClass(topping.name)" aria-hidden="true" focusable="false"><use :href="'#' + iconFor(topping.name)"></use></svg><span x-text="topping.name"></span></span>
-                                </template>
-                            </p>
+                            {{-- What is picked, as chips: wraps and grows with the card, never clipped. --}}
+                            <div x-show="summaryChips.length" x-cloak x-data="{ all: false }" class="min-w-0 border-t border-outline-variant/30 pt-space-xs">
+                                <ul class="flex flex-wrap items-center gap-1.5 min-w-0" aria-label="Your current picks">
+                                    <template x-for="(chip, index) in (all || summaryChips.length <= 4 ? summaryChips : summaryChips.slice(0, 3))" :key="chip.key">
+                                        <li class="inline-flex items-center gap-1 max-w-full min-w-0 rounded-full bg-surface-container px-2.5 py-1 font-label-md text-label-md text-on-surface" :title="chip.name">
+                                            <svg x-show="chip.icon" class="ing-icon shrink-0 text-[16px]" :class="chip.iconClass" aria-hidden="true" focusable="false"><use :href="'#' + chip.icon"></use></svg>
+                                            <span class="truncate leading-none" x-text="chip.name"></span>
+                                        </li>
+                                    </template>
+                                    <li x-show="summaryChips.length > 4" class="inline-flex">
+                                        <button
+                                            type="button"
+                                            @click="all = !all"
+                                            :aria-expanded="all"
+                                            :aria-label="all ? 'Show fewer picks' : 'Show all ' + summaryChips.length + ' picks'"
+                                            class="press-scale inline-flex items-center rounded-full bg-primary-container/20 px-2.5 py-1 font-label-md text-label-md leading-none text-primary hover:bg-primary-container/30 transition-colors duration-200"
+                                            x-text="all ? 'Less' : '+' + (summaryChips.length - 3)"
+                                        ></button>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
