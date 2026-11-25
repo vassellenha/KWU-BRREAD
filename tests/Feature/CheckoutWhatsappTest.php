@@ -95,4 +95,14 @@ class CheckoutWhatsappTest extends TestCase
         $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => 'Atmint Pasel: 0821 3601 9367 (galak)'])
             ->assertSessionHasErrors('contact_whatsapp');
     }
+
+    public function test_the_whatsapp_message_lists_bread_flavor_and_toppings(): void
+    {
+        $js = file_get_contents(base_path('resources/js/app.js'));
+
+        $this->assertStringContainsString('Roti: ${item.bread', $js);
+        $this->assertStringContainsString('Es krim: ${item.flavor', $js);
+        $this->assertStringContainsString('Topping: ${toppings}', $js);
+        $this->assertSame(2, substr_count($js, '...creations,'), 'both message styles list the creations');
+    }
 }

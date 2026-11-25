@@ -49,6 +49,7 @@ return [
         'error',
         'event_repeat',
         'event_upcoming',
+        'expand_more',
         'forum',
         'gpp_maybe',
         'grade',

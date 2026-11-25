@@ -118,4 +118,28 @@ class OrderStagesTest extends TestCase
             ->assertSee('Pesananmu siap diambil!')
             ->assertDontSee('Pesanan Diterima');
     }
+
+    public function test_the_staff_order_list_shows_toppings_and_a_detail_view(): void
+    {
+        $bread = Component::where('category', 'bread')->firstOrFail();
+        $flavor = Component::where('category', 'ice_cream')->firstOrFail();
+        $toppings = Component::where('category', 'topping')->take(2)->get();
+
+        $this->postJson('/api/orders', [
+            'customer_name' => 'Pembeli Topping',
+            'customer_phone' => '081200000009',
+            'items' => [['component_ids' => [$bread->id, $flavor->id, ...$toppings->pluck('id')->all()], 'quantity' => 2]],
+        ])->assertCreated();
+
+        $page = $this->actingAs($this->staff())->get(route('staff.orders.index'))->assertOk();
+
+        $page->assertSee('Lihat detail', false)
+            ->assertSee('Roti:', false)
+            ->assertSee('Es krim:', false)
+            ->assertSee('Topping:', false);
+
+        foreach ($toppings as $topping) {
+            $page->assertSee($topping->name, false);
+        }
+    }
 }

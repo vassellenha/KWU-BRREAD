@@ -176,11 +176,18 @@
                     @forelse ($orders as $order)
                         @php
                             $creationsCount = $order->orderItems->pluck('creation_index')->unique()->count();
-                            $itemsSummary = $order->orderItems->groupBy('creation_index')->map(function ($items) {
-                                $bread = $items->firstWhere('component.category', 'bread')?->component?->name ?? 'Bread';
-                                $flavor = $items->firstWhere('component.category', 'ice_cream')?->component?->name ?? 'Ice Cream';
-                                $qty = $items->first()?->quantity ?? 1;
-                                return "{$qty}x {$bread} · {$flavor}";
+                            $creations = $order->orderItems->groupBy('creation_index')->map(function ($items) {
+                                return [
+                                    'qty' => $items->first()?->quantity ?? 1,
+                                    'bread' => $items->firstWhere('component.category', 'bread')?->component?->name ?? 'Bread',
+                                    'flavor' => $items->firstWhere('component.category', 'ice_cream')?->component?->name ?? 'Ice Cream',
+                                    'toppings' => $items->filter(fn ($i) => ! in_array($i->component?->category, ['bread', 'ice_cream'], true))
+                                        ->map(fn ($i) => $i->component?->name)->filter()->values()->all(),
+                                ];
+                            })->values();
+                            $itemsSummary = $creations->map(function ($c) {
+                                $line = "{$c['qty']}x {$c['bread']} · {$c['flavor']}";
+                                return $c['toppings'] ? $line.' + '.implode(', ', $c['toppings']) : $line;
                             })->join(', ');
                         @endphp
                         <tr
@@ -215,12 +222,28 @@
 
                             {{-- ITEMS SUMMARY --}}
                             <td class="px-space-md py-space-sm align-top max-w-[280px]">
-                                <p class="text-on-surface line-clamp-2 leading-relaxed" title="{{ $itemsSummary }}">
-                                    {{ $itemsSummary }}
-                                </p>
-                                <span class="text-[11px] text-on-surface-variant font-medium block mt-1">
-                                    {{ $creationsCount }} kreasi sandwich
-                                </span>
+                                <div x-data="{ open: false }" data-order-items>
+                                    <button
+                                        type="button"
+                                        @click.stop="open = !open"
+                                        :aria-expanded="open"
+                                        class="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline"
+                                    >
+                                        <span class="material-symbols-outlined text-[16px] shrink-0 transition-transform" :class="open && 'rotate-180'">expand_more</span>
+                                        <span x-text="open ? 'Tutup detail' : 'Lihat detail ({{ $creationsCount }} kreasi)'">Lihat detail ({{ $creationsCount }} kreasi)</span>
+                                    </button>
+                                    <p x-show="!open" class="text-on-surface line-clamp-2 leading-relaxed mt-1" title="{{ $itemsSummary }}">{{ $itemsSummary }}</p>
+                                    <ol x-show="open" x-cloak class="mt-2 space-y-2" aria-label="Detail pesanan #{{ $order->order_number }}">
+                                        @foreach ($creations as $c)
+                                            <li class="rounded-lg bg-surface-container/40 px-2.5 py-2 text-[12px] leading-snug">
+                                                <p class="font-semibold text-on-surface">{{ $loop->iteration }}. {{ $c['qty'] }}x sandwich</p>
+                                                <p class="text-on-surface-variant">Roti: <span class="text-on-surface">{{ $c['bread'] }}</span></p>
+                                                <p class="text-on-surface-variant">Es krim: <span class="text-on-surface">{{ $c['flavor'] }}</span></p>
+                                                <p class="text-on-surface-variant">Topping: <span class="text-on-surface">{{ $c['toppings'] ? implode(', ', $c['toppings']) : 'tanpa topping' }}</span></p>
+                                            </li>
+                                        @endforeach
+                                    </ol>
+                                </div>
                             </td>
 
                             {{-- TOTAL PRICE --}}

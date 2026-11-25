@@ -785,8 +785,19 @@ Alpine.data('cartDrawer', () => ({
     },
 
     // The first WhatsApp message to the admin, ready to send: name, number, order id and total.
-    buildWaUrl(admin, orderNumber, total, name, phone) {
+    buildWaUrl(admin, orderNumber, total, name, phone, items = []) {
         if (!admin?.url) return '';
+
+        // One block per creation: bread, ice cream flavor and toppings, so the admin can prepare it without asking.
+        const creations = items.map((item, i) => {
+            const toppings = item.toppings?.length ? item.toppings.map((t) => t.name).join(', ') : 'tanpa topping';
+            return [
+                `${i + 1}. ${item.quantity}x sandwich`,
+                `   Roti: ${item.bread?.name ?? '-'}`,
+                `   Es krim: ${item.flavor?.name ?? '-'}`,
+                `   Topping: ${toppings}`,
+            ].join('\n');
+        });
 
         // The admin's name from Contact in the panel; a bare number (no name set) falls back to the shop.
         const adminName = /[A-Za-z]/.test(admin.name || '') ? admin.name : 'Brread!';
@@ -803,6 +814,10 @@ Alpine.data('cartDrawer', () => ({
                 `Nama: ${name}`,
                 `Nomor HP: ${phone}`,
                 `Nomor Pesanan: #${orderNumber}`,
+                '',
+                'Rincian pesanan:',
+                ...creations,
+                '',
                 `Total Pembayaran: ${money}`,
                 '',
                 'Mohon informasi mengenai metode dan tata cara pembayarannya.',
@@ -818,6 +833,10 @@ Alpine.data('cartDrawer', () => ({
                 `* Nama: ${name}`,
                 `* No. HP: ${phone}`,
                 `* No. Pesanan: #${orderNumber}`,
+                '',
+                'Pesanan aku:',
+                ...creations,
+                '',
                 `* Total: ${money}`,
                 '',
                 'Mohon info cara pembayarannya ya kak :3',
@@ -862,6 +881,14 @@ Alpine.data('cartDrawer', () => ({
         const name = this.customerName.trim();
         const phone = this.customerPhone.trim();
 
+        // Copy the creations before the cart is cleared: the WhatsApp message lists them.
+        const orderedItems = cart.items.map((i) => ({
+            bread: i.bread,
+            flavor: i.flavor,
+            toppings: [...i.toppings],
+            quantity: i.quantity,
+        }));
+
         try {
             const res = await axios.post('/api/orders', {
                 customer_name: this.customerName,
@@ -869,7 +896,7 @@ Alpine.data('cartDrawer', () => ({
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
-            this.waUrl = this.buildWaUrl(admin, res.data.order_number, res.data.total_price, name, phone);
+            this.waUrl = this.buildWaUrl(admin, res.data.order_number, res.data.total_price, name, phone, orderedItems);
             cart.clear();
 
             // The order is in; the customer now confirms it with the shop on WhatsApp. A short pause lets the
