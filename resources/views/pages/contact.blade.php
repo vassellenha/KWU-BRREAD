@@ -113,7 +113,7 @@
                             </dd>
                         </div>
                     </dl>
-                            <button type="button" @click="copyAddress()" data-tip="Copies the full address" class="press-scale -mt-space-sm mb-space-lg inline-flex items-center gap-1.5 font-label-lg text-label-lg text-primary underline underline-offset-4 decoration-dotted">
+                            <button type="button" data-sfx="popsoft" @click="copyAddress()" data-tip="Copies the full address" class="press-scale -mt-space-sm mb-space-lg inline-flex items-center gap-1.5 font-label-lg text-label-lg text-primary underline underline-offset-4 decoration-dotted">
                                 <span class="material-symbols-outlined text-[18px]" x-text="copied ? 'check' : 'content_copy'">content_copy</span>
                                 <span x-text="copied ? 'Copied' : 'Copy address'">Copy address</span>
                             </button>

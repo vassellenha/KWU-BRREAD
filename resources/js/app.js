@@ -6,6 +6,7 @@ import axios from 'axios';
 import { registerOrderFx } from './order-fx.js';
 import { registerStaffBatch } from './staff-batch.js';
 import { registerGridNav } from './staff-grid.js';
+import './sfx.js';
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -279,6 +280,7 @@ Alpine.store('cart', {
     },
 
     remove(uid) {
+        window.brreadSfx?.play('poof');
         this.items = this.items.filter((i) => i.uid !== uid);
         saveCart(this.items);
     },
@@ -762,6 +764,7 @@ Alpine.data('cartDrawer', () => ({
 
         this.$watch('$store.cart.open', (isOpen) => {
             document.documentElement.classList.toggle('overflow-hidden', isOpen);
+            window.brreadSfx?.play('whoosh', { dir: isOpen ? 'up' : 'down' });
 
             if (isOpen) {
                 Alpine.store('catalog').load().then(() => Alpine.store('cart').syncPrices());
@@ -896,6 +899,7 @@ Alpine.data('cartDrawer', () => ({
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;
+            window.brreadSfx?.play('marimba');
             this.waUrl = this.buildWaUrl(admin, res.data.order_number, res.data.total_price, name, phone, orderedItems);
             cart.clear();
 
@@ -958,6 +962,16 @@ Alpine.data('brreadBuilder', () => ({
         this.$watch('guidedStep', (step) => {
             this.mobileStep = step;
         });
+
+        // "ting!" when a step opens up (locked to open only, never on a re-render). A preset opens two at once: one sound.
+        let unlockedAt = 0;
+        const chimeUnlock = (locked) => {
+            if (locked || Date.now() - unlockedAt < 250) return;
+            unlockedAt = Date.now();
+            setTimeout(() => window.brreadSfx?.play('unlock'), 140);
+        };
+        this.$watch('flavorLocked', chimeUnlock);
+        this.$watch('toppingLocked', chimeUnlock);
 
         // Selections hold their own copy of each component, so re-read them when stock changes.
         window.addEventListener('catalog-updated', () => {
@@ -1030,10 +1044,12 @@ Alpine.data('brreadBuilder', () => ({
     },
 
     studio3dZoom(factor) {
+        window.brreadSfx?.play('softtick');
         studio3d?.zoomBy(factor);
     },
 
     studio3dResetView() {
+        window.brreadSfx?.play('softtick');
         studio3d?.resetView();
     },
 
@@ -1075,6 +1091,7 @@ Alpine.data('brreadBuilder', () => ({
 
     undo() {
         if (!this.canUndo) return;
+        window.brreadSfx?.play('blipdown');
         this.historyIndex--;
         this.restoreSnapshot(this.history[this.historyIndex]);
         this.clampQuantity();
@@ -1082,6 +1099,7 @@ Alpine.data('brreadBuilder', () => ({
 
     redo() {
         if (!this.canRedo) return;
+        window.brreadSfx?.play('blipup');
         this.historyIndex++;
         this.restoreSnapshot(this.history[this.historyIndex]);
         this.clampQuantity();
@@ -1116,6 +1134,7 @@ Alpine.data('brreadBuilder', () => ({
             });
         }
 
+        window.brreadSfx?.play('sparkle');
         this.selectedBread = bread;
         this.selectedFlavor = flavor;
         this.selectedToppings = toppings;
@@ -1139,10 +1158,12 @@ Alpine.data('brreadBuilder', () => ({
 
     explodedView: false,
     toggleExplodedView() {
+        window.brreadSfx?.play('softtick');
         this.explodedView = !this.explodedView;
     },
 
     resetStage() {
+        window.brreadSfx?.play('swish');
         this.selectedBread = null;
         this.selectedFlavor = null;
         this.selectedToppings = [];
@@ -1174,6 +1195,8 @@ Alpine.data('brreadBuilder', () => ({
                 onLand: () => window.__brreadFx?.pop(target, 'pop-gentle'),
             });
         }
+
+        window.brreadSfx?.play({ bread: 'puf', ice_cream: 'scoop' }[component.category] ?? 'sprinkle');
 
         if (component.category === 'bread') {
             this.selectedBread = component;
@@ -1341,10 +1364,12 @@ Alpine.data('brreadBuilder', () => ({
     },
 
     incrementQty() {
+        window.brreadSfx?.play('tockup');
         this.creationQuantity = Math.min(Math.max(1, this.maxQuantity), this.creationQuantity + 1);
     },
 
     decrementQty() {
+        window.brreadSfx?.play('tockdown');
         this.creationQuantity = Math.max(1, this.creationQuantity - 1);
     },
 
@@ -1367,6 +1392,8 @@ Alpine.data('brreadBuilder', () => ({
             this.errorMessage = 'Your cart is full. Check out before adding more.';
             return;
         }
+
+        window.brreadSfx?.play('register');
 
         const btn = event?.currentTarget;
         const target = document.getElementById('nav-cart-badge');
@@ -1543,6 +1570,8 @@ Alpine.data('signatureMenu', (products) => ({
             this.showToast(Alpine.store('catalog').failed ? 'Could not reach the kitchen. Try again.' : 'Not enough stock for another one.', true);
             return;
         }
+
+        window.brreadSfx?.play('plopding');
 
         const badge = document.getElementById('nav-cart-badge');
         window.__brreadFx.flyClone({

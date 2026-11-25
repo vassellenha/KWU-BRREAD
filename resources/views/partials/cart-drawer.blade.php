@@ -106,11 +106,11 @@
                         </div>
                         <div class="flex items-center justify-between mt-space-xs">
                             <div class="flex items-center gap-1.5 bg-surface-container rounded-full p-0.5">
-                                <button type="button" @click="$store.cart.setQuantity(item.uid, item.quantity - 1)" :disabled="item.quantity <= 1" aria-label="Decrease quantity" class="press-scale w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <button type="button" data-sfx="tockdown" @click="$store.cart.setQuantity(item.uid, item.quantity - 1)" :disabled="item.quantity <= 1" aria-label="Decrease quantity" class="press-scale w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[16px]">remove</span>
                                 </button>
                                 <span class="font-label-lg text-label-lg text-on-surface w-5 text-center tabular-nums" x-text="item.quantity"></span>
-                                <button type="button" @click="$store.cart.setQuantity(item.uid, item.quantity + 1)" :disabled="!$store.cart.canIncrease(item)" aria-label="Increase quantity" class="press-scale w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <button type="button" data-sfx="tockup" @click="$store.cart.setQuantity(item.uid, item.quantity + 1)" :disabled="!$store.cart.canIncrease(item)" aria-label="Increase quantity" class="press-scale w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined text-[16px]">add</span>
                                 </button>
                             </div>
@@ -173,6 +173,7 @@
             <p x-show="errorMessage" role="alert" class="font-body-sm text-body-sm text-error font-medium" x-text="errorMessage"></p>
             <button
                 type="submit"
+                data-sfx="pop"
                 @disabled(! $shopNow['orders_open'])
                 :disabled="{{ $shopNow['orders_open'] ? 'false' : 'true' }} || submitting || $store.cart.hasProblem"
                 class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed"

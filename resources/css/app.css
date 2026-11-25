@@ -4730,3 +4730,12 @@ body.is-broken .prank-ghost {
         transition: none;
     }
 }
+
+/* Sound toggle in the navbar: the crossed speaker shows while the sound is off. */
+[data-sfx-toggle] .sfx-ico-off,
+[data-sfx-toggle][aria-pressed='true'] .sfx-ico-on {
+    display: none;
+}
+[data-sfx-toggle][aria-pressed='true'] .sfx-ico-off {
+    display: block;
+}
