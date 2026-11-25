@@ -104,6 +104,7 @@ function ensureContext() {
         bus = graph.master;
         noiseBuffer = graph.noise;
         applySmallSpeaker();
+        loadFiles();
     }
 
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -233,6 +234,67 @@ function bell(t, r, l, o = {}) {
     noise(t, l, { kind: 'bandpass', f0: 6000, at, dur: 0.003, gain: 0.25 * g, q: 0.8, atk: 0.0003 });
 }
 
+// Recorded sounds (public/audio/sfx): when a name has files here they play instead of the synthesized recipe, and a
+// missing or broken file quietly falls back to the recipe. name -> [files (rotated in turn), level, pitch in semitones].
+const SFX_DIR = '/audio/sfx/';
+const FILES = {
+    tick: [['tick-1', 'tick-2', 'tick-3'], 0.29],
+    softtick: [['tick-1', 'tick-2', 'tick-3'], 0.195, 2],
+    tockup: [['clink-1'], 0.3, 4],
+    tockdown: [['clink-2'], 0.271, -4],
+    snap: [['snap-1', 'snap-2', 'snap-3', 'snap-4'], 0.277],
+    pop: [['pop'], 0.335],
+    popsoft: [['pop'], 0.239],
+    sprinkle: [['sprinkle-1', 'sprinkle-2'], 0.315],
+    scoop: [['scoop'], 0.247],
+    poof: [['poof'], 0.36],
+    swish: [['swish'], 0.171],
+    chime: [['chime'], 0.328],
+    ding: [['ding'], 0.292],
+    sparkle: [['sparkle'], 0.299],
+    unlock: [['unlock'], 0.282],
+    register: [['register'], 0.33],
+};
+const buffers = {}; // file -> AudioBuffer (decoded once, after the first gesture)
+const lastFile = {};
+
+let filesReady = null;
+
+function loadFiles(context = ctx) {
+    if (filesReady || !context) return filesReady;
+    const wanted = new Set(Object.values(FILES).flatMap(([list]) => list));
+    filesReady = Promise.all([...wanted].map((file) => fetch(`${SFX_DIR}${file}.mp3`)
+        .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject()))
+        .then((data) => context.decodeAudioData(data))
+        .then((buffer) => {
+            buffers[file] = buffer;
+        })
+        .catch(() => {
+            // Not there or not decodable: the synthesized recipe stays in use.
+        })));
+    return filesReady;
+}
+
+// Starts a recorded sound if every file of the name is loaded. Returns its length in seconds, or 0 for no file.
+function playFile(name, t, level, opts) {
+    const entry = FILES[name];
+    if (!entry || !entry[0].every((file) => buffers[file])) return 0;
+
+    const list = entry[0];
+    const index = ((lastFile[name] ?? -1) + 1) % list.length;
+    lastFile[name] = index;
+    const buffer = buffers[list[index]];
+
+    const src = ctx.createBufferSource();
+    const env = ctx.createGain();
+    src.buffer = buffer;
+    src.playbackRate.value = semitone(entry[2] ?? 0) * (1 + (Math.random() * 2 - 1) * 0.03);
+    env.gain.value = Math.max(0.0002, entry[1] * level * (opts.gain ?? 1) * dbToGain((Math.random() * 2 - 1) * 1));
+    src.connect(env).connect(bus);
+    src.start(t);
+    return buffer.duration;
+}
+
 // name -> [total duration in seconds, builder(t0, rate, level, opts), short description for the audition page]
 const RECIPES = {
     // clicks
@@ -331,6 +393,8 @@ function nextVariant(name) {
 function build(name, t, level, opts) {
     const recipe = RECIPES[name];
     if (!recipe) return 0;
+    const fileLength = playFile(name, t, level, {});
+    if (fileLength) return fileLength;
     const rate = 1 + (Math.random() * 2 - 1) * 0.035; // pitch +-3.5 %
     const jitter = dbToGain((Math.random() * 2 - 1) * 1); // gain +-1 dB
     recipe[1](t, rate, level * jitter * (TRIM[name] ?? 1), { ...opts, v: nextVariant(name) });
@@ -393,6 +457,7 @@ async function render(name, opts = {}) {
 
     const seconds = (SEQUENCES[name] ? 0.7 : recipe[0]) + 0.35;
     const offline = new OfflineCtx(1, Math.ceil(48000 * seconds), 48000);
+    await loadFiles(offline);
     const saved = { ctx, bus, noiseBuffer };
 
     try {
@@ -520,7 +585,7 @@ document.addEventListener('mouseover', (event) => {
 
 // Form fields on the customer pages get the soft pop when focused.
 document.addEventListener('focusin', (event) => {
-    if (event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select')) {
+    if (event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select')) {
         play('pop', { gain: 0.4 });
     }
 });
