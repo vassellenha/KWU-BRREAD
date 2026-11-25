@@ -30,7 +30,7 @@ class ContactInfo
         $instagram = ltrim($value('instagram_handle') ?: (string) config('services.instagram.handle'), '@');
 
         $links = [];
-        // "Atmint Pasel: 0821 3601 9367, Atmint Sandi: 0811 6362 805" (the name is optional).
+        // "Atmint Amba: 0821 3601 9367, Atmint Sandi: 0811 6362 805" (the name is optional).
         foreach (explode(',', $whatsapp) as $entry) {
             [$name, $number] = array_pad(explode(':', $entry, 2), -2, '');
             $number = trim($number);
