@@ -68,19 +68,6 @@
                 </button>
                 <button
                     type="button"
-                    data-sfx-toggle
-                    aria-label="Sound effects"
-                    aria-pressed="false"
-                    data-tip="Sound on or off"
-                    class="site-nav-burger btn-chunky"
-                    data-sfx="none"
-                    style="--chunk: {{ $quiet ? '#8a1730' : '#c9728a' }}"
-                >
-                    <svg class="sfx-ico sfx-ico-on" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-                    <svg class="sfx-ico sfx-ico-off" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="m16 9 5 6"/><path d="m21 9-5 6"/></svg>
-                </button>
-                <button
-                    type="button"
                     data-sfx="tick"
                     @click="menuOpen = !menuOpen"
                     :aria-expanded="menuOpen"

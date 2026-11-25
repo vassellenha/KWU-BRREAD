@@ -12,7 +12,8 @@ const ESSENTIAL = new Set(['register', 'marimba', 'chime', 'unlock']);
 
 let muted = false;
 try {
-    muted = localStorage.getItem(STORE_KEY) === '1';
+    // The speaker button is gone: the sound effects are always on, so an old saved mute is dropped.
+    localStorage.removeItem(STORE_KEY);
 } catch {
     // Storage can be blocked; the sound simply starts on.
 }
