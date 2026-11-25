@@ -143,6 +143,13 @@ Route::get('/contact', function () {
     return view('pages.contact', ['menu' => HomeMenu::get(public: true)]);
 })->name('contact');
 
+// Developer-only audition page for the sound effects: gone (404) in production and wherever debug is off.
+Route::get('/sfx-lab', function () {
+    abort_unless(! app()->isProduction() && (app()->environment('local') || config('app.debug')), 404);
+
+    return view('sfx-lab');
+})->name('sfx-lab');
+
 Route::get('/privacy', function () {
     return view('pages.privacy');
 })->name('privacy');

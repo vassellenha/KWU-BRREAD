@@ -1,14 +1,17 @@
-// Global sound effects for the customer pages: pure Web Audio, no files. Soft, round, dessert-like.
+// Global sound effects for the customer pages: pure Web Audio, no files. Tactile and dessert-shop: bread thumps,
+// wafer snaps, spoon clinks and clean bells, each built from a few short layers.
 // window.brreadSfx.play(name, opts?), setMuted(bool), toggle(), isMuted(), setVolume(0..1).
 // Click and hover sounds come from data-sfx="name" or the selector registry below (innermost match wins);
 // sounds that depend on state (unlock, add to cart, drawer, undo...) are played from the Alpine handlers.
 
 const STORE_KEY = 'brreadSfxMuted';
-const MAX_VOICES = 6;
+const MAX_VOICES = 8;
 const TICK_GAP_MS = 60;
-const TICKS = new Set(['tick', 'softtick']);
+const HOVER_GAP_MS = 90;
+const TICKS = new Set(['tick', 'softtick', 'hover']);
 // Kept even for reduced motion (at full level): they confirm something the customer did.
 const ESSENTIAL = new Set(['register', 'marimba', 'chime', 'unlock']);
+const MASTER = 0.6;
 
 let muted = false;
 try {
@@ -18,11 +21,12 @@ try {
     // Storage can be blocked; the sound simply starts on.
 }
 
-let volume = 0.3;
+let volume = MASTER;
 let ctx = null;
-let bus = null; // every voice feeds this: master gain, then a soft compressor
-let master = null;
+let bus = null; // every voice feeds this: master gain, then the filters, compressor and limiter
+let graph = null;
 let noiseBuffer = null;
+let smallSpeaker = false;
 let activeVoices = 0;
 let lastTick = 0;
 let lastHover = 0;
@@ -30,28 +34,76 @@ let lastHover = 0;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const coarsePointer = window.matchMedia?.('(pointer: coarse)');
 const semitone = (n) => 2 ** (n / 12);
+const dbToGain = (db) => 10 ** (db / 20);
+
+// master -> highpass 80 Hz -> presence +2 dB at 3 kHz -> compressor -> limiter -> (small speaker filters) -> out.
+function buildGraph(context) {
+    const master = context.createGain();
+    master.gain.value = volume;
+
+    const rumble = context.createBiquadFilter();
+    rumble.type = 'highpass';
+    rumble.frequency.value = 80;
+    rumble.Q.value = 0.7;
+
+    const presence = context.createBiquadFilter();
+    presence.type = 'peaking';
+    presence.frequency.value = 3000;
+    presence.Q.value = 0.9;
+    presence.gain.value = 2;
+
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -14;
+    compressor.ratio.value = 4;
+    compressor.knee.value = 6;
+    compressor.attack.value = 0.002;
+    compressor.release.value = 0.08;
+
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.ratio.value = 20;
+    limiter.knee.value = 0;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.05;
+
+    // Only used by the audition page to imitate a small laptop speaker.
+    const speakerLow = context.createBiquadFilter();
+    speakerLow.type = 'lowpass';
+    speakerLow.frequency.value = 22000;
+    const speakerHigh = context.createBiquadFilter();
+    speakerHigh.type = 'highpass';
+    speakerHigh.frequency.value = 10;
+
+    master.connect(rumble).connect(presence).connect(compressor).connect(limiter).connect(speakerLow).connect(speakerHigh).connect(context.destination);
+
+    // One second of noise, made once and shared by every noise voice.
+    const noise = context.createBuffer(1, context.sampleRate, context.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    return { master, noise, speakerLow, speakerHigh };
+}
+
+function applySmallSpeaker() {
+    if (!graph) return;
+    graph.speakerLow.frequency.value = smallSpeaker ? 8000 : 22000;
+    graph.speakerHigh.frequency.value = smallSpeaker ? 150 : 10;
+}
 
 function ensureContext() {
     if (!ctx) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) return null;
 
-        ctx = new AudioCtx();
-        master = ctx.createGain();
-        master.gain.value = volume;
-
-        const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -18;
-        compressor.ratio.value = 3;
-        compressor.knee.value = 12;
-
-        bus = master;
-        master.connect(compressor).connect(ctx.destination);
-
-        // One second of noise, made once and shared by every noise voice.
-        noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-        const data = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        try {
+            ctx = new AudioCtx({ latencyHint: 'interactive' });
+        } catch {
+            ctx = new AudioCtx();
+        }
+        graph = buildGraph(ctx);
+        bus = graph.master;
+        noiseBuffer = graph.noise;
+        applySmallSpeaker();
     }
 
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -63,10 +115,10 @@ function ensureContext() {
     window.addEventListener(type, ensureContext, { passive: true, capture: true });
 });
 
-// ---- voices -------------------------------------------------------------------------------------------------
+// ---- layers -------------------------------------------------------------------------------------------------
 
-// A rounded tone: sine or triangle through a lowpass, short attack, smooth release.
-function tone(t0, rate, level, { type = 'sine', f0, f1 = f0, at = 0, dur, gain = 0.5, lp = 2500, atk = 0.005 }) {
+// A tone: sine or triangle, near-instant attack, optional fast pitch drop (sweep seconds), smooth release.
+function tone(t0, rate, level, { type = 'sine', f0, f1 = f0, at = 0, dur, gain = 0.5, lp = 3500, atk = 0.001, sweep = 0 }) {
     const start = t0 + at;
     const end = start + dur;
     const osc = ctx.createOscillator();
@@ -75,7 +127,7 @@ function tone(t0, rate, level, { type = 'sine', f0, f1 = f0, at = 0, dur, gain =
 
     osc.type = type;
     osc.frequency.setValueAtTime(f0 * rate, start);
-    if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1 * rate, start + dur * 0.85);
+    if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1 * rate, start + (sweep || dur * 0.85));
 
     filter.type = 'lowpass';
     filter.frequency.value = lp;
@@ -91,7 +143,7 @@ function tone(t0, rate, level, { type = 'sine', f0, f1 = f0, at = 0, dur, gain =
 }
 
 // Filtered noise: a sweep from f0 to f1, optionally softened by an extra lowpass.
-function noise(t0, level, { kind = 'lowpass', f0, f1 = f0, at = 0, dur, gain = 0.3, q = 0.9, lp = 0, atk = 0.006 }) {
+function noise(t0, level, { kind = 'lowpass', f0, f1 = f0, at = 0, dur, gain = 0.3, q = 0.9, lp = 0, atk = 0.001 }) {
     const start = t0 + at;
     const end = start + dur;
     const src = ctx.createBufferSource();
@@ -123,80 +175,186 @@ function noise(t0, level, { kind = 'lowpass', f0, f1 = f0, at = 0, dur, gain = 0
     src.stop(end + 0.02);
 }
 
-// name -> [total duration in seconds, builder(t0, rate, level, opts)]
+// ---- voices -------------------------------------------------------------------------------------------------
+// Each takes (t, rate, level, opts): rate is the small random pitch variation, level the loudness, opts.v the
+// round-robin variant (-1, 0, 1) so two clicks in a row never sound identical.
+
+// A dry mechanical click: a 4 ms noise transient, a short body with a fast pitch drop, and a small ring for material.
+function click(t, r, l, o = {}) {
+    const v = o.v ?? 0;
+    const g = o.g ?? 1;
+    const bright = o.bright ?? 1;
+    const body = o.pitch ?? 1;
+    noise(t, l, { kind: 'bandpass', f0: 3200 * (1 + v * 0.08) * bright * r, dur: 0.005, gain: 2.2 * g, q: 0.8, atk: 0.0004 });
+    tone(t, r * body, l, { f0: o.rise ? 110 : 260, f1: o.rise ? 260 : 110, sweep: 0.03, dur: 0.045, gain: 0.3 * g, lp: 3000, atk: 0.0008 });
+    noise(t, l, { kind: 'bandpass', f0: (1800 + v * 180) * bright * r, dur: 0.07, gain: 2.6 * g, q: 14, atk: 0.0008 });
+}
+
+// Soft bread: a low body and a very short muffled noise.
+function thump(t, r, l, o = {}) {
+    const g = o.g ?? 1;
+    tone(t, r, l, { f0: 150, f1: 80, sweep: 0.05, dur: 0.1, gain: 0.8 * g, lp: 700, atk: 0.001 });
+    noise(t, l, { kind: 'lowpass', f0: 900, dur: 0.025, gain: 0.4 * g, atk: 0.0008 });
+}
+
+// Metal spoon: three inharmonic partials with a fast decay and a bright transient.
+function clink(t, r, l, o = {}) {
+    const g = o.g ?? 1;
+    const at = o.at ?? 0;
+    const base = (o.base ?? 1) * r;
+    noise(t, l, { kind: 'highpass', f0: 5000, at, dur: 0.003, gain: 0.5 * g, atk: 0.0003 });
+    [[2100, 0.3, 0.14], [3170, 0.22, 0.1], [4450, 0.14, 0.06]].forEach(([f, gain, dur]) => {
+        tone(t, base * (1 + (Math.random() - 0.5) * 0.02), l, { f0: f, at, dur, gain: gain * g, lp: 9000, atk: 0.0005 });
+    });
+}
+
+// Wafer: a bright noise crack with two or three tiny crackle bursts and a small body.
+function snap(t, r, l, o = {}) {
+    const g = o.g ?? 1;
+    noise(t, l, { kind: 'bandpass', f0: 5000 * r, dur: 0.014, gain: 1.1 * g, q: 0.9, atk: 0.0005 });
+    const bursts = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < bursts; i++) {
+        noise(t, l, { kind: 'bandpass', f0: 3000 + Math.random() * 4000, at: 0.006 + Math.random() * 0.025, dur: 0.005, gain: 0.6 * g, q: 1.5, atk: 0.0004 });
+    }
+    tone(t, r, l, { f0: 240, f1: 150, sweep: 0.02, dur: 0.035, gain: 0.35 * g, lp: 2500, atk: 0.001 });
+}
+
+// A clean bell: sine plus inharmonic partials at 2.76x and 5.4x, longer ring for the fundamental.
+function bell(t, r, l, o = {}) {
+    const f = o.note ?? 880;
+    const g = o.g ?? 1;
+    const at = o.at ?? 0;
+    const dur = o.dur ?? 0.5;
+    const ratios = o.ratios ?? [1, 2.76, 5.4];
+    [0.4, 0.17, 0.07].forEach((gain, i) => {
+        if (ratios[i] === undefined) return;
+        tone(t, r, l, { f0: f * ratios[i], at, dur: dur * [1, 0.6, 0.3][i], gain: gain * g, lp: 9000, atk: 0.001 });
+    });
+    noise(t, l, { kind: 'bandpass', f0: 6000, at, dur: 0.003, gain: 0.25 * g, q: 0.8, atk: 0.0003 });
+}
+
+// name -> [total duration in seconds, builder(t0, rate, level, opts), short description for the audition page]
 const RECIPES = {
-    tock: [0.09, (t, r, l) => {
-        tone(t, r, l, { f0: 520, f1: 380, dur: 0.07, gain: 0.5, lp: 1600 });
-        noise(t, l, { kind: 'bandpass', f0: 900, dur: 0.008, gain: 0.08, q: 1 });
-    }],
-    popsoft: [0.13, (t, r, l) => RECIPES.pop[1](t, r, l * 0.5)],
-    pop: [0.13, (t, r, l) => tone(t, r, l, { f0: 420, f1: 720, dur: 0.11, gain: 0.6, lp: 2600 })],
-    tick: [0.04, (t, r, l) => tone(t, r, l, { type: 'triangle', f0: 1100, dur: 0.028, gain: 0.12, lp: 2200, atk: 0.003 })],
-    plop: [0.15, (t, r, l) => tone(t, r, l, { f0: 300, f1: 180, dur: 0.13, gain: 0.55, lp: 1500 })],
-    ding: [0.45, (t, r, l) => {
-        tone(t, r, l, { f0: 988, dur: 0.32, gain: 0.12, lp: 3000, atk: 0.006 });
-        tone(t, r, l, { f0: 1319, dur: 0.32, gain: 0.09, lp: 3200, atk: 0.006 });
-    }],
-    puf: [0.16, (t, r, l) => {
-        noise(t, l, { f0: 500, dur: 0.14, gain: 0.35 });
-        tone(t, r, l, { f0: 140, f1: 90, dur: 0.12, gain: 0.5, lp: 800 });
-    }],
-    scoop: [0.18, (t, r, l) => {
-        tone(t, r, l, { f0: 240, f1: 130, dur: 0.16, gain: 0.5, lp: 1200 });
-        noise(t, l, { f0: 700, dur: 0.06, gain: 0.2 });
-    }],
-    sprinkle: [0.22, (t, r, l) => {
+    // clicks
+    click: [0.09, (t, r, l, o) => click(t, r, l, o), 'noise 4 kHz 4 ms + body 260 to 110 Hz + ring 1.8 kHz'],
+    tock: [0.09, (t, r, l, o) => click(t, r, l, { ...o, bright: 0.9, g: 0.9 }), 'click, dry (nav, footer)'],
+    tick: [0.09, (t, r, l, o) => click(t, r, l, { ...o, bright: 1.6, g: 0.8 }), 'click, higher and short (toggles, tabs)'],
+    softtick: [0.09, (t, r, l, o) => click(t, r, l, { ...o, bright: 1.5, g: 0.55 }), 'click, higher and quiet'],
+    tockup: [0.09, (t, r, l, o) => click(t, r, l, { ...o, pitch: semitone(4), bright: semitone(4) }), 'click, 4 semitones up'],
+    tockdown: [0.09, (t, r, l, o) => click(t, r, l, { ...o, pitch: semitone(-4), bright: semitone(-4) }), 'click, 4 semitones down'],
+    blipup: [0.09, (t, r, l, o) => click(t, r, l, { ...o, rise: true, pitch: semitone(3), bright: 1.2 }), 'click with a rising body'],
+    blipdown: [0.09, (t, r, l, o) => click(t, r, l, { ...o, pitch: semitone(-3), bright: 0.85 }), 'click with a falling body'],
+    pop: [0.22, (t, r, l, o) => {
+        click(t, r, l, { ...o, g: 0.9 });
+        thump(t, r, l, { g: 0.7 });
+        tone(t, r, l, { f0: 1100, at: 0.02, dur: 0.12, gain: 0.14, lp: 3000, atk: 0.002 });
+    }, 'click + thump + small tail (buttons, CTA)'],
+    popsoft: [0.22, (t, r, l, o) => RECIPES.pop[1](t, r, l * 0.5, o), 'pop at half level'],
+    plop: [0.16, (t, r, l, o) => {
+        thump(t, r, l, { g: 1 });
+        click(t, r, l, { ...o, g: 0.6, bright: 0.8 });
+    }, 'thump + soft click'],
+    hover: [0.05, (t, r, l, o) => {
+        noise(t, l, { kind: 'bandpass', f0: 3500 * r, dur: 0.006, gain: 0.5, q: 0.8, atk: 0.0004 });
+        tone(t, r, l, { type: 'triangle', f0: 900, f1: 700, sweep: 0.02, dur: 0.025, gain: 0.07, lp: 3000, atk: 0.001 });
+    }, 'very soft tick (hover)'],
+
+    // materials
+    thump: [0.12, (t, r, l, o) => thump(t, r, l, o), 'bread: body 150 to 80 Hz + muffled noise'],
+    clink: [0.18, (t, r, l, o) => clink(t, r, l, o), 'spoon: partials 2100, 3170, 4450 Hz'],
+    snap: [0.08, (t, r, l, o) => snap(t, r, l, o), 'wafer: noise crack 3 to 7 kHz + crackle'],
+    puf: [0.18, (t, r, l, o) => {
+        thump(t, r, l, { g: 0.9 });
+        noise(t, l, { f0: 500, dur: 0.14, gain: 0.3, atk: 0.004 });
+    }, 'soft bread (Studio bread)'],
+    scoop: [0.2, (t, r, l, o) => {
+        tone(t, r, l, { f0: 240, f1: 130, dur: 0.16, gain: 0.6, lp: 1400, atk: 0.002 });
+        noise(t, l, { f0: 700, dur: 0.07, gain: 0.3, atk: 0.003 });
+        clink(t, r, l, { g: 0.3, at: 0.025, base: 0.7 });
+    }, 'ice cream: soft scoop + tiny spoon touch'],
+    sprinkle: [0.26, (t, r, l) => {
         const count = 4 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < count; i++) {
-            tone(t, r, l, { f0: 1800 + Math.random() * 1400, dur: 0.025, at: Math.random() * 0.155, gain: 0.1, lp: 3500, atk: 0.003 });
-        }
-    }],
-    sparkle: [0.5, (t, r, l) => {
-        [660, 880, 1175, 1568, 2093].forEach((f, i) => tone(t, r, l, { f0: f, dur: 0.09, at: i * 0.045, gain: 0.17, lp: 3500, atk: 0.004 }));
-        tone(t, r, l, { f0: 2093, dur: 0.2, at: 0.2, gain: 0.07, lp: 3500, atk: 0.01 });
-    }],
-    unlock: [0.3, (t, r, l) => {
-        tone(t, r, l, { f0: 880, dur: 0.11, gain: 0.35, lp: 3200 });
-        tone(t, r, l, { f0: 1318, dur: 0.16, at: 0.09, gain: 0.32, lp: 3500 });
-    }],
-    softtick: [0.05, (t, r, l) => tone(t, r, l, { type: 'triangle', f0: 900, dur: 0.035, gain: 0.12, lp: 2000, atk: 0.003 })],
-    blipdown: [0.13, (t, r, l) => tone(t, r, l, { f0: 700, f1: 420, dur: 0.11, gain: 0.35, lp: 2200 })],
-    blipup: [0.13, (t, r, l) => tone(t, r, l, { f0: 420, f1: 700, dur: 0.11, gain: 0.35, lp: 2200 })],
-    swish: [0.34, (t, r, l) => noise(t, l, { kind: 'bandpass', f0: 400, f1: 1800, dur: 0.32, gain: 0.22, q: 1.2, lp: 2600, atk: 0.04 })],
+        for (let i = 0; i < count; i++) clink(t, r, l, { g: 0.35, at: Math.random() * 0.17, base: 1.1 + Math.random() * 0.8 });
+    }, 'toppings: small clinks'],
+    swish: [0.34, (t, r, l) => noise(t, l, { kind: 'bandpass', f0: 400, f1: 1800, dur: 0.32, gain: 0.35, q: 1.2, lp: 2600, atk: 0.04 }), 'noise sweep up'],
     whoosh: [0.28, (t, r, l, o) => {
         const closing = o.dir === 'down';
-        noise(t, l, { kind: 'bandpass', f0: closing ? 1200 : 300, f1: closing ? 300 : 1200, dur: 0.26, gain: 0.2, q: 1, lp: 2200, atk: 0.05 });
-    }],
-    tockup: [0.09, (t, r, l) => RECIPES.tock[1](t, r * semitone(4), l)],
-    tockdown: [0.09, (t, r, l) => RECIPES.tock[1](t, r * semitone(-4), l)],
-    register: [0.45, (t, r, l) => {
-        tone(t, r, l, { f0: 1568, dur: 0.38, gain: 0.2, lp: 3500, atk: 0.004 });
-        tone(t, r, l, { f0: 2093, dur: 0.38, at: 0.05, gain: 0.15, lp: 3500, atk: 0.004 });
-    }],
-    poof: [0.22, (t, r, l) => {
-        noise(t, l, { f0: 900, f1: 250, dur: 0.18, gain: 0.35 });
-        tone(t, r, l, { f0: 200, f1: 110, dur: 0.15, gain: 0.35, lp: 900 });
-    }],
-    chime: [0.55, (t, r, l) => {
-        tone(t, r, l, { f0: 784, dur: 0.45, gain: 0.25, lp: 3200, atk: 0.006 });
-        tone(t, r, l, { f0: 1175, dur: 0.45, at: 0.1, gain: 0.2, lp: 3400, atk: 0.006 });
-    }],
-    marimba: [0.65, (t, r, l) => {
-        [523, 659, 784, 1047].forEach((f, i) => {
-            tone(t, r, l, { f0: f, dur: 0.22, at: i * 0.11, gain: 0.34, lp: 3200, atk: 0.004 });
-            tone(t, r, l, { f0: f * 4, dur: 0.07, at: i * 0.11, gain: 0.05, lp: 3500, atk: 0.002 });
-        });
-    }],
+        noise(t, l, { kind: 'bandpass', f0: closing ? 1200 : 300, f1: closing ? 300 : 1200, dur: 0.26, gain: 0.32, q: 1, lp: 2200, atk: 0.05 });
+    }, 'drawer sweep'],
+    poof: [0.24, (t, r, l) => {
+        noise(t, l, { f0: 900, f1: 250, dur: 0.18, gain: 0.45, atk: 0.003 });
+        thump(t, r, l, { g: 0.6 });
+    }, 'puff + thump (remove)'],
+
+    // confirmations
+    ding: [0.5, (t, r, l) => {
+        bell(t, r, l, { note: 988, dur: 0.4, g: 0.6 });
+        bell(t, r, l, { note: 1319, dur: 0.4, g: 0.45 });
+    }, 'bell pair 988 + 1319 Hz'],
+    bell: [0.6, (t, r, l, o) => bell(t, r, l, o), 'bell 880 Hz + partials 2.76x, 5.4x'],
+    unlock: [0.5, (t, r, l) => {
+        bell(t, r, l, { note: 880, dur: 0.3, g: 0.8 });
+        bell(t, r, l, { note: 1318, dur: 0.4, at: 0.09, g: 0.8 });
+    }, 'two bells up'],
+    register: [0.7, (t, r, l) => {
+        bell(t, r, l, { note: 1047, dur: 0.5, g: 0.9 });
+        bell(t, r, l, { note: 1568, dur: 0.5, at: 0.05, g: 0.75 });
+        thump(t, r, l, { g: 0.35 });
+    }, 'warm full bell + soft body'],
+    chime: [0.7, (t, r, l) => {
+        bell(t, r, l, { note: 784, dur: 0.5, g: 0.9 });
+        bell(t, r, l, { note: 1175, dur: 0.5, at: 0.1, g: 0.8 });
+    }, 'two bells 784 + 1175 Hz'],
+    marimba: [0.8, (t, r, l) => {
+        [523, 659, 784, 1047].forEach((f, i) => bell(t, r, l, { note: f, dur: 0.25, at: i * 0.11, g: 0.8, ratios: [1, 3.9] }));
+    }, 'four wooden notes'],
+    sparkle: [0.6, (t, r, l) => {
+        [660, 880, 1175, 1568, 2093].forEach((f, i) => bell(t, r, l, { note: f, dur: 0.25, at: i * 0.045, g: 0.55, ratios: [1, 2.76] }));
+    }, 'five rising bells'],
 };
 
-// plop then ding, the quick add on the menu
+// Loudness per recipe, measured offline so the loudest click peaks near -10 dBFS (hover near -26) before the
+// limiter. Re-measure with /sfx-lab after changing a voice.
+const TRIM = {"click": 0.162, "tock": 0.16, "tick": 0.155, "softtick": 0.166, "tockup": 0.172, "tockdown": 0.194, "blipup": 0.17, "blipdown": 0.179, "pop": 0.172, "popsoft": 0.238, "plop": 0.239, "hover": 0.121, "thump": 0.262, "clink": 0.25, "snap": 0.212, "puf": 0.283, "scoop": 0.322, "sprinkle": 0.401, "swish": 1.125, "whoosh": 1.084, "poof": 0.376, "ding": 0.375, "bell": 0.326, "unlock": 0.389, "register": 0.268, "chime": 0.345, "marimba": 0.435, "sparkle": 0.516, "plopding": 0.904};
+
+// plop then ding, the quick add on the menu: both parts are scheduled on the audio clock, not with a timer.
 const SEQUENCES = { plopding: [['plop', 0], ['ding', 0.1]] };
+
+// Round-robin: each recipe cycles through three variants and never repeats the one before.
+const lastVariant = {};
+function nextVariant(name) {
+    const v = ((lastVariant[name] ?? -1) + 2) % 3 - 1; // -1, 1, 0, -1 ...
+    lastVariant[name] = v;
+    return v;
+}
+
+function build(name, t, level, opts) {
+    const recipe = RECIPES[name];
+    if (!recipe) return 0;
+    const rate = 1 + (Math.random() * 2 - 1) * 0.035; // pitch +-3.5 %
+    const jitter = dbToGain((Math.random() * 2 - 1) * 1); // gain +-1 dB
+    recipe[1](t, rate, level * jitter * (TRIM[name] ?? 1), { ...opts, v: nextVariant(name) });
+    return recipe[0];
+}
 
 function play(name, opts = {}) {
     if (muted || document.hidden || !ctx || !bus) return;
 
     if (SEQUENCES[name]) {
-        SEQUENCES[name].forEach(([part, delay]) => setTimeout(() => play(part, opts), delay * 1000));
+        if (activeVoices >= MAX_VOICES) return;
+        const t = ctx.currentTime + 0.001;
+        const level = (opts.gain ?? 1) * (TRIM[name] ?? 1);
+        let total = 0;
+        try {
+            SEQUENCES[name].forEach(([part, delay]) => {
+                total = Math.max(total, delay + build(part, t + delay, level, opts));
+            });
+        } catch {
+            // A sound must never break the page.
+        }
+        activeVoices++;
+        setTimeout(() => (activeVoices = Math.max(0, activeVoices - 1)), (total + 0.05) * 1000);
+        window.brreadSfx?.onPlay?.(name, opts);
         return;
     }
 
@@ -212,21 +370,54 @@ function play(name, opts = {}) {
 
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
-    // Reduced motion keeps the confirmations and softens everything else.
+    // Reduced motion keeps the confirmations and softens everything else by 40 %.
     const level = (opts.gain ?? 1) * (reducedMotion?.matches && !ESSENTIAL.has(name) ? 0.6 : 1);
-    const rate = 1 + (Math.random() * 2 - 1) * 0.03;
-    const [duration, build] = recipe;
 
     activeVoices++;
-    setTimeout(() => (activeVoices = Math.max(0, activeVoices - 1)), (duration + 0.05) * 1000);
+    setTimeout(() => (activeVoices = Math.max(0, activeVoices - 1)), (recipe[0] + 0.05) * 1000);
 
     try {
-        build(ctx.currentTime + 0.005, rate, level, opts);
+        build(name, ctx.currentTime + 0.001, level, opts);
     } catch {
         // A sound must never break the page.
     }
 
     window.brreadSfx?.onPlay?.(name, opts);
+}
+
+// Renders one recipe offline (no sound) for the audition page and for level checks.
+async function render(name, opts = {}) {
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const recipe = RECIPES[name] ?? RECIPES[SEQUENCES[name]?.[0]?.[0]];
+    if (!OfflineCtx || !recipe) return null;
+
+    const seconds = (SEQUENCES[name] ? 0.7 : recipe[0]) + 0.35;
+    const offline = new OfflineCtx(1, Math.ceil(48000 * seconds), 48000);
+    const saved = { ctx, bus, noiseBuffer };
+
+    try {
+        const rendered = buildGraph(offline);
+        ctx = offline;
+        bus = rendered.master;
+        noiseBuffer = rendered.noise;
+        const t = 0.01;
+        if (SEQUENCES[name]) SEQUENCES[name].forEach(([part, delay]) => build(part, t + delay, (opts.gain ?? 1) * (TRIM[name] ?? 1), opts));
+        else build(name, t, opts.gain ?? 1, opts);
+        return await offline.startRendering();
+    } finally {
+        ({ ctx, bus, noiseBuffer } = saved);
+    }
+}
+
+function names() {
+    return [...Object.keys(RECIPES), ...Object.keys(SEQUENCES)];
+}
+
+function describe() {
+    return Object.fromEntries([
+        ...Object.entries(RECIPES).map(([name, [duration, , text]]) => [name, { duration, text }]),
+        ...Object.entries(SEQUENCES).map(([name, parts]) => [name, { duration: 0.7, text: parts.map(([part, delay]) => `${part}@${delay}`).join(' + ') }]),
+    ]);
 }
 
 // ---- mute button ---------------------------------------------------------------------------------------------
@@ -257,22 +448,27 @@ function toggle() {
 
 function setVolume(value) {
     volume = Math.min(1, Math.max(0, Number(value) || 0));
-    if (master) master.gain.value = volume;
+    if (graph) graph.master.gain.value = volume;
+}
+
+function setSmallSpeaker(value) {
+    smallSpeaker = Boolean(value);
+    applySmallSpeaker();
 }
 
 // ---- delegation ----------------------------------------------------------------------------------------------
 
 // [selector, sound, options]. The innermost element that matches (or carries data-sfx) wins.
 const CLICK_REGISTRY = [
-    ['.site-nav-link, .site-nav-sheet-link, .site-nav-logo, footer a[href]', 'tock'],
-    ['.menu-tile', 'plop'],
+    ['.site-nav-link, .site-nav-sheet-link, .site-nav-logo, footer a[href]', 'click'],
+    ['.menu-tile', 'snap'],
     ['a[href^="http"], a[href^="tel:"], a[href^="mailto:"], a[href*="wa.me"]', 'pop', { gain: 0.5 }],
     ['.btn-chunky', 'pop'],
     ['summary, [role="tab"], [aria-expanded]', 'tick'],
 ];
 const HOVER_REGISTRY = [
-    ['.product-card, .menu-tile, .about-card-line', 'tick'],
-    ['[role="tab"], summary', 'tick'],
+    ['.product-card, .menu-tile, .about-card-line', 'hover'],
+    ['[role="tab"], summary', 'hover'],
 ];
 
 function soundFor(target, registry, attribute) {
@@ -300,7 +496,8 @@ document.addEventListener('click', (event) => {
     if (hit) play(hit.name, hit.opts);
 });
 
-// Hover and keyboard focus ticks: never on touch screens or with reduced motion, and spaced out.
+// Hover ticks: never on touch screens or with reduced motion, very soft, and spaced out so sweeping the mouse
+// over many elements stays quiet.
 let hoverTarget = null;
 document.addEventListener('mouseover', (event) => {
     if (coarsePointer?.matches || reducedMotion?.matches) return;
@@ -316,14 +513,14 @@ document.addEventListener('mouseover', (event) => {
     hoverTarget = holder;
 
     const now = performance.now();
-    if (now - lastHover < TICK_GAP_MS) return;
+    if (now - lastHover < HOVER_GAP_MS) return;
     lastHover = now;
     play(hit.name, { gain: 0.8 });
 });
 
 // Form fields on the customer pages get the soft pop when focused.
 document.addEventListener('focusin', (event) => {
-    if (event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select')) {
+    if (event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select')) {
         play('pop', { gain: 0.4 });
     }
 });
@@ -338,4 +535,4 @@ window.addEventListener('storage', (event) => {
 document.addEventListener('DOMContentLoaded', syncButtons);
 document.addEventListener('alpine:initialized', syncButtons);
 
-window.brreadSfx = { play, setMuted, toggle, isMuted: () => muted, setVolume, context: () => ensureContext() };
+window.brreadSfx = { play, setMuted, toggle, isMuted: () => muted, setVolume, context: () => ensureContext(), render, names, describe, setSmallSpeaker };
