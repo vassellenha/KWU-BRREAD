@@ -13,8 +13,8 @@ if (allowed) {
     const HINT_KEY = 'brread-bgm-hinted';
     const OK_KEY = 'brread-bgm-ok';
     const ALIVE_KEY = 'brread-bgm-alive';
-    const TARGET = 0.3; // times the element volume below: about 3% overall
-    const ELEMENT_VOLUME = 0.1;
+    const TARGET = 0.2; // times the element volume below: about 1% overall
+    const ELEMENT_VOLUME = 0.05;
     const FADE_IN = 0.8;
     const RESUME_FADE = 0.25;
     const FADE_OUT = 0.4;
