@@ -358,6 +358,23 @@
                                         <span>Chat WA</span>
                                     </a>
 
+                                    {{-- EDIT ORDER --}}
+                                    @if ($editor::canEdit($order))
+                                        <button
+                                            type="button"
+                                            data-edit="{{ json_encode($editor->editorPayload($order), JSON_UNESCAPED_UNICODE) }}"
+                                            @click="$dispatch('order-edit', JSON.parse($el.dataset.edit))"
+                                            class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-[11px] font-semibold transition-colors"
+                                            title="Ubah isi pesanan (roti, rasa, topping, jumlah)"
+                                        >
+                                            <span class="material-symbols-outlined text-[14px] shrink-0">edit</span>
+                                            <span>Edit pesanan</span>
+                                        </button>
+                                    @endif
+                                    @if ($order->revisions->isNotEmpty())
+                                        <span class="font-label-md text-[11px] text-on-surface-variant">Diubah {{ $order->revisions->count() }}x</span>
+                                    @endif
+
                                     {{-- CONFIRM BUTTON --}}
                                     @if ($order->isPending())
                                         <form method="POST" action="{{ route('staff.orders.confirm', $order) }}" data-confirm="Tautan tracking publik akan aktif untuk pesanan #{{ $order->order_number }}." data-confirm-title="Konfirmasi pesanan?" data-confirm-label="Ya, konfirmasi" data-cancel-label="Kembali">
@@ -475,5 +492,8 @@
             {{ $orders->links() }}
         </div>
     @endif
+
+@include('partials.ingredient-icons')
+@include('staff.orders._edit-dialog')
 
 @endsection

@@ -144,9 +144,13 @@ export function registerOrderFx(Alpine) {
         _bubbleTimer: null,
         _flashTimer: null,
         _lastLine: -1,
+        updated: false,
+        _version: config.version,
+        _pollTimer: null,
 
         init() {
             this.updateWaited();
+            this.watchForChanges();
             if (this.state === 'pending' || this.state === 'other') {
                 this._timer = setInterval(() => this.updateWaited(), 20000);
                 this.updateClock();
@@ -167,6 +171,60 @@ export function registerOrderFx(Alpine) {
                     });
                 }, 2300);
             }
+        },
+
+        // Staff can edit the order or move its status while this page is open: ask for a tiny fingerprint every
+        // 15 s (only while the tab is visible) and reload when it changes, so the new items, total and sandwich show.
+        watchForChanges() {
+            try {
+                if (sessionStorage.getItem('os-updated') === '1') {
+                    sessionStorage.removeItem('os-updated');
+                    this.updated = true;
+                    setTimeout(() => (this.updated = false), 6000);
+                }
+            } catch {
+                // Storage can be blocked; the marker just does not show.
+            }
+
+            if (!config.pollUrl) return;
+
+            const check = async () => {
+                if (document.visibilityState !== 'visible') return;
+                try {
+                    const res = await fetch(config.pollUrl, { headers: { Accept: 'application/json' }, cache: 'no-cache' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data.version && data.version !== this._version) this.refreshPage();
+                } catch {
+                    // Offline or a hiccup: the next round tries again.
+                }
+            };
+
+            this._pollTimer = setInterval(check, 15000);
+            document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
+        },
+
+        refreshPage() {
+            // Do not yank the page away from someone typing a review or looking at the review popup.
+            const el = document.activeElement;
+            const busy = el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+            if (busy || document.documentElement.classList.contains('overflow-hidden')) return;
+
+            clearInterval(this._pollTimer);
+            try {
+                sessionStorage.setItem('os-updated', '1');
+            } catch {
+                // Not remembered: the page still refreshes.
+            }
+
+            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            this.updated = true;
+            if (reduced) {
+                window.location.reload();
+                return;
+            }
+            document.querySelector('.os-page')?.classList.add('is-refreshing');
+            setTimeout(() => window.location.reload(), 450);
         },
 
         // A ticket-machine counter: [m, m, ':', s, s] (hours are prepended once an hour has passed).

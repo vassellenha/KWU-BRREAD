@@ -27,6 +27,9 @@
             'since' => $order->created_at->toIso8601String(),
             // Confetti only while the order waits for its next step, not once it is being prepared or ready.
             'celebrate' => $order->isConfirmed() || $order->isPaid(),
+            // The page checks for edits and status changes every few seconds while it is open (not once it is final).
+            'pollUrl' => ($order->isReady() || $order->isCancelled()) ? null : route('order.version', ['token' => $order->confirmation_token]),
+            'version' => $version,
         ];
     @endphp
 
@@ -172,6 +175,7 @@
                         </div>
 
                         {{-- LIVE STATUS LINE --}}
+                        <p class="os-updated" x-show="updated" x-cloak x-transition.opacity role="status">Baru diperbarui</p>
                         <div class="os-note" role="status">
                             <span class="os-note__icon" aria-hidden="true">
                                 <svg class="os-ico"><use href="#{{ $order->hasBeenPaid() ? 'osi-star' : ($order->isConfirmed() ? 'osi-wallet' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass')) }}"/></svg>
@@ -199,6 +203,29 @@
                                 @endif
                             </p>
                         </div>
+
+                        {{-- Staff changed what is in the order (a flavor ran out, say): say what and why, in plain words. --}}
+                        @if ($revision)
+                            <div class="os-note os-note--edited" role="status" data-order-edited>
+                                <span class="os-note__icon" aria-hidden="true">
+                                    <svg class="os-ico"><use href="#osi-info"/></svg>
+                                </span>
+                                <p>
+                                    <b>Pesanan diubah oleh admin</b>
+                                    <span class="os-edited__time">{{ $revision->created_at->timezone(config('app.timezone'))->format('d M, H:i') }} WIB</span>
+                                    @foreach ($revision->changes() as $change)
+                                        <span class="block">{{ $change }}</span>
+                                    @endforeach
+                                    <span class="block os-edited__reason">Catatan: {{ $revision->reason }}</span>
+                                    @if (abs($revision->difference()) >= 0.005)
+                                        <span class="block">
+                                            Total <s class="os-edited__old">{{ $rupiah((float) $revision->total_before) }}</s>
+                                            menjadi <b>{{ $rupiah((float) $revision->total_after) }}</b>
+                                        </span>
+                                    @endif
+                                </p>
+                            </div>
+                        @endif
 
                         {{-- CUSTOMER --}}
                         <dl class="os-who">

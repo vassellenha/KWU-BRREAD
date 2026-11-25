@@ -8,6 +8,7 @@ use App\Http\Controllers\Staff\CaptchaController;
 use App\Http\Controllers\Staff\HrController;
 use App\Http\Controllers\Staff\MenuController;
 use App\Http\Controllers\Staff\MrpController;
+use App\Http\Controllers\Staff\OrderEditController;
 use App\Http\Controllers\Staff\OrderManagementController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Http\Controllers\Staff\SecurityController;
@@ -54,6 +55,9 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::post('/{order}/preparing', [OrderManagementController::class, 'markPreparing'])->name('preparing');
         Route::post('/{order}/ready', [OrderManagementController::class, 'markReady'])->name('ready');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
+        // Editing what an order holds (flavor ran out, toppings swapped): a preview first, then one save.
+        Route::post('/{order}/edit-preview', [OrderEditController::class, 'preview'])->middleware('throttle:60,1')->name('edit.preview');
+        Route::put('/{order}/items', [OrderEditController::class, 'update'])->middleware('throttle:20,1')->name('edit.save');
         // Deleting wipes the order for good (and drops it from the charts), so only the admin may do it.
         Route::delete('/{order}', [OrderManagementController::class, 'destroy'])->middleware('role:'.User::ROLE_ADMIN)->name('destroy');
     });
@@ -143,6 +147,7 @@ Route::get('/privacy', function () {
 })->name('privacy');
 
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
+Route::get('/order/status/{token}/version', [PublicOrderController::class, 'version'])->middleware('throttle:60,1')->name('order.version');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
 Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
 Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');

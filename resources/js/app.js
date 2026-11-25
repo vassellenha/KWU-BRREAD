@@ -6,6 +6,7 @@ import axios from 'axios';
 import { registerOrderFx } from './order-fx.js';
 import { registerStaffBatch } from './staff-batch.js';
 import { registerGridNav } from './staff-grid.js';
+import { registerOrderEdit } from './order-edit.js';
 import './sfx.js';
 
 window.axios = axios;
@@ -1598,6 +1599,7 @@ window.Alpine = Alpine;
 registerOrderFx(Alpine);
 registerStaffBatch(Alpine);
 registerGridNav(Alpine);
+registerOrderEdit(Alpine);
 
 // The pile of polaroids on the Contact page. Drag the top one off and let go (or tap it, or press the right arrow)
 // and it sails off, then tucks in at the back of the pile; the left arrow brings the last one back on top.

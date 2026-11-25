@@ -58,6 +58,12 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    /** Every staff edit of this order, oldest first (see App\Services\OrderEditor). */
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(OrderRevision::class);
+    }
+
     /** The photo the customer added to their review, if any. */
     public function reviewPhoto(): HasOne
     {
@@ -128,15 +134,23 @@ class Order extends Model
         return route('order.status', ['token' => $this->confirmation_token]);
     }
 
-    public function getWhatsappUrlAttribute(): string
+    /** The customer's number in international form for wa.me (62...), or '' when there is none. */
+    public function whatsappPhone(): string
     {
-        $rawPhone = preg_replace('/[^0-9]/', '', $this->customer_phone);
+        $rawPhone = preg_replace('/[^0-9]/', '', (string) $this->customer_phone);
 
         if (str_starts_with($rawPhone, '0')) {
             $rawPhone = '62'.substr($rawPhone, 1);
         } elseif (str_starts_with($rawPhone, '8')) {
             $rawPhone = '62'.$rawPhone;
         }
+
+        return $rawPhone;
+    }
+
+    public function getWhatsappUrlAttribute(): string
+    {
+        $rawPhone = $this->whatsappPhone();
 
         $formattedTotal = 'Rp '.number_format((float) $this->total_price, 0, ',', '.');
 

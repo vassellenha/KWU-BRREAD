@@ -43,6 +43,9 @@ class PublicOrderController extends Controller
             ->where('confirmation_token', $token)
             ->firstOrFail();
 
+        // The latest staff edit, for the "Pesanan diubah" note. The admin's name and the full history stay internal.
+        $revision = $order->revisions()->latest('id')->first();
+
         // Group items into sandwiches/creations by creation_index
         $creations = $order->orderItems
             ->groupBy('creation_index')
@@ -90,10 +93,33 @@ class PublicOrderController extends Controller
 
         return view('pages.order-status', [
             'order' => $order->loadMissing('reviewPhoto:id,order_id,width,height,updated_at'),
+            'revision' => $revision,
+            'version' => $this->versionOf($order),
             'creations' => $creations,
             // Staff and the superadmin can open a customer's status page, but only to look: a review must come from the customer.
             'viewOnly' => auth()->check(),
         ]);
+    }
+
+    /** A cheap fingerprint the status page polls: it changes when the status or the contents of the order change. */
+    public function version(Request $request, string $token): JsonResponse|Response
+    {
+        $order = Order::where('confirmation_token', $token)->firstOrFail();
+        $version = $this->versionOf($order);
+
+        $response = response()->json(['version' => $version, 'status' => $order->status])
+            ->setEtag($version)
+            ->header('Cache-Control', 'no-cache, private');
+
+        // A matching If-None-Match turns this into an empty 304.
+        $response->isNotModified($request);
+
+        return $response;
+    }
+
+    private function versionOf(Order $order): string
+    {
+        return substr(sha1($order->id.'|'.$order->status.'|'.$order->total_price.'|'.$order->updated_at?->format('Y-m-d H:i:s.u').'|'.$order->revisions()->count()), 0, 16);
     }
 
     public function submitReview(Request $request, string $token): RedirectResponse|JsonResponse

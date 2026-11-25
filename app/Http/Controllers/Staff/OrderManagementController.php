@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Component;
 use App\Models\Order;
 use App\Models\StockMovement;
+use App\Services\OrderEditor;
+use App\Support\IngredientIcon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class OrderManagementController extends Controller
         $status = $request->query('status', 'all');
         $search = trim((string) $request->query('q', ''));
 
-        $query = Order::with(['orderItems.component'])->latest();
+        $query = Order::with(['orderItems.component', 'revisions.user'])->latest();
 
         if ($status === Order::STATUS_PENDING) {
             // "Masuk" holds every order that has not been paid yet: waiting for confirmation, or confirmed and waiting to pay.
@@ -62,6 +64,16 @@ class OrderManagementController extends Controller
             'stats' => $stats,
             'currentStatus' => $status,
             'search' => $search,
+            'editCatalog' => Component::orderBy('category')->orderBy('name')->get()->map(fn (Component $c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'category' => $c->category,
+                'price' => (float) $c->price,
+                'stock' => (int) $c->stock_quantity,
+                'active' => (bool) $c->is_active,
+                'icon' => IngredientIcon::for($c->name),
+            ])->values()->all(),
+            'editor' => app(OrderEditor::class),
         ]);
     }
 
