@@ -8,6 +8,7 @@ import { registerStaffBatch } from './staff-batch.js';
 import { registerGridNav } from './staff-grid.js';
 import { registerOrderEdit } from './order-edit.js';
 import './sfx.js';
+import './bgm.js';
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';

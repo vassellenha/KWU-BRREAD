@@ -337,4 +337,4 @@ window.addEventListener('storage', (event) => {
 document.addEventListener('DOMContentLoaded', syncButtons);
 document.addEventListener('alpine:initialized', syncButtons);
 
-window.brreadSfx = { play, setMuted, toggle, isMuted: () => muted, setVolume };
+window.brreadSfx = { play, setMuted, toggle, isMuted: () => muted, setVolume, context: () => ensureContext() };

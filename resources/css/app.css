@@ -1807,7 +1807,7 @@ body.is-broken .login-eye {
     color: #7a1020;
 }
 @media (min-width: 1024px) {
-    .site-nav-burger {
+    .site-nav-burger:not([data-sfx-toggle]):not([data-bgm-toggle]) {
         display: none;
     }
 }
@@ -4738,4 +4738,74 @@ body.is-broken .prank-ghost {
 }
 [data-sfx-toggle][aria-pressed='true'] .sfx-ico-off {
     display: block;
+}
+
+/* Music toggle in the navbar: a bread-and-ice-cream note. Off: faded and crossed out, no motion. */
+[data-bgm-toggle][hidden] {
+    display: none;
+}
+[data-bgm-toggle] .bgm-strike {
+    display: none;
+}
+[data-bgm-toggle] .bgm-spark {
+    opacity: 0;
+}
+[data-bgm-toggle][aria-pressed='false'] .bgm-note {
+    opacity: 0.45;
+}
+[data-bgm-toggle][aria-pressed='false'] .bgm-strike {
+    display: block;
+}
+[data-bgm-toggle][aria-pressed='true'] .bgm-spark {
+    opacity: 1;
+}
+[data-bgm-toggle]:focus-visible {
+    outline: 3px solid #8a1730;
+    outline-offset: 3px;
+}
+.site-nav--quiet [data-bgm-toggle]:focus-visible {
+    outline-color: #fff;
+}
+@media (prefers-reduced-motion: no-preference) {
+    [data-bgm-toggle][aria-pressed='true'] .bgm-note {
+        transform-origin: 50% 80%;
+        animation: bgm-bob 1.8s ease-in-out infinite;
+    }
+    [data-bgm-toggle][aria-pressed='true'] .bgm-spark {
+        animation: bgm-twinkle 1.8s ease-in-out infinite;
+    }
+    [data-bgm-toggle].bgm-hint {
+        animation: bgm-hint 1s ease-in-out 4;
+    }
+}
+@keyframes bgm-bob {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-1.2px);
+    }
+}
+@keyframes bgm-twinkle {
+    0%,
+    55%,
+    100% {
+        opacity: 0;
+    }
+    70% {
+        opacity: 1;
+    }
+}
+@keyframes bgm-hint {
+    50% {
+        transform: scale(1.12);
+    }
+}
+@media (max-width: 479px) {
+    [data-bgm-toggle],
+    [data-sfx-toggle] {
+        width: 40px;
+        height: 40px;
+    }
 }
