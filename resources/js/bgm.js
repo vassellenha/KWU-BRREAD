@@ -1,6 +1,11 @@
 // Background music for the customer pages: window.brreadBgm.toggle(), setMuted(bool), isMuted(), isAvailable().
 // Web Audio only, no loop=true: each cycle hands over to a second source with an equal-power crossfade, and the
 // position is derived from a stored start time so the music carries on across page loads instead of restarting.
+// Never on a staff, superadmin, trap or sign-in page: no context, no fetch, no button, no ducking.
+const BLOCKED = /^\/(staff|superadmin|admin|administrator|wp-admin|login|dashboard|panel|cpanel|phpmyadmin|backend)(\/|$)/i;
+const allowed = !BLOCKED.test(location.pathname) && document.body?.hasAttribute('data-customer-site');
+
+if (allowed) {
 const SRC = '/audio/brread-bgm.mp3';
 const MUTE_KEY = 'brread-bgm-muted';
 const POS_KEY = 'brread-bgm-pos';
@@ -295,10 +300,14 @@ document.addEventListener('click', (event) => {
 
 hookDucking();
 
-document.addEventListener('DOMContentLoaded', () => {
+// This module is imported after the page has loaded, so it may be too late for DOMContentLoaded.
+const init = () => {
     syncButtons();
     checkFile();
-});
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
 document.addEventListener('alpine:initialized', syncButtons);
 
 window.brreadBgm = { toggle, setMuted, isMuted: () => muted, isAvailable: () => available === true };
+}

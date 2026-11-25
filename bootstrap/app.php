@@ -4,6 +4,7 @@ use App\Http\Middleware\BlockBannedAddresses;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\LoginLockdown;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\StartSessionForTrustedIp;
 use App\Http\Middleware\TrapHoneypotVisitors;
 use App\Http\Middleware\TrustOnlyTheProxyHop;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,8 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'lockdown' => LoginLockdown::class,
         ]);
 
-        // A signed-out visitor of a protected page is always sent to the staff form: /superadmin is never revealed.
-        $middleware->redirectGuestsTo(fn (Request $request) => route('staff.login'));
+        // A signed-out visitor goes to the staff form, except a browser that signed in as superadmin before (it holds
+        // the encrypted "portal=admin" cookie): that one is sent back to /superadmin. Nobody else is shown that address.
+        $middleware->redirectGuestsTo(fn (Request $request) => route($request->cookie('portal') === 'admin' ? 'admin.login' : 'staff.login'));
+
+        // The owner's own addresses keep a superadmin session alive for weeks (see the class).
+        $middleware->web(replace: [StartSession::class => StartSessionForTrustedIp::class]);
 
         // After the session starts, but before the auth check, so a held guest meets the trap even on a protected page.
         $middleware->web(append: [TrapHoneypotVisitors::class]);
@@ -47,6 +54,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(BlockBannedAddresses::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // A staff page left open past its session ends on the right sign-in form with a plain message, never an error page.
+        // (Laravel hands an expired CSRF token to the callbacks as an HTTP 419 exception.)
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 419 || $request->expectsJson() || ! $request->is('staff', 'staff/*', 'superadmin', 'superadmin/*')) {
+                return null;
+            }
+
+            return redirect()->route($request->cookie('portal') === 'admin' ? 'admin.login' : 'staff.login', ['sesi' => 'berakhir']);
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

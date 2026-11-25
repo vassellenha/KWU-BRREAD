@@ -140,7 +140,7 @@ class AuthPortalTest extends TestCase
         $this->get('/staff/accounting')->assertRedirect('/staff');
     }
 
-    public function test_a_signed_out_admin_is_sent_to_the_staff_form_and_never_shown_the_superadmin_address(): void
+    public function test_a_signed_out_admin_goes_back_to_the_superadmin_form_and_everyone_else_to_staff(): void
     {
         $response = $this->postJson('/superadmin', ['username' => 'superadmin', 'password' => 'brread-admin-2026']);
         $response->assertOk()->assertCookie('portal');
@@ -148,8 +148,9 @@ class AuthPortalTest extends TestCase
         Auth::logout();
         $this->flushSession();
 
-        $this->withCookie('portal', 'admin')->get('/staff/orders')->assertRedirect('/staff');
+        $this->withCookie('portal', 'admin')->get('/staff/orders')->assertRedirect('/superadmin');
         $this->withCookie('portal', 'staff')->get('/staff/orders')->assertRedirect('/staff');
+        $this->get('/staff/orders')->assertRedirect('/staff');
     }
 
     public function test_the_old_login_url_redirects_to_the_staff_portal(): void

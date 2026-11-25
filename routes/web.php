@@ -47,6 +47,7 @@ foreach (HoneypotTrap::PATHS as $trapPath) {
 
 Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () use ($rolesFor) {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/ping', [AuthController::class, 'ping'])->middleware(['role:'.User::ROLE_ADMIN, 'throttle:30,1'])->name('ping');
 
     Route::middleware($rolesFor(User::MODULE_ORDERS))->prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [OrderManagementController::class, 'index'])->name('index');

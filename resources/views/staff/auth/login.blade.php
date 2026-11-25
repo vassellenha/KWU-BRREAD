@@ -39,6 +39,10 @@
                 <span>TOO MANY ATTEMPTS.</span><span>WE KNOW.</span><span>SIGN-IN HALTED.</span>
             </div>
 
+            @if (! empty($notice))
+                <div role="status" class="mb-space-md px-space-md py-space-sm rounded bg-surface-container text-on-surface font-body-sm text-body-sm">{{ $notice }}</div>
+            @endif
+
             @if ($errors->any())
                 <div role="alert" class="mb-space-md px-space-md py-space-sm rounded bg-error-container text-on-error-container font-body-sm text-body-sm">
                     {{ $errors->first() }}

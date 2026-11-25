@@ -25,7 +25,7 @@
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-surface text-on-surface antialiased font-plus-jakarta">
+<body class="bg-surface text-on-surface antialiased font-plus-jakarta" data-customer-site>
     @include('partials.ingredient-icons')
 
     <div id="brread-intro" aria-hidden="true">

@@ -8,7 +8,12 @@ import { registerStaffBatch } from './staff-batch.js';
 import { registerGridNav } from './staff-grid.js';
 import { registerOrderEdit } from './order-edit.js';
 import './sfx.js';
-import './bgm.js';
+import './staff-heartbeat.js';
+
+// The music belongs to the customer pages only: the staff, superadmin, login and trap pages never even download it.
+if (document.body?.hasAttribute('data-customer-site') && !/^\/(staff|superadmin|admin|administrator|wp-admin)(\/|$)/i.test(location.pathname)) {
+    import('./bgm.js');
+}
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';

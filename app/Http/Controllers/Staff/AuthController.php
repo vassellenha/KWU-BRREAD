@@ -11,6 +11,7 @@ use App\Support\LoginPrank;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
@@ -25,6 +26,7 @@ class AuthController extends Controller
     {
         return view('staff.auth.login', [
             'portal' => 'staff',
+            'notice' => $this->expiredNotice($request),
             'attemptRoute' => 'staff.login.attempt',
             'quickLoginEnabled' => false,
             'captchaEnabled' => LoginCaptcha::enabled(),
@@ -37,6 +39,7 @@ class AuthController extends Controller
     {
         return view('staff.auth.login', [
             'portal' => 'admin',
+            'notice' => $this->expiredNotice($request),
             'attemptRoute' => 'admin.login.attempt',
             'quickLoginEnabled' => $this->quickLoginEnabled($request),
             'quickLoginUsername' => self::QUICK_LOGIN_USERNAME,
@@ -179,19 +182,56 @@ class AuthController extends Controller
 
         SignIn::record($request, $user, $user->isAdmin() ? 'superadmin' : 'staff');
 
-        // A saved deep link may point at a module this role cannot open, which would
-        // greet a correct login with a 403, so every sign-in starts at the role's home.
-        $request->session()->forget('url.intended');
+        // A saved deep link may point at a module this role cannot open, which would greet a correct login with a
+        // 403, so staff always start at the role's home. The superadmin can open every module, so they return to the
+        // page they were on, but only a path of this site under /staff (never an outside address).
+        $intended = $request->session()->pull('url.intended');
+        $target = $user->isAdmin() ? $this->safeIntendedPath($request, $intended) : null;
 
         // Which door this browser uses, so an expired session lands on the right sign-in page.
         Cookie::queue('portal', $user->isAdmin() ? 'admin' : 'staff', 60 * 24 * 30);
 
         // The sign-in script asks for JSON so it can show errors in place; it follows this itself.
         if ($request->expectsJson()) {
-            return response()->json(['redirect' => route($user->homeRouteName())]);
+            return response()->json(['redirect' => $target ?? route($user->homeRouteName())]);
         }
 
-        return redirect()->route($user->homeRouteName());
+        return $target ? redirect()->to($target) : redirect()->route($user->homeRouteName());
+    }
+
+    /** The saved URL as a relative path, or null unless it is a page of this very site under /staff. */
+    private function safeIntendedPath(Request $request, mixed $intended): ?string
+    {
+        if (! is_string($intended) || $intended === '' || str_contains($intended, '\\') || preg_match('/[\x00-\x1f]/', $intended)) {
+            return null;
+        }
+
+        $parts = parse_url($intended);
+        if ($parts === false || isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
+
+        if (isset($parts['host']) && strcasecmp($parts['host'], $request->getHost()) !== 0) {
+            return null;
+        }
+
+        $path = $parts['path'] ?? '';
+        if (! str_starts_with($path, '/staff/') || str_contains($path, '//') || str_contains($path, '..') || $path === '/staff/logout') {
+            return null;
+        }
+
+        return $path.(isset($parts['query']) ? '?'.$parts['query'] : '');
+    }
+
+    private function expiredNotice(Request $request): ?string
+    {
+        return $request->query('sesi') === 'berakhir' ? 'Sesi berakhir, silakan masuk lagi.' : null;
+    }
+
+    /** The superadmin pages ping this now and then, so a tab left open does not let the session lapse unseen. */
+    public function ping(): Response
+    {
+        return response()->noContent();
     }
 
     /**

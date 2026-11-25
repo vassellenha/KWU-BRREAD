@@ -30,7 +30,7 @@
     @include('partials.fonts')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="staff text-on-surface antialiased font-plus-jakarta">
+<body class="staff text-on-surface antialiased font-plus-jakarta" @if ($currentUser->isAdmin()) data-heartbeat-url="{{ route('staff.ping') }}" data-heartbeat-login="{{ route('admin.login') }}" @endif>
 
     <div class="min-h-screen flex">
         {{-- SIDEBAR --}}
