@@ -10,6 +10,9 @@ const SRC = '/audio/brread-bgm.mp3';
 const MUTE_KEY = 'brread-bgm-muted';
 const POS_KEY = 'brread-bgm-pos';
 const HINT_KEY = 'brread-bgm-hinted';
+const OK_KEY = 'brread-bgm-ok';
+const ALIVE_KEY = 'brread-bgm-alive';
+const RESUME_FADE = 0.25;
 const TARGET = 0.45;
 const FADE_IN = 0.8;
 const FADE_OUT = 0.4;
@@ -41,6 +44,7 @@ let voices = [];
 let nextAt = 0;
 let timer = null;
 let startedOnce = false;
+let aliveTimer = null;
 
 const fadeCurve = (rising) => Float32Array.from({ length: 48 }, (_, i) => Math.sin((rising ? i / 47 : 1 - i / 47) * Math.PI / 2));
 
@@ -184,7 +188,7 @@ function rampLevel(to, seconds) {
 
 async function begin() {
     if (playing || muted || available === false || document.hidden || !context()) return;
-    if (document.getElementById('brread-intro')) return; // wait for the intro; the next gesture or the poll starts it
+    if (introShowing()) return; // wait for the intro; the next gesture or the poll starts it
     playing = true; // claimed up front: two quick gestures must not start two copies
     if (!(await load())) {
         playing = false;
@@ -196,9 +200,13 @@ async function begin() {
     }
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
     startedOnce = true;
-    startVoice(ctx.currentTime + 0.05, position(), FADE_IN);
-    rampLevel(TARGET, FADE_IN);
+    // Music was playing on the previous page a moment ago: pick up quickly instead of fading in from silence.
+    const fade = Date.now() - Number(store.get(ALIVE_KEY) || 0) < 5000 ? RESUME_FADE : FADE_IN;
+    startVoice(ctx.currentTime + 0.05, position(), fade);
+    rampLevel(TARGET, fade);
     timer = setInterval(tick, 250);
+    markAlive();
+    aliveTimer = setInterval(markAlive, 2000);
     syncButtons();
 }
 
@@ -206,6 +214,8 @@ function end() {
     if (!playing) return;
     playing = false;
     clearInterval(timer);
+    clearInterval(aliveTimer);
+    store.set(ALIVE_KEY, '0');
     syncButtons();
     if (!ctx) return;
     rampLevel(0, FADE_OUT);
@@ -281,13 +291,22 @@ window.addEventListener('storage', (event) => {
 });
 
 // The intro covers the page for a few seconds; the music starts once it is gone.
-const introWatch = setInterval(() => {
-    if (document.getElementById('brread-intro')) return;
-    clearInterval(introWatch);
+const introShowing = () => Boolean(document.getElementById('brread-intro')) && !document.documentElement.classList.contains('no-intro');
+const markAlive = () => store.set(ALIVE_KEY, String(Date.now()));
+window.addEventListener('pagehide', () => {
+    if (playing) markAlive();
+});
+
+// Starts by itself when the browser already allows audio (an earlier page had a gesture), so moving between pages
+// carries the music on without a gap. Otherwise the first gesture starts it.
+function autoStart() {
     if (startedOnce || muted || available !== true) return;
-    // Only begins by itself when the browser already allows audio (a previous page had the gesture).
-    if (navigator.userActivation?.hasBeenActive) begin();
-}, 300);
+    if (introShowing()) {
+        setTimeout(autoStart, 100);
+        return;
+    }
+    if (navigator.userActivation?.hasBeenActive || ctx?.state === 'running') begin();
+}
 
 document.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-bgm-toggle]') : null;
@@ -302,8 +321,20 @@ hookDucking();
 
 // This module is imported after the page has loaded, so it may be too late for DOMContentLoaded.
 const init = () => {
-    syncButtons();
-    checkFile();
+    if (store.get(OK_KEY) === '1') setAvailable(true); // the button shows at once on every page after the first
+    if (muted) {
+        if (available !== true) checkFile();
+        return;
+    }
+    // Fetch and decode right away, before any gesture, so there is nothing left to wait for when the page is ready.
+    context();
+    load().then((ok) => {
+        store.set(OK_KEY, ok ? '1' : '0');
+        if (!ok) return;
+        setAvailable(true);
+        hint();
+        autoStart();
+    });
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
