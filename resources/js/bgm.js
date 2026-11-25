@@ -13,7 +13,7 @@ if (allowed) {
     const HINT_KEY = 'brread-bgm-hinted';
     const OK_KEY = 'brread-bgm-ok';
     const ALIVE_KEY = 'brread-bgm-alive';
-    const TARGET = 0.45;
+    const TARGET = 0.2;
     const FADE_IN = 0.8;
     const RESUME_FADE = 0.25;
     const FADE_OUT = 0.4;
