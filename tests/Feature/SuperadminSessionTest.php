@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Http\Middleware\StartSessionForTrustedIp;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,6 +23,8 @@ class SuperadminSessionTest extends TestCase
         parent::setUp();
 
         $this->withoutVite();
+        // These tests are about redirects and sessions, not CSRF (which Laravel skips under APP_ENV=testing anyway).
+        $this->withoutMiddleware([ValidateCsrfToken::class, PreventRequestForgery::class]);
         $this->seed(UserSeeder::class);
     }
 
@@ -68,16 +72,23 @@ class SuperadminSessionTest extends TestCase
         $this->assertSame(30 * 24 * 60, (int) config('session.lifetime'));
     }
 
-    public function test_other_addresses_and_other_browsers_keep_the_normal_lifetime(): void
+    public function test_another_address_keeps_the_normal_lifetime(): void
     {
         $normal = (int) config('session.lifetime');
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->withCookie('portal', 'admin')->get('/superadmin');
-        $this->assertSame($normal, (int) config('session.lifetime'));
 
-        $this->withServerVariables(['REMOTE_ADDR' => self::TRUSTED])->get('/staff');
         $this->assertSame($normal, (int) config('session.lifetime'));
         $this->assertGreaterThan($normal, StartSessionForTrustedIp::longLifetimeMinutes());
+    }
+
+    public function test_a_browser_that_never_signed_in_as_superadmin_keeps_the_normal_lifetime(): void
+    {
+        $normal = (int) config('session.lifetime');
+
+        $this->withServerVariables(['REMOTE_ADDR' => self::TRUSTED])->get('/staff');
+
+        $this->assertSame($normal, (int) config('session.lifetime'));
     }
 
     public function test_the_heartbeat_needs_a_superadmin_and_answers_204(): void

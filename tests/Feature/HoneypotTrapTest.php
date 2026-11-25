@@ -216,12 +216,13 @@ class HoneypotTrapTest extends TestCase
         $this->assertSame(0, HoneypotTrap::remaining(request()));
     }
 
-    public function test_guests_sent_to_sign_in_are_never_pointed_at_superadmin(): void
+    public function test_only_a_browser_that_signed_in_as_superadmin_is_sent_back_to_superadmin(): void
     {
         config(['auth.honeypot_trap' => false]);
 
-        $this->withCookie('portal', 'admin')->get('/staff/security')->assertRedirect('/staff');
+        // Plain visitor first: a cookie set with withCookie() stays on the test client for the next requests.
         $this->get('/staff/orders')->assertRedirect('/staff');
+        $this->withCookie('portal', 'admin')->get('/staff/security')->assertRedirect('/superadmin');
     }
 
     public function test_the_extra_bait_addresses_start_the_hold(): void
