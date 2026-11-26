@@ -258,32 +258,41 @@
                                     <span>{{ $order->customer_phone }}</span>
                                 </a>
                                 {{-- Saves as soon as a value changes: no extra button to hunt for. --}}
-                                <form method="POST" action="{{ route('staff.orders.attribution', $order) }}" x-data class="mt-2 space-y-1">
+                                <form method="POST" action="{{ route('staff.orders.attribution', $order) }}" x-data class="mt-2.5 space-y-1.5">
                                     @csrf
                                     <label for="chat-admin-{{ $order->id }}" class="sr-only">Chat via atmint untuk pesanan #{{ $order->order_number }}</label>
-                                    <select
-                                        id="chat-admin-{{ $order->id }}"
-                                        name="chat_admin"
-                                        @change="$el.form.requestSubmit()"
-                                        class="w-full rounded-full border py-1 pl-2.5 pr-6 text-[12px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->chat_admin ? 'border-outline-variant bg-surface-container-lowest text-on-surface' : 'border-amber-300 bg-amber-50 text-amber-800' }}"
-                                    >
-                                        <option value="">Pilih atmint...</option>
-                                        @foreach ($atmintNames->concat([$order->chat_admin])->filter()->unique() as $atmintName)
-                                            <option value="{{ $atmintName }}" @selected($order->chat_admin === $atmintName)>{{ $atmintName }}</option>
-                                        @endforeach
-                                    </select>
+                                    <div class="group relative">
+                                        <span class="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] {{ $order->chat_admin ? 'text-primary-container' : 'text-amber-700' }}" style="font-variation-settings: 'FILL' 1;">forum</span>
+                                        <select
+                                            id="chat-admin-{{ $order->id }}"
+                                            name="chat_admin"
+                                            @change="$el.form.requestSubmit()"
+                                            title="Pembeli chat lewat atmint mana"
+                                            class="w-full cursor-pointer appearance-none rounded-full border py-1.5 pl-8 pr-7 text-[12px] font-semibold shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->chat_admin ? 'border-secondary-container bg-secondary-container/40 text-on-secondary-container hover:bg-secondary-container/60' : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' }}"
+                                        >
+                                            <option value="">Pilih atmint...</option>
+                                            @foreach ($atmintNames->concat([$order->chat_admin])->filter()->unique() as $atmintName)
+                                                <option value="{{ $atmintName }}" @selected($order->chat_admin === $atmintName)>{{ $atmintName }}</option>
+                                            @endforeach
+                                        </select>
+                                        <span class="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[18px] {{ $order->chat_admin ? 'text-on-secondary-container/70' : 'text-amber-700' }}">expand_more</span>
+                                    </div>
                                     <label for="sold-by-{{ $order->id }}" class="sr-only">Sales atau marketing untuk pesanan #{{ $order->order_number }}</label>
-                                    <input
-                                        id="sold-by-{{ $order->id }}"
-                                        type="text"
-                                        name="sold_by"
-                                        value="{{ $order->sold_by }}"
-                                        maxlength="40"
-                                        placeholder="Sales / marketing"
-                                        @change="$el.form.requestSubmit()"
-                                        @keydown.enter.prevent="$el.blur()"
-                                        class="w-full rounded-full border border-outline-variant/60 bg-transparent px-2.5 py-1 text-[12px] text-on-surface placeholder:text-on-surface-variant/60 transition-colors focus:border-outline-variant focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                    >
+                                    <div class="relative">
+                                        <span class="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] {{ $order->sold_by ? 'text-primary-container' : 'text-on-surface-variant/50' }}" style="font-variation-settings: 'FILL' {{ $order->sold_by ? 1 : 0 }};">storefront</span>
+                                        <input
+                                            id="sold-by-{{ $order->id }}"
+                                            type="text"
+                                            name="sold_by"
+                                            value="{{ $order->sold_by }}"
+                                            maxlength="40"
+                                            placeholder="Sales / marketing"
+                                            title="Sales atau marketing yang membawa pesanan ini"
+                                            @change="$el.form.requestSubmit()"
+                                            @keydown.enter.prevent="$el.blur()"
+                                            class="w-full rounded-full border py-1.5 pl-8 pr-2.5 text-[12px] placeholder:font-normal placeholder:text-on-surface-variant/60 transition-[background-color,border-color,box-shadow] duration-200 focus:border-outline-variant focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->sold_by ? 'border-outline-variant/60 bg-surface-container font-semibold text-on-surface' : 'border-dashed border-outline-variant bg-transparent text-on-surface' }}"
+                                        >
+                                    </div>
                                 </form>
                             </td>
 
