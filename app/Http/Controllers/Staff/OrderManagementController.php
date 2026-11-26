@@ -21,18 +21,30 @@ class OrderManagementController extends Controller
     {
         $status = $request->query('status', 'all');
         $search = trim((string) $request->query('q', ''));
+        // A pickup day (Y-m-d), or "none" for orders nobody has given a day yet; anything else shows every day.
+        $pickup = (string) $request->query('pickup', '');
+        $pickup = ($pickup === 'none' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $pickup) && strtotime($pickup) !== false)) ? $pickup : '';
 
         $query = Order::with(['orderItems.component', 'revisions.user'])->latest();
 
         if ($status === Order::STATUS_PENDING) {
             // "Masuk" holds every order that has not been paid yet: waiting for confirmation, or confirmed and waiting to pay.
             $query->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_CONFIRMED]);
-        } elseif (in_array($status, [Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_READY, Order::STATUS_CANCELLED], true)) {
+        } elseif ($status === 'unconfirmed') {
+            // Not confirmed yet: no tracking link, nothing paid.
+            $query->where('status', Order::STATUS_PENDING);
+        } elseif (in_array($status, [Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_READY, Order::STATUS_CANCELLED], true)) {
             $query->where('status', $status);
         } else {
             // "Semua Pesanan" leaves out cancelled orders; they live in their own tab.
             $status = 'all';
             $query->where('status', '!=', Order::STATUS_CANCELLED);
+        }
+
+        if ($pickup === 'none') {
+            $query->whereNull('pickup_on');
+        } elseif ($pickup !== '') {
+            $query->whereDate('pickup_on', $pickup);
         }
 
         if ($search !== '') {
@@ -60,7 +72,26 @@ class OrderManagementController extends Controller
             'reviews_count' => Order::whereNotNull('rating')->count(),
         ];
 
+        // Per pickup day (cancelled orders left out): how many orders and sandwiches to prepare, and for whom.
+        $active = Order::with('orderItems')->where('status', '!=', Order::STATUS_CANCELLED)->get();
+        $today = now()->toDateString();
+        $pickupDays = $active->whereNotNull('pickup_on')
+            ->groupBy(fn (Order $order) => $order->pickup_on->toDateString())
+            ->filter(fn ($group, $date) => $date >= $today || $date === $pickup)
+            ->sortKeys()
+            ->map(fn ($group, $date) => [
+                'date' => $date,
+                'orders' => $group->count(),
+                'sandwiches' => $group->sum(fn (Order $order) => $order->sandwichCount()),
+                'people' => $group->map(fn (Order $order) => $order->customer_name.' ('.$order->sandwichCount().')')->all(),
+            ])
+            ->values();
+        $unscheduled = $active->whereNull('pickup_on')->count();
+
         return view('staff.orders.index', [
+            'pickup' => $pickup,
+            'pickupDays' => $pickupDays,
+            'unscheduled' => $unscheduled,
             'orders' => $orders,
             'stats' => $stats,
             'currentStatus' => $status,

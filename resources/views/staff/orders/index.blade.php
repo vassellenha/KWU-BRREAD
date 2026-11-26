@@ -109,6 +109,8 @@
                 $statusTabs = [
                     'all' => 'Semua Pesanan',
                     'pending' => 'Masuk',
+                    'unconfirmed' => 'Belum Dikonfirmasi',
+                    'confirmed' => 'Sudah Dikonfirmasi',
                     'paid' => 'Pembayaran Berhasil',
                     'processing' => 'Disiapkan',
                     'ready' => 'Siap Diambil',
@@ -126,6 +128,14 @@
                         <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-primary text-on-primary font-bold">
                             {{ $stats['pending'] }}
                         </span>
+                    @elseif ($tabKey === 'unconfirmed' && $stats['pending'] > 0)
+                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-amber-600 text-white font-bold">
+                            {{ $stats['pending'] }}
+                        </span>
+                    @elseif ($tabKey === 'confirmed' && $stats['confirmed'] > 0)
+                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-green-700 text-white font-bold">
+                            {{ $stats['confirmed'] }}
+                        </span>
                     @endif
                 </a>
             @endforeach
@@ -134,6 +144,9 @@
         <form method="GET" action="{{ route('staff.orders.index') }}" class="flex items-center gap-space-xs">
             @if ($currentStatus !== 'all')
                 <input type="hidden" name="status" value="{{ $currentStatus }}">
+            @endif
+            @if ($pickup !== '')
+                <input type="hidden" name="pickup" value="{{ $pickup }}">
             @endif
             <div class="relative w-full sm:w-auto">
                 <input
@@ -146,7 +159,7 @@
                 <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant/70 shrink-0">search</span>
             </div>
             @if ($search !== '')
-                <a href="{{ route('staff.orders.index', ['status' => $currentStatus]) }}" class="press-scale p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container" title="Reset pencarian">
+                <a href="{{ route('staff.orders.index', array_filter(['status' => $currentStatus, 'pickup' => $pickup])) }}" class="press-scale p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container" title="Reset pencarian">
                     <span class="material-symbols-outlined text-[18px] shrink-0">close</span>
                 </a>
             @endif
@@ -155,6 +168,36 @@
             </button>
         </form>
     </div>
+
+    {{-- PICKUP DAY FILTER: who collects on which day, and how many sandwiches that is --}}
+    @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
+        <section aria-label="Filter tanggal ambil" class="mb-space-md">
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Tanggal ambil</p>
+            <div class="flex flex-wrap items-center gap-space-xs">
+                @php
+                    $chip = fn (bool $active) => 'press-scale inline-flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 '.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+                @endphp
+                <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}">Semua tanggal</a>
+                @foreach ($pickupDays as $day)
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => $day['date']])) }}" class="{{ $chip($pickup === $day['date']) }}">
+                        <span class="material-symbols-outlined text-[14px] shrink-0">event</span>
+                        {{ \Illuminate\Support\Carbon::parse($day['date'])->locale('id')->translatedFormat('D, j M') }}
+                        <span class="tabular-nums opacity-80">{{ $day['orders'] }} pesanan, {{ $day['sandwiches'] }} sandwich</span>
+                    </a>
+                @endforeach
+                @if ($unscheduled > 0)
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => 'none'])) }}" class="{{ $chip($pickup === 'none') }}">
+                        Belum ada tanggal
+                        <span class="tabular-nums opacity-80">{{ $unscheduled }}</span>
+                    </a>
+                @endif
+            </div>
+            @php $selectedDay = $pickupDays->firstWhere('date', $pickup); @endphp
+            @if ($selectedDay)
+                <p class="mt-1.5 text-[12px] text-on-surface-variant">Diambil {{ \Illuminate\Support\Carbon::parse($selectedDay['date'])->locale('id')->translatedFormat('l, j F Y') }}: {{ implode(', ', $selectedDay['people']) }}. Angka dalam kurung adalah jumlah sandwich.</p>
+            @endif
+        </section>
+    @endif
 
     {{-- ORDERS TABLE CARD --}}
     <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden shadow-sm">
@@ -289,6 +332,9 @@
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-300">
                                         {{ ucfirst($order->status) }}
                                     </span>
+                                @endif
+                                @if ($order->pickup_on && ! $order->isCancelled())
+                                    <span class="mt-1 block text-[11px] text-on-surface-variant">Ambil {{ $order->pickup_on->locale('id')->translatedFormat('D, j M') }}</span>
                                 @endif
                             </td>
 

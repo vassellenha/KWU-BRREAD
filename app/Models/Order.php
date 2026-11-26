@@ -72,6 +72,14 @@ class Order extends Model
         return $this->hasOne(ReviewPhoto::class);
     }
 
+    /** How many sandwiches the order holds: each creation counts once per its quantity, however many ingredients it has. */
+    public function sandwichCount(): int
+    {
+        return (int) $this->orderItems
+            ->groupBy('creation_index')
+            ->sum(fn ($items) => (int) ($items->first()?->quantity ?? 1));
+    }
+
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
