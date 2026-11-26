@@ -144,6 +144,9 @@
             @if ($pickup !== '')
                 <input type="hidden" name="pickup" value="{{ $pickup }}">
             @endif
+            @if ($atmint !== '')
+                <input type="hidden" name="atmint" value="{{ $atmint }}">
+            @endif
             <div class="relative w-full sm:w-auto">
                 <input
                     type="text"
@@ -155,7 +158,7 @@
                 <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant/70 shrink-0">search</span>
             </div>
             @if ($search !== '')
-                <a href="{{ route('staff.orders.index', array_filter(['status' => $currentStatus, 'pickup' => $pickup])) }}" class="press-scale p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container" title="Reset pencarian">
+                <a href="{{ route('staff.orders.index', array_filter(['status' => $currentStatus, 'pickup' => $pickup, 'atmint' => $atmint])) }}" class="press-scale p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container" title="Reset pencarian">
                     <span class="material-symbols-outlined text-[18px] shrink-0">close</span>
                 </a>
             @endif
@@ -165,16 +168,17 @@
         </form>
     </div>
 
+    @php
+        $chipBase = 'press-scale inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ';
+        $chip = fn (bool $active) => $chipBase.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+        $todayKey = now()->toDateString();
+    @endphp
+
     {{-- PICKUP DAY FILTER: who collects on which day, and how many sandwiches that is --}}
     @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
         <section aria-label="Filter tanggal ambil" class="mb-space-md">
             <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Tanggal ambil</p>
             <div class="flex items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
-                @php
-                    $chipBase = 'press-scale inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ';
-                    $chip = fn (bool $active) => $chipBase.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
-                    $todayKey = now()->toDateString();
-                @endphp
                 <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}" @if ($pickup === '') aria-current="page" @endif>Semua tanggal</a>
                 @foreach ($pickupDays as $day)
                     @php $isDayActive = $pickup === $day['date']; @endphp
@@ -200,6 +204,32 @@
             @if ($selectedDay)
                 <p class="mt-1.5 text-[12px] text-on-surface-variant">Diambil {{ \Illuminate\Support\Carbon::parse($selectedDay['date'])->locale('id')->translatedFormat('l, j F Y') }}: {{ implode(', ', $selectedDay['people']) }}. Angka dalam kurung adalah jumlah sandwich.</p>
             @endif
+        </section>
+    @endif
+
+    {{-- ATMINT FILTER: which atmint the customer chatted with, so you can see who holds the most orders --}}
+    @if ($atmintChips->isNotEmpty() || $atmintUnset > 0 || $atmint !== '')
+        <section aria-label="Filter atmint" class="mb-space-md">
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Chat via atmint</p>
+            <div class="flex items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
+                <a href="{{ route('staff.orders.index', request()->except('page', 'atmint')) }}" class="{{ $chip($atmint === '') }}" @if ($atmint === '') aria-current="page" @endif>Semua atmint</a>
+                @foreach ($atmintChips as $atmintChip)
+                    @php $isAtmintActive = $atmint === $atmintChip['name']; @endphp
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['atmint' => $atmintChip['name']])) }}" class="{{ $chip($isAtmintActive) }}" @if ($isAtmintActive) aria-current="page" @endif>
+                        <span class="material-symbols-outlined text-[16px] shrink-0">forum</span>
+                        <span class="font-bold">{{ $atmintChip['name'] }}</span>
+                        <span class="text-[12px] font-normal tabular-nums opacity-80">{{ $atmintChip['orders'] }} pesanan · {{ $atmintChip['sandwiches'] }} sandwich</span>
+                    </a>
+                @endforeach
+                @if ($atmintUnset > 0)
+                    @php $isUnsetActive = $atmint === 'none'; @endphp
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['atmint' => 'none'])) }}" class="{{ $chipBase }}{{ $isUnsetActive ? 'bg-amber-200 text-amber-900 font-bold shadow-sm' : 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100' }}" @if ($isUnsetActive) aria-current="page" @endif>
+                        <span class="material-symbols-outlined text-[16px] shrink-0">schedule</span>
+                        <span class="font-bold">Belum tercatat</span>
+                        <span class="text-[12px] font-normal tabular-nums">{{ $atmintUnset }} pesanan</span>
+                    </a>
+                @endif
+            </div>
         </section>
     @endif
 
@@ -265,6 +295,20 @@
                                     <span class="material-symbols-outlined text-[15px] shrink-0 text-green-600">forum</span>
                                     <span>{{ $order->customer_phone }}</span>
                                 </a>
+                                @if ($order->chat_admin || $order->sold_by)
+                                    <div class="mt-1.5 flex flex-wrap gap-1">
+                                        @if ($order->chat_admin)
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-medium text-on-surface-variant" title="Pembeli chat lewat atmint ini">
+                                                <span class="material-symbols-outlined text-[13px] shrink-0">forum</span>{{ $order->chat_admin }}
+                                            </span>
+                                        @endif
+                                        @if ($order->sold_by)
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container/60 px-2 py-0.5 text-[11px] font-medium text-on-surface-variant" title="Sales / marketing yang membawa pesanan ini">
+                                                <span class="material-symbols-outlined text-[13px] shrink-0">storefront</span>{{ $order->sold_by }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                @endif
                             </td>
 
                             {{-- ITEMS SUMMARY --}}
@@ -496,6 +540,31 @@
                                             </button>
                                         </form>
                                     @endif
+
+                                    {{-- ATMINT AND SALES --}}
+                                    <details class="group w-full">
+                                        <summary class="press-scale inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 font-label-md text-[11px] font-semibold text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&::-webkit-details-marker]:hidden" title="Catat atmint dan sales/marketing pesanan ini">
+                                            <span class="material-symbols-outlined text-[14px] shrink-0">forum</span>
+                                            <span>Atmint &amp; sales</span>
+                                            <span class="material-symbols-outlined text-[14px] shrink-0 transition-transform duration-200 group-open:rotate-180">expand_more</span>
+                                        </summary>
+                                        <form method="POST" action="{{ route('staff.orders.attribution', $order) }}" class="mt-1.5 space-y-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-2 text-left">
+                                            @csrf
+                                            <label for="chat-admin-{{ $order->id }}" class="block text-[11px] font-semibold text-on-surface-variant">Chat via atmint</label>
+                                            <select id="chat-admin-{{ $order->id }}" name="chat_admin" class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-1 text-[12px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+                                                <option value="">Belum tercatat</option>
+                                                @foreach ($atmintNames->concat([$order->chat_admin])->filter()->unique() as $atmintName)
+                                                    <option value="{{ $atmintName }}" @selected($order->chat_admin === $atmintName)>{{ $atmintName }}</option>
+                                                @endforeach
+                                            </select>
+                                            <label for="sold-by-{{ $order->id }}" class="block text-[11px] font-semibold text-on-surface-variant">Sales / marketing</label>
+                                            <input id="sold-by-{{ $order->id }}" type="text" name="sold_by" value="{{ $order->sold_by }}" maxlength="40" placeholder="Contoh: Jordan" class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-1 text-[12px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+                                            <button type="submit" class="press-scale inline-flex w-full items-center justify-center gap-1 rounded-full bg-primary-container px-2.5 py-1 font-label-md text-[11px] font-semibold text-on-primary-container hover:opacity-95">
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">check_circle</span>
+                                                <span>Simpan</span>
+                                            </button>
+                                        </form>
+                                    </details>
 
                                     {{-- CANCEL BUTTON --}}
                                     @if (!$order->isCancelled() && !$order->isReady())

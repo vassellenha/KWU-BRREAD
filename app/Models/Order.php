@@ -36,6 +36,8 @@ class Order extends Model
         'cancelled_at',
         'customer_name',
         'customer_phone',
+        'chat_admin',
+        'sold_by',
         'rating',
         'review_text',
         'reviewed_at',

@@ -56,6 +56,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::post('/{order}/preparing', [OrderManagementController::class, 'markPreparing'])->name('preparing');
         Route::post('/{order}/ready', [OrderManagementController::class, 'markReady'])->name('ready');
         Route::post('/{order}/pickup-date', [OrderManagementController::class, 'setPickupDate'])->name('pickup-date');
+        Route::post('/{order}/attribution', [OrderManagementController::class, 'setAttribution'])->name('attribution');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
         // Editing what an order holds (flavor ran out, toppings swapped): a preview first, then one save.
         Route::post('/{order}/edit-preview', [OrderEditController::class, 'preview'])->middleware('throttle:60,1')->name('edit.preview');

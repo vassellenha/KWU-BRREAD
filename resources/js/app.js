@@ -932,6 +932,7 @@ Alpine.data('cartDrawer', () => ({
             const res = await axios.post('/api/orders', {
                 customer_name: this.customerName,
                 customer_phone: this.customerPhone,
+                admin_name: admin?.name ?? null,
                 items: cart.toApiItems(),
             });
             this.orderSuccess = res.data.order_number;

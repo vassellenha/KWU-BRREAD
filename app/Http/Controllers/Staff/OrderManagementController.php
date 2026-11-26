@@ -7,12 +7,14 @@ use App\Models\Component;
 use App\Models\Order;
 use App\Models\StockMovement;
 use App\Services\OrderEditor;
+use App\Support\ContactInfo;
 use App\Support\IngredientIcon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class OrderManagementController extends Controller
@@ -24,6 +26,10 @@ class OrderManagementController extends Controller
         // A pickup day (Y-m-d), or "none" for orders nobody has given a day yet; anything else shows every day.
         $pickup = (string) $request->query('pickup', '');
         $pickup = ($pickup === 'none' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $pickup) && strtotime($pickup) !== false)) ? $pickup : '';
+
+        // The atmint the customer chatted with, or "none" for orders where nobody recorded it.
+        $atmint = trim((string) $request->query('atmint', ''));
+        $atmint = mb_substr($atmint, 0, 80);
 
         $query = Order::with(['orderItems.component', 'revisions.user'])->latest();
 
@@ -45,6 +51,12 @@ class OrderManagementController extends Controller
             $query->whereNull('pickup_on');
         } elseif ($pickup !== '') {
             $query->whereDate('pickup_on', $pickup);
+        }
+
+        if ($atmint === 'none') {
+            $query->whereNull('chat_admin');
+        } elseif ($atmint !== '') {
+            $query->where('chat_admin', $atmint);
         }
 
         if ($search !== '') {
@@ -88,8 +100,21 @@ class OrderManagementController extends Controller
             ->values();
         $unscheduled = $active->whereNull('pickup_on')->count();
 
+        // Per atmint (cancelled orders left out): who holds how many orders. Names on the list come first.
+        $atmintNames = collect(ContactInfo::get()['whatsapp_links'])->pluck('name')->unique()->values();
+        $atmintChips = $active->whereNotNull('chat_admin')
+            ->groupBy('chat_admin')
+            ->map(fn ($group, $name) => ['name' => (string) $name, 'orders' => $group->count(), 'sandwiches' => $group->sum(fn (Order $order) => $order->sandwichCount())])
+            ->sortByDesc('orders')
+            ->values();
+        $atmintUnset = $active->whereNull('chat_admin')->count();
+
         return view('staff.orders.index', [
             'pickup' => $pickup,
+            'atmint' => $atmint,
+            'atmintNames' => $atmintNames,
+            'atmintChips' => $atmintChips,
+            'atmintUnset' => $atmintUnset,
             'pickupDays' => $pickupDays,
             'unscheduled' => $unscheduled,
             'orders' => $orders,
@@ -243,6 +268,31 @@ class OrderManagementController extends Controller
         $order->update(['pickup_on' => $date]);
 
         return back()->with('success', "Pesanan #{$order->order_number} bisa diambil pada ".$order->pickup_on->locale('id')->translatedFormat('l, j F Y').'. Halaman tracking pembeli ikut berubah.');
+    }
+
+    public function setAttribution(Request $request, Order $order): RedirectResponse
+    {
+        $names = collect(ContactInfo::get()['whatsapp_links'])->pluck('name')->push($order->chat_admin)->filter()->unique()->values()->all();
+
+        $validator = Validator::make($request->all(), [
+            'chat_admin' => ['nullable', 'string', 'max:80', Rule::in($names)],
+            'sold_by' => ['nullable', 'string', 'max:40'],
+        ], [
+            'chat_admin.in' => 'Atmint tersebut tidak ada di daftar kontak WhatsApp.',
+            'sold_by.max' => 'Nama sales/marketing maksimal 40 karakter.',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        $data = $validator->validated();
+        $order->update([
+            'chat_admin' => ($data['chat_admin'] ?? '') !== '' ? $data['chat_admin'] : null,
+            'sold_by' => trim((string) ($data['sold_by'] ?? '')) !== '' ? trim($data['sold_by']) : null,
+        ]);
+
+        return back()->with('success', "Atmint dan sales pesanan #{$order->order_number} disimpan.");
     }
 
     public function cancel(Order $order): RedirectResponse

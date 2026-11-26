@@ -31,7 +31,9 @@ class SalesReport
      *     topping_rate: float,
      *     trend: list<array{label: string, units: int, revenue: float}>,
      *     weekdays: list<array{label: string, units: int}>,
-     *     hours: list<array{label: string, units: int}>
+     *     hours: list<array{label: string, units: int}>,
+     *     atmints: Collection<int, array{name: ?string, orders: int, sandwiches: int, revenue: float, share: float}>,
+     *     sellers: Collection<int, array{name: ?string, orders: int, sandwiches: int, revenue: float, share: float}>
      * }
      */
     public function build(CarbonImmutable $from, CarbonImmutable $to): array
@@ -62,6 +64,8 @@ class SalesReport
             'trend' => $this->trend($creations, $from, $to, $days),
             'weekdays' => $this->weekdays($creations),
             'hours' => $this->hours($creations),
+            'atmints' => $this->attribution($orders, 'chat_admin'),
+            'sellers' => $this->attribution($orders, 'sold_by'),
         ];
     }
 
@@ -227,6 +231,30 @@ class SalesReport
         }
 
         return $points;
+    }
+
+    /**
+     * Who holds the orders: the atmint a customer chatted with, or the sales person who brought the order in.
+     * Orders nobody recorded are grouped last under a null name.
+     *
+     * @param  Collection<int, Order>  $orders
+     * @return Collection<int, array{name: ?string, orders: int, sandwiches: int, revenue: float, share: float}>
+     */
+    private function attribution(Collection $orders, string $column): Collection
+    {
+        $total = max($orders->count(), 1);
+
+        return $orders
+            ->groupBy(fn (Order $order) => (string) ($order->{$column} ?? ''))
+            ->map(fn (Collection $group, string $name) => [
+                'name' => $name !== '' ? $name : null,
+                'orders' => $group->count(),
+                'sandwiches' => (int) $group->sum(fn (Order $order) => $order->sandwichCount()),
+                'revenue' => (float) $group->sum('total_price'),
+                'share' => $group->count() / $total * 100,
+            ])
+            ->sort(fn (array $a, array $b) => [$a['name'] === null, -$a['orders'], -$a['revenue']] <=> [$b['name'] === null, -$b['orders'], -$b['revenue']])
+            ->values();
     }
 
     /**

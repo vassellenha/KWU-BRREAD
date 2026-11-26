@@ -198,6 +198,22 @@
             </div>
         </div>
 
+        {{-- WHO HOLDS THE ORDERS --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md mb-space-lg items-start">
+            @include('staff.sales.partials.order-owner-ranking', [
+                'title' => 'Orders by atmint',
+                'note' => 'The atmint each customer chose to chat with at checkout.',
+                'owners' => $report['atmints'],
+                'emptyName' => 'Not recorded',
+            ])
+            @include('staff.sales.partials.order-owner-ranking', [
+                'title' => 'Orders by sales / marketing',
+                'note' => 'Who brought the order in. Set it per order on the Orders page.',
+                'owners' => $report['sellers'],
+                'emptyName' => 'Not recorded',
+            ])
+        </div>
+
         {{-- WHEN ORDERS COME IN --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
             <section class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-space-md">
