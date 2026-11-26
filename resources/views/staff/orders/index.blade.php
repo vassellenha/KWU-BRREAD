@@ -280,18 +280,37 @@
                                     <label for="sold-by-{{ $order->id }}" class="sr-only">Sales atau marketing untuk pesanan #{{ $order->order_number }}</label>
                                     <div class="relative">
                                         <span class="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] {{ $order->sold_by ? 'text-primary-container' : 'text-on-surface-variant/50' }}" style="font-variation-settings: 'FILL' {{ $order->sold_by ? 1 : 0 }};">storefront</span>
-                                        <input
+                                        <select
                                             id="sold-by-{{ $order->id }}"
-                                            type="text"
                                             name="sold_by"
-                                            value="{{ $order->sold_by }}"
-                                            maxlength="40"
-                                            placeholder="Sales / marketing"
-                                            title="Sales atau marketing yang membawa pesanan ini"
                                             @change="$el.form.requestSubmit()"
-                                            @keydown.enter.prevent="$el.blur()"
-                                            class="w-full rounded-full border py-1.5 pl-8 pr-2.5 text-[12px] placeholder:font-normal placeholder:text-on-surface-variant/60 transition-[background-color,border-color,box-shadow] duration-200 focus:border-outline-variant focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->sold_by ? 'border-outline-variant/60 bg-surface-container font-semibold text-on-surface' : 'border-dashed border-outline-variant bg-transparent text-on-surface' }}"
+                                            title="Sales atau marketing yang membawa pesanan ini (dari daftar HR)"
+                                            class="w-full cursor-pointer appearance-none rounded-full border py-1.5 pl-8 pr-7 text-[12px] transition-[background-color,border-color,box-shadow] duration-200 focus:border-outline-variant focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->sold_by ? 'border-outline-variant/60 bg-surface-container font-semibold text-on-surface' : 'border-dashed border-outline-variant bg-transparent text-on-surface-variant' }}"
                                         >
+                                            <option value="">Pilih sales / marketing...</option>
+                                            @php
+                                                $teamOptions = $hrNames->diff($atmintNames)->values();
+                                                $knownSales = $hrNames->concat($atmintNames);
+                                            @endphp
+                                            @if ($teamOptions->isNotEmpty())
+                                                <optgroup label="Tim (HR)">
+                                                    @foreach ($teamOptions as $person)
+                                                        <option value="{{ $person }}" @selected($order->sold_by === $person)>{{ $person }}</option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @endif
+                                            @if ($atmintNames->isNotEmpty())
+                                                <optgroup label="Atmint">
+                                                    @foreach ($atmintNames as $person)
+                                                        <option value="{{ $person }}" @selected($order->sold_by === $person)>{{ $person }}</option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @endif
+                                            @if ($order->sold_by && ! $knownSales->contains($order->sold_by))
+                                                <option value="{{ $order->sold_by }}" selected>{{ $order->sold_by }}</option>
+                                            @endif
+                                        </select>
+                                        <span class="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant/70">expand_more</span>
                                     </div>
                                 </form>
                             </td>

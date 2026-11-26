@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Component;
+use App\Models\Employee;
 use App\Models\Order;
 use App\Models\SiteSetting;
 use App\Models\User;
@@ -59,12 +60,13 @@ class OrderAttributionTest extends TestCase
 
     public function test_staff_can_set_and_clear_atmint_and_sales_person(): void
     {
+        Employee::create(['name' => 'Muhammad Jordan', 'position' => 'Anggota', 'rotation_order' => 1]);
         $order = $this->place('Pembeli Empat');
 
-        $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['chat_admin' => 'Atmint Amba', 'sold_by' => ' Jordan '])
+        $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['chat_admin' => 'Atmint Amba', 'sold_by' => 'Muhammad Jordan'])
             ->assertSessionHas('success');
         $this->assertSame('Atmint Amba', $order->fresh()->chat_admin);
-        $this->assertSame('Jordan', $order->fresh()->sold_by);
+        $this->assertSame('Muhammad Jordan', $order->fresh()->sold_by);
 
         $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['chat_admin' => '', 'sold_by' => ''])
             ->assertSessionHas('success');
@@ -150,5 +152,33 @@ class OrderAttributionTest extends TestCase
         $this->assertSame('Atmint Rusdi', $komang->fresh()->chat_admin);
         $this->assertNull($afif->fresh()->chat_admin);
         $this->assertSame('Atmint Rusdi', $already->fresh()->chat_admin);
+    }
+
+    public function test_sales_is_picked_from_hr_or_the_atmints_and_nothing_else(): void
+    {
+        Employee::create(['name' => 'Muhammad Jordan', 'position' => 'Anggota', 'rotation_order' => 1]);
+        Employee::create(['name' => 'Orang Nonaktif', 'position' => 'Anggota', 'rotation_order' => 2, 'is_active' => false]);
+        $order = $this->place('Pembeli Sales');
+
+        $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['sold_by' => 'Siapa Saja'])->assertSessionHas('error');
+        $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['sold_by' => 'Orang Nonaktif'])->assertSessionHas('error');
+        $this->assertNull($order->fresh()->sold_by);
+
+        $this->actingAs($this->staff())->post(route('staff.orders.attribution', $order), ['sold_by' => 'Atmint Amba'])->assertSessionHas('success');
+        $this->assertSame('Atmint Amba', $order->fresh()->sold_by);
+
+        $this->actingAs($this->staff())->get(route('staff.orders.index'))->assertOk()->assertSee('Muhammad Jordan')->assertDontSee('Orang Nonaktif');
+    }
+
+    public function test_the_hr_name_migration_replaces_jordan_with_the_hr_spelling(): void
+    {
+        Employee::create(['name' => 'Muhammad Jordan', 'position' => 'Anggota', 'rotation_order' => 1]);
+        $order = $this->place('Pembeli Jordan');
+        $order->update(['sold_by' => 'Jordan']);
+
+        $migration = require database_path('migrations/2026_11_26_170000_use_the_hr_name_for_sold_by_jordan.php');
+        $migration->up();
+
+        $this->assertSame('Muhammad Jordan', $order->fresh()->sold_by);
     }
 }

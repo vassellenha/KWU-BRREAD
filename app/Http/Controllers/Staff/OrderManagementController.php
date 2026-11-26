@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Component;
+use App\Models\Employee;
 use App\Models\Order;
 use App\Models\StockMovement;
 use App\Services\OrderEditor;
@@ -113,6 +114,7 @@ class OrderManagementController extends Controller
             'pickup' => $pickup,
             'atmint' => $atmint,
             'atmintNames' => $atmintNames,
+            'hrNames' => $this->hrNames(),
             'atmintChips' => $atmintChips,
             'atmintUnset' => $atmintUnset,
             'pickupDays' => $pickupDays,
@@ -270,16 +272,29 @@ class OrderManagementController extends Controller
         return back()->with('success', "Pesanan #{$order->order_number} bisa diambil pada ".$order->pickup_on->locale('id')->translatedFormat('l, j F Y').'. Halaman tracking pembeli ikut berubah.');
     }
 
+    /**
+     * The active people in HR, in rotation order: who can be credited with an order as sales or marketing.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function hrNames(): \Illuminate\Support\Collection
+    {
+        return Employee::where('is_active', true)->orderBy('rotation_order')->orderBy('name')->pluck('name')->unique()->values();
+    }
+
     public function setAttribution(Request $request, Order $order): RedirectResponse
     {
         $names = collect(ContactInfo::get()['whatsapp_links'])->pluck('name')->push($order->chat_admin)->filter()->unique()->values()->all();
 
+        // Sales or marketing is picked from the people in HR (and the atmints), never typed in.
+        $salesPeople = $this->hrNames()->concat($names)->push($order->sold_by)->filter()->unique()->values()->all();
+
         $validator = Validator::make($request->all(), [
             'chat_admin' => ['nullable', 'string', 'max:80', Rule::in($names)],
-            'sold_by' => ['nullable', 'string', 'max:40'],
+            'sold_by' => ['nullable', 'string', 'max:80', Rule::in($salesPeople)],
         ], [
             'chat_admin.in' => 'Atmint tersebut tidak ada di daftar kontak WhatsApp.',
-            'sold_by.max' => 'Nama sales/marketing maksimal 40 karakter.',
+            'sold_by.in' => 'Sales/marketing harus dipilih dari daftar tim di menu HR.',
         ]);
 
         if ($validator->fails()) {
