@@ -153,4 +153,18 @@ class OrderPickupDateTest extends TestCase
             ->assertSee('Atmint Chicarron', false)
             ->assertSee('https:\/\/wa.me\/6289602751180', false);
     }
+
+    public function test_the_kuno_migration_styles_chicarron_once(): void
+    {
+        $migration = require base_path('database/migrations/2026_11_26_140000_give_atmint_chicarron_the_kuno_style.php');
+
+        SiteSetting::put(['contact_whatsapp' => 'Atmint Amba: 0821 3601 9367, Atmint Chicarron: +62 896-0275-1180']);
+        $migration->up();
+        $migration->up();
+
+        $this->assertSame(
+            'Atmint Amba: 0821 3601 9367, Atmint Chicarron: +62 896-0275-1180 (kuno)',
+            SiteSetting::query()->where('key', 'contact_whatsapp')->value('value'),
+        );
+    }
 }

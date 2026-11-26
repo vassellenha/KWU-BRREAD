@@ -813,8 +813,37 @@ Alpine.data('cartDrawer', () => ({
         const adminName = /[A-Za-z]/.test(admin.name || '') ? admin.name : 'Brread!';
         const money = formatPrice(total);
 
-        // Each admin has a message style set in the panel: "ceria" (playful, text emoticons only: real emoji arrive broken in WhatsApp) or "formal" (corporate).
-        const text = admin.style === 'formal'
+        // The same creations in old-fashioned English, for the "kuno" style.
+        const oldCreations = items.map((item, i) => {
+            const toppings = item.toppings?.length ? item.toppings.map((t) => t.name).join(', ') : 'no toppings';
+            return [
+                `${i + 1}. ${item.quantity}x sandwich`,
+                `   Bread: ${item.bread?.name ?? '-'}`,
+                `   Ice cream: ${item.flavor?.name ?? '-'}`,
+                `   Toppings: ${toppings}`,
+            ].join('\n');
+        });
+
+        // Each admin has a message style set in the panel: "ceria" (playful, text emoticons only: real emoji arrive broken in WhatsApp), "formal" (corporate) or "kuno" (old-fashioned English).
+        const text = admin.style === 'kuno'
+            ? [
+                `Hail, noble ${adminName}!`,
+                'Thus do I write unto thee, that I may confirm mine order, as is meet and proper.',
+                '',
+                `Name: ${name}`,
+                `Number: ${phone}`,
+                `Order No.: #${orderNumber}`,
+                '',
+                'Mine order, as thou shalt see:',
+                ...oldCreations,
+                '',
+                `Sum owed: ${money}`,
+                '',
+                'Prithee, make known unto me the manner of payment, that I may settle it forthwith.',
+                'Vive Brread! I remain thy most humble and obedient servant,',
+                name,
+            ].join('\n')
+            : admin.style === 'formal'
             ? [
                 `Halo, ${adminName}.`,
                 '',

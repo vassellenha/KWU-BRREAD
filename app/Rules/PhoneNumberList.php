@@ -35,7 +35,7 @@ class PhoneNumberList implements ValidationRule
             // An optional message style in brackets after the number: "0821 3601 9367 (ceria)".
             if (preg_match('/\(([^)]*)\)\s*$/', $number, $match)) {
                 if (! in_array(strtolower(trim($match[1])), ContactStyles::ALL, true)) {
-                    $fail('The message style must be '.implode(' or ', ContactStyles::ALL).'.');
+                    $fail('The message style must be '.implode(', ', ContactStyles::ALL).'.');
 
                     return;
                 }

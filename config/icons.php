@@ -47,6 +47,7 @@ return [
         'edit',
         'edit_note',
         'error',
+        'event',
         'event_repeat',
         'event_upcoming',
         'expand_more',

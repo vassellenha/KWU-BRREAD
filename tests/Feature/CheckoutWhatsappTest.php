@@ -89,6 +89,21 @@ class CheckoutWhatsappTest extends TestCase
             ->assertSee('&quot;style&quot;:&quot;formal&quot;', false);
     }
 
+    public function test_the_kuno_style_is_accepted_and_reaches_the_checkout(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $payload = ['contact_name' => 'x', 'contact_phone' => '0812 3456 7890', 'instagram_handle' => 'brread'];
+
+        $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => 'Atmint Chicarron: +62 896-0275-1180 (kuno)'])
+            ->assertSessionHasNoErrors();
+
+        $this->get('/menu')->assertOk()->assertSee('&quot;style&quot;:&quot;kuno&quot;', false);
+
+        $js = file_get_contents(base_path('resources/js/app.js'));
+        $this->assertStringContainsString("admin.style === 'kuno'", $js);
+        $this->assertStringContainsString('Thus do I write unto thee', $js);
+    }
+
     public function test_an_unknown_message_style_is_refused(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);

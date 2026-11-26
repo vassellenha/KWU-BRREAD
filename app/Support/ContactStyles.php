@@ -9,5 +9,8 @@ class ContactStyles
 
     public const FORMAL = 'formal';
 
-    public const ALL = [self::CERIA, self::FORMAL];
+    /** Old-fashioned English, thee and thy included: a joke style for one admin. */
+    public const KUNO = 'kuno';
+
+    public const ALL = [self::CERIA, self::FORMAL, self::KUNO];
 }
