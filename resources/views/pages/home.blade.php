@@ -284,15 +284,10 @@
                 </div>
 
                 @php
-                    // The three newest reviews that came with a photo; until there are three, the launch photos fill the rest.
+                    // The three newest reviews that came with a photo; only real customer photos show here (the admin can hide or delete any of them in Reviews).
                     $tilts = [['-2deg', '-4deg'], ['1.5deg', '3deg'], ['-1deg', '-2deg']];
-                    $launch = [
-                        ['photo' => '/img/marketing/community-mjordan.jpg', 'alt' => 'Man biting into a whole wheat bread and vanilla ice cream sandwich on a campus lawn', 'name' => 'M. Jordan', 'made' => 'Whole Wheat Vanilla', 'quote' => 'Whole wheat with vanilla is not too sweet, and the bread was still firm when I finished it.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:30%;--zoom:1'],
-                        ['photo' => '/img/marketing/community-rizky.jpg', 'alt' => 'Whole wheat bread ice cream sandwich with vanilla ice cream and chocolate sauce poured over the top', 'name' => 'Rizky S.', 'made' => 'Wheat Vanilla Drizzle', 'quote' => 'Arrived in SCBD in 18 minutes and was still frozen solid. The chocolate drizzle on wheat bread works.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:50%;--zoom:1'],
-                        ['photo' => '/img/marketing/community-targaryen.jpg', 'alt' => 'Man sitting by a sports car with an open box of assorted ice cream sandwiches on the hood', 'name' => 'J. Targaryen', 'made' => 'Double Choc Monster', 'quote' => 'Ordered 20 boxes for our agency Friday treats and the team finished them in minutes.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:35%;--zoom:1'],
-                    ];
                     $fresh = \App\Support\ReviewFeed::photos(3)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich']);
-                    $polaroids = $fresh->concat(array_slice($launch, 0, max(0, 3 - $fresh->count())))->values();
+                    $polaroids = $fresh->values();
                     $words = \App\Support\ReviewFeed::words(6);
                 @endphp
 
