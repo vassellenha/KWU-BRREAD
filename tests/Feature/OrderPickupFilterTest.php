@@ -105,7 +105,7 @@ class OrderPickupFilterTest extends TestCase
             ->assertDontSee('Belum Konfirmasi')
             ->assertDontSee('Sudah Bayar');
 
-        // "Masuk" still holds both, as before.
+        // The old "Masuk" view (?status=pending) still holds both, though it no longer has a tab.
         $this->actingAs($this->staff())->get(route('staff.orders.index', ['status' => 'pending']))
             ->assertOk()
             ->assertSee('Belum Konfirmasi')

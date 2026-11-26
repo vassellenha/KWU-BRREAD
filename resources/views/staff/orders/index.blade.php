@@ -103,12 +103,11 @@
     </div>
 
     {{-- FILTER TABS & SEARCH BAR --}}
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-space-sm mb-space-md">
-        <nav aria-label="Status filters" class="flex flex-wrap items-center gap-space-xs">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-space-sm md:gap-space-md mb-space-md">
+        <nav aria-label="Status filters" class="flex min-w-0 items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
             @php
                 $statusTabs = [
                     'all' => 'Semua Pesanan',
-                    'pending' => 'Masuk',
                     'unconfirmed' => 'Belum Dikonfirmasi',
                     'confirmed' => 'Sudah Dikonfirmasi',
                     'paid' => 'Pembayaran Berhasil',
@@ -121,19 +120,16 @@
                 @php $isActive = $currentStatus === $tabKey; @endphp
                 <a
                     href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['status' => $tabKey])) }}"
-                    class="press-scale inline-flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 {{ $isActive ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high' }}"
+                    @if ($isActive) aria-current="page" @endif
+                    class="press-scale inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 {{ $isActive ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high' }}"
                 >
                     {{ $tabLabel }}
-                    @if ($tabKey === 'pending' && $stats['pending'] > 0)
-                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-primary text-on-primary font-bold">
-                            {{ $stats['pending'] }}
-                        </span>
-                    @elseif ($tabKey === 'unconfirmed' && $stats['pending'] > 0)
-                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-amber-600 text-white font-bold">
+                    @if ($tabKey === 'unconfirmed' && $stats['pending'] > 0)
+                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-amber-700 text-white font-bold tabular-nums">
                             {{ $stats['pending'] }}
                         </span>
                     @elseif ($tabKey === 'confirmed' && $stats['confirmed'] > 0)
-                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-green-700 text-white font-bold">
+                        <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-green-700 text-white font-bold tabular-nums">
                             {{ $stats['confirmed'] }}
                         </span>
                     @endif
@@ -141,7 +137,7 @@
             @endforeach
         </nav>
 
-        <form method="GET" action="{{ route('staff.orders.index') }}" class="flex items-center gap-space-xs">
+        <form method="GET" action="{{ route('staff.orders.index') }}" class="flex shrink-0 items-center gap-space-xs">
             @if ($currentStatus !== 'all')
                 <input type="hidden" name="status" value="{{ $currentStatus }}">
             @endif
@@ -173,22 +169,30 @@
     @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
         <section aria-label="Filter tanggal ambil" class="mb-space-md">
             <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Tanggal ambil</p>
-            <div class="flex flex-wrap items-center gap-space-xs">
+            <div class="flex items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
                 @php
-                    $chip = fn (bool $active) => 'press-scale inline-flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 '.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+                    $chipBase = 'press-scale inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ';
+                    $chip = fn (bool $active) => $chipBase.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+                    $todayKey = now()->toDateString();
                 @endphp
-                <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}">Semua tanggal</a>
+                <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}" @if ($pickup === '') aria-current="page" @endif>Semua tanggal</a>
                 @foreach ($pickupDays as $day)
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => $day['date']])) }}" class="{{ $chip($pickup === $day['date']) }}">
-                        <span class="material-symbols-outlined text-[14px] shrink-0">event</span>
-                        {{ \Illuminate\Support\Carbon::parse($day['date'])->locale('id')->translatedFormat('D, j M') }}
-                        <span class="tabular-nums opacity-80">{{ $day['orders'] }} pesanan, {{ $day['sandwiches'] }} sandwich</span>
+                    @php $isDayActive = $pickup === $day['date']; @endphp
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => $day['date']])) }}" class="{{ $chip($isDayActive) }}" @if ($isDayActive) aria-current="page" @endif>
+                        <span class="material-symbols-outlined text-[16px] shrink-0">event</span>
+                        <span class="font-bold">{{ \Illuminate\Support\Carbon::parse($day['date'])->locale('id')->translatedFormat('D, j M') }}</span>
+                        @if ($day['date'] === $todayKey)
+                            <span class="rounded-full bg-primary px-1.5 text-[10px] font-bold leading-4 text-on-primary">Hari ini</span>
+                        @endif
+                        <span class="text-[12px] font-normal tabular-nums opacity-80">{{ $day['orders'] }} pesanan · {{ $day['sandwiches'] }} sandwich</span>
                     </a>
                 @endforeach
                 @if ($unscheduled > 0)
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => 'none'])) }}" class="{{ $chip($pickup === 'none') }}">
-                        Belum ada tanggal
-                        <span class="tabular-nums opacity-80">{{ $unscheduled }}</span>
+                    @php $isNoneActive = $pickup === 'none'; @endphp
+                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => 'none'])) }}" class="{{ $chipBase }}{{ $isNoneActive ? 'bg-amber-200 text-amber-900 font-bold shadow-sm' : 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100' }}" @if ($isNoneActive) aria-current="page" @endif>
+                        <span class="material-symbols-outlined text-[16px] shrink-0">schedule</span>
+                        <span class="font-bold">Belum ada tanggal</span>
+                        <span class="text-[12px] font-normal tabular-nums">{{ $unscheduled }} pesanan</span>
                     </a>
                 @endif
             </div>
@@ -475,20 +479,20 @@
 
                                     {{-- PICKUP DATE --}}
                                     @if (!$order->isCancelled())
-                                        <form method="POST" action="{{ route('staff.orders.pickup-date', $order) }}" class="inline-flex items-center gap-1" title="Tanggal pengambilan, tampil di halaman tracking pembeli">
+                                        <form method="POST" action="{{ route('staff.orders.pickup-date', $order) }}" class="inline-flex items-stretch overflow-hidden rounded-full border border-outline-variant bg-surface-container-lowest transition-shadow focus-within:ring-2 focus-within:ring-primary/40" title="Tanggal ambil, tampil di halaman tracking pembeli">
                                             @csrf
-                                            <label for="pickup-{{ $order->id }}" class="sr-only">Tanggal pengambilan pesanan #{{ $order->order_number }}</label>
+                                            <label for="pickup-{{ $order->id }}" class="flex items-center pl-2.5 font-label-md text-[11px] font-semibold text-on-surface-variant">Ambil</label>
                                             <input
                                                 id="pickup-{{ $order->id }}"
                                                 type="date"
                                                 name="pickup_on"
                                                 value="{{ $order->pickup_on?->format('Y-m-d') }}"
                                                 min="{{ now()->toDateString() }}"
-                                                class="rounded-full border border-outline-variant bg-surface px-2 py-0.5 font-label-md text-[11px] text-on-surface"
+                                                class="w-[8.25rem] border-0 bg-transparent px-1.5 py-1 font-label-md text-[11px] text-on-surface focus:outline-none focus:ring-0"
                                             >
-                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-[11px] font-semibold transition-colors" title="Simpan tanggal pengambilan (kosongkan lalu simpan untuk menghapus)">
+                                            <button type="submit" class="press-scale inline-flex items-center gap-1 border-l border-outline-variant bg-surface-container px-2.5 font-label-md text-[11px] font-semibold text-on-surface transition-colors hover:bg-surface-container-high" title="Simpan tanggal ambil (kosongkan lalu simpan untuk menghapus)">
                                                 <span class="material-symbols-outlined text-[14px] shrink-0">event</span>
-                                                <span>Tgl Ambil</span>
+                                                <span>Simpan</span>
                                             </button>
                                         </form>
                                     @endif
