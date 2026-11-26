@@ -65,14 +65,16 @@ class CheckoutWhatsappTest extends TestCase
             ->assertSee('https:\/\/wa.me\/628116362805', false);
     }
 
-    public function test_the_contact_field_accepts_up_to_three_numbers_and_rejects_junk(): void
+    public function test_the_contact_field_accepts_up_to_five_numbers_and_rejects_junk(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $payload = ['contact_name' => 'x', 'contact_phone' => '0812 3456 7890', 'instagram_handle' => 'brread'];
 
         $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => 'Atmint Amba: 0821 3601 9367, Atmint Sandi: 0811 6362 805'])
             ->assertSessionHasNoErrors();
-        $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => '0811111111, 0822222222, 0833333333, 0844444444'])
+        $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => '0811111111, 0822222222, 0833333333, 0844444444, 0855555555'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => '0811111111, 0822222222, 0833333333, 0844444444, 0855555555, 0866666666'])
             ->assertSessionHasErrors('contact_whatsapp');
         $this->actingAs($admin)->put('/staff/site/contact', $payload + ['contact_whatsapp' => '0811111111, abc'])
             ->assertSessionHasErrors('contact_whatsapp');

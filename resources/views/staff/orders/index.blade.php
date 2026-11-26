@@ -427,6 +427,26 @@
                                         </form>
                                     @endif
 
+                                    {{-- PICKUP DATE --}}
+                                    @if (!$order->isCancelled())
+                                        <form method="POST" action="{{ route('staff.orders.pickup-date', $order) }}" class="inline-flex items-center gap-1" title="Tanggal pengambilan, tampil di halaman tracking pembeli">
+                                            @csrf
+                                            <label for="pickup-{{ $order->id }}" class="sr-only">Tanggal pengambilan pesanan #{{ $order->order_number }}</label>
+                                            <input
+                                                id="pickup-{{ $order->id }}"
+                                                type="date"
+                                                name="pickup_on"
+                                                value="{{ $order->pickup_on?->format('Y-m-d') }}"
+                                                min="{{ now()->toDateString() }}"
+                                                class="rounded-full border border-outline-variant bg-surface px-2 py-0.5 font-label-md text-[11px] text-on-surface"
+                                            >
+                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-[11px] font-semibold transition-colors" title="Simpan tanggal pengambilan (kosongkan lalu simpan untuk menghapus)">
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">event</span>
+                                                <span>Tgl Ambil</span>
+                                            </button>
+                                        </form>
+                                    @endif
+
                                     {{-- CANCEL BUTTON --}}
                                     @if (!$order->isCancelled() && !$order->isReady())
                                         <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dibatalkan dan stok bahan dipulihkan." data-confirm-title="Batalkan pesanan?" data-confirm-label="Ya, batalkan" data-cancel-label="Kembali" data-confirm-tone="danger">

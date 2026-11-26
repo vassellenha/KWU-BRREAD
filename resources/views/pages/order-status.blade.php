@@ -114,6 +114,12 @@
                                     <dd>{{ $order->paid_at->format('d M Y, H:i') }} WIB</dd>
                                 </div>
                             @endif
+                            @if ($order->pickup_on && ! $order->isCancelled())
+                                <div>
+                                    <dt>Diambil pada</dt><i class="tk__lead" aria-hidden="true"></i>
+                                    <dd>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</dd>
+                                </div>
+                            @endif
                             @if ($order->ready_at)
                                 <div>
                                     <dt>Siap diambil</dt><i class="tk__lead" aria-hidden="true"></i>
@@ -183,13 +189,23 @@
                             <p>
                                 @if ($order->isReady())
                                     <b>Pesananmu siap diambil!</b>
-                                    Datang ke konter toko dan sebutkan nomor pesananmu. Kalau sempat, tulis ulasan di bawah ya.
+                                    @if ($order->pickup_on)
+                                        Ambil pesananmu pada <b>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</b> dan sebutkan nomor pesananmu. Kalau sempat, tulis ulasan di bawah ya.
+                                    @else
+                                        Datang ke konter toko dan sebutkan nomor pesananmu. Kalau sempat, tulis ulasan di bawah ya.
+                                    @endif
                                 @elseif ($order->isProcessing())
                                     <b>Pesananmu lagi disiapkan.</b>
                                     Sandwich-nya dibikin sekarang. Halaman ini berubah begitu pesananmu siap diambil.
+                                    @if ($order->pickup_on)
+                                        <span class="block">Jadwal pengambilan: <b>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</b>.</span>
+                                    @endif
                                 @elseif ($order->isPaid())
                                     <b>Pembayaran berhasil, makasih!</b>
                                     Pesananmu segera disiapkan.
+                                    @if ($order->pickup_on)
+                                        <span class="block">Jadwal pengambilan: <b>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</b>.</span>
+                                    @endif
                                 @elseif ($order->isConfirmed())
                                     <b>Pesananmu udah masuk!</b>
                                     Selesaikan pembayaran lewat chat WhatsApp dengan admin (QRIS atau metode lain). Begitu admin mencatat pembayaranmu, halaman ini ikut berubah.

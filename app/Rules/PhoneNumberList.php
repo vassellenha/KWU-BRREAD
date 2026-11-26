@@ -8,10 +8,10 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 class PhoneNumberList implements ValidationRule
 {
-    public const MAX_NUMBERS = 3;
+    public const MAX_NUMBERS = 5;
 
     /**
-     * One to three admins separated by commas, each "Name: number" or just a number, the number a valid PhoneNumber.
+     * One to five admins separated by commas, each "Name: number" or just a number, the number a valid PhoneNumber.
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {

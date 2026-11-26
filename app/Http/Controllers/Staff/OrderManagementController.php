@@ -11,6 +11,7 @@ use App\Support\IngredientIcon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -176,6 +177,41 @@ class OrderManagementController extends Controller
         });
 
         return back()->with(...$outcome);
+    }
+
+    /**
+     * The day the customer can collect the order (a market day, say). It shows on the customer's tracking page;
+     * saving an empty date takes it off again. Saving bumps updated_at, so an open tracking page notices the change.
+     */
+    public function setPickupDate(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->isCancelled()) {
+            return back()->with('error', 'Pesanan yang sudah dibatalkan tidak perlu tanggal pengambilan.');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pickup_on' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before:'.now()->addYear()->toDateString()],
+        ], [
+            'pickup_on.date_format' => 'Tanggal pengambilan tidak valid.',
+            'pickup_on.after_or_equal' => 'Tanggal pengambilan tidak boleh sebelum hari ini.',
+            'pickup_on.before' => 'Tanggal pengambilan maksimal satu tahun dari sekarang.',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        $date = $validator->validated()['pickup_on'] ?? null;
+
+        if ($date === null) {
+            $order->update(['pickup_on' => null]);
+
+            return back()->with('success', "Tanggal pengambilan pesanan #{$order->order_number} dihapus.");
+        }
+
+        $order->update(['pickup_on' => $date]);
+
+        return back()->with('success', "Pesanan #{$order->order_number} bisa diambil pada ".$order->pickup_on->locale('id')->translatedFormat('l, j F Y').'. Halaman tracking pembeli ikut berubah.');
     }
 
     public function cancel(Order $order): RedirectResponse
