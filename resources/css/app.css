@@ -335,6 +335,11 @@
     transform-origin: var(--fx, 50%) var(--fy, 50%);
 }
 
+/* A free spot on the Home wall: the same 4:5 frame, empty and dashed, waiting for a customer photo. */
+.review-frame--empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: repeating-linear-gradient(-45deg, rgba(247, 163, 182, 0.14) 0 10px, transparent 10px 20px), #fff; border: 3px dashed rgba(59, 31, 22, 0.3); border-radius: 4px; text-align: center; }
+.review-frame--empty .material-symbols-outlined { font-size: 44px; color: var(--color-primary, #c74659); opacity: 0.8; }
+.polaroid--empty { opacity: 0.95; }
+
 /* Several photos in one review: the big frame, then a row of small thumbnails to flip between them. */
 .review-gallery__dots { display: flex; gap: 6px; margin: -4px 0 var(--space-sm, 12px); }
 .review-gallery__dot { width: 34px; height: 34px; padding: 0; border: 2px solid var(--color-on-surface, #3b1f16); border-radius: 6px; overflow: hidden; background: #fff; opacity: 0.6; cursor: pointer; transition: opacity 160ms ease-out, transform 160ms ease-out; }

@@ -311,6 +311,22 @@
                             </figure>
                         </div>
                     @endforeach
+
+                    {{-- Free spots on the wall: empty frames that invite the next customer to add a photo to their review. --}}
+                    @for ($i = $polaroids->count(); $i < 3; $i++)
+                        <div data-reveal>
+                            <figure class="polaroid polaroid--empty flex flex-col h-full" style="--tilt: {{ $tilts[$i][0] }}; --tape: {{ $tilts[$i][1] }}">
+                                <div class="review-frame review-frame--empty w-full mb-space-sm">
+                                    <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
+                                    <span class="font-hand text-[28px] leading-none text-primary">your photo here</span>
+                                </div>
+                                <figcaption class="mb-space-xs">
+                                    <span class="font-hand text-[30px] leading-none text-on-surface-variant">This spot is yours</span>
+                                </figcaption>
+                                <p class="font-body-md text-body-md text-on-surface-variant">Order a sandwich, then add a photo and a few words to your review on the order page. The best ones land right here.</p>
+                            </figure>
+                        </div>
+                    @endfor
                 </div>
 
                 {{-- Reviews that came with words only: newest first, as little order tickets under the photos. --}}
