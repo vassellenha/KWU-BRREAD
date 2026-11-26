@@ -176,9 +176,10 @@
 
     {{-- PICKUP DAY FILTER: who collects on which day, and how many sandwiches that is --}}
     @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
-        <section aria-label="Filter tanggal ambil" class="mb-space-md">
-            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Tanggal ambil</p>
-            <div class="flex items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
+        <section aria-label="Filter tanggal ambil" class="mb-space-sm flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-space-md">
+            <p class="shrink-0 pt-1.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold lg:w-28">Tanggal ambil</p>
+            <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-space-xs">
                 <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}" @if ($pickup === '') aria-current="page" @endif>Semua tanggal</a>
                 @foreach ($pickupDays as $day)
                     @php $isDayActive = $pickup === $day['date']; @endphp
@@ -204,14 +205,16 @@
             @if ($selectedDay)
                 <p class="mt-1.5 text-[12px] text-on-surface-variant">Diambil {{ \Illuminate\Support\Carbon::parse($selectedDay['date'])->locale('id')->translatedFormat('l, j F Y') }}: {{ implode(', ', $selectedDay['people']) }}. Angka dalam kurung adalah jumlah sandwich.</p>
             @endif
+            </div>
         </section>
     @endif
 
     {{-- ATMINT FILTER: which atmint the customer chatted with, so you can see who holds the most orders --}}
     @if ($atmintChips->isNotEmpty() || $atmintUnset > 0 || $atmint !== '')
-        <section aria-label="Filter atmint" class="mb-space-md">
-            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold mb-1.5">Chat via atmint</p>
-            <div class="flex items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
+        <section aria-label="Filter atmint" class="mb-space-md flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-space-md">
+            <p class="shrink-0 pt-1.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold lg:w-28">Chat via atmint</p>
+            <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-space-xs">
                 <a href="{{ route('staff.orders.index', request()->except('page', 'atmint')) }}" class="{{ $chip($atmint === '') }}" @if ($atmint === '') aria-current="page" @endif>Semua atmint</a>
                 @foreach ($atmintChips as $atmintChip)
                     @php $isAtmintActive = $atmint === $atmintChip['name']; @endphp
@@ -230,6 +233,7 @@
                     </a>
                 @endif
             </div>
+            </div>
         </section>
     @endif
 
@@ -241,7 +245,7 @@
                 <thead>
                     <tr class="border-b border-outline-variant/30 bg-surface-container/40">
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-40">No. Pesanan</th>
-                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-44">Pembeli</th>
+                        <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-52">Pembeli</th>
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Rincian Item</th>
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-28 text-right">Total</th>
                         <th class="px-space-md py-space-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold w-32 text-center">Status</th>
@@ -295,20 +299,34 @@
                                     <span class="material-symbols-outlined text-[15px] shrink-0 text-green-600">forum</span>
                                     <span>{{ $order->customer_phone }}</span>
                                 </a>
-                                @if ($order->chat_admin || $order->sold_by)
-                                    <div class="mt-1.5 flex flex-wrap gap-1">
-                                        @if ($order->chat_admin)
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-medium text-on-surface-variant" title="Pembeli chat lewat atmint ini">
-                                                <span class="material-symbols-outlined text-[13px] shrink-0">forum</span>{{ $order->chat_admin }}
-                                            </span>
-                                        @endif
-                                        @if ($order->sold_by)
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container/60 px-2 py-0.5 text-[11px] font-medium text-on-surface-variant" title="Sales / marketing yang membawa pesanan ini">
-                                                <span class="material-symbols-outlined text-[13px] shrink-0">storefront</span>{{ $order->sold_by }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                @endif
+                                {{-- Saves as soon as a value changes: no extra button to hunt for. --}}
+                                <form method="POST" action="{{ route('staff.orders.attribution', $order) }}" x-data class="mt-2 space-y-1">
+                                    @csrf
+                                    <label for="chat-admin-{{ $order->id }}" class="sr-only">Chat via atmint untuk pesanan #{{ $order->order_number }}</label>
+                                    <select
+                                        id="chat-admin-{{ $order->id }}"
+                                        name="chat_admin"
+                                        @change="$el.form.requestSubmit()"
+                                        class="w-full rounded-full border py-1 pl-2.5 pr-6 text-[12px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 {{ $order->chat_admin ? 'border-outline-variant bg-surface-container-lowest text-on-surface' : 'border-amber-300 bg-amber-50 text-amber-800' }}"
+                                    >
+                                        <option value="">Pilih atmint...</option>
+                                        @foreach ($atmintNames->concat([$order->chat_admin])->filter()->unique() as $atmintName)
+                                            <option value="{{ $atmintName }}" @selected($order->chat_admin === $atmintName)>{{ $atmintName }}</option>
+                                        @endforeach
+                                    </select>
+                                    <label for="sold-by-{{ $order->id }}" class="sr-only">Sales atau marketing untuk pesanan #{{ $order->order_number }}</label>
+                                    <input
+                                        id="sold-by-{{ $order->id }}"
+                                        type="text"
+                                        name="sold_by"
+                                        value="{{ $order->sold_by }}"
+                                        maxlength="40"
+                                        placeholder="Sales / marketing"
+                                        @change="$el.form.requestSubmit()"
+                                        @keydown.enter.prevent="$el.blur()"
+                                        class="w-full rounded-full border border-outline-variant/60 bg-transparent px-2.5 py-1 text-[12px] text-on-surface placeholder:text-on-surface-variant/60 transition-colors focus:border-outline-variant focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    >
+                                </form>
                             </td>
 
                             {{-- ITEMS SUMMARY --}}
@@ -540,31 +558,6 @@
                                             </button>
                                         </form>
                                     @endif
-
-                                    {{-- ATMINT AND SALES --}}
-                                    <details class="group w-full">
-                                        <summary class="press-scale inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 font-label-md text-[11px] font-semibold text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&::-webkit-details-marker]:hidden" title="Catat atmint dan sales/marketing pesanan ini">
-                                            <span class="material-symbols-outlined text-[14px] shrink-0">forum</span>
-                                            <span>Atmint &amp; sales</span>
-                                            <span class="material-symbols-outlined text-[14px] shrink-0 transition-transform duration-200 group-open:rotate-180">expand_more</span>
-                                        </summary>
-                                        <form method="POST" action="{{ route('staff.orders.attribution', $order) }}" class="mt-1.5 space-y-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-2 text-left">
-                                            @csrf
-                                            <label for="chat-admin-{{ $order->id }}" class="block text-[11px] font-semibold text-on-surface-variant">Chat via atmint</label>
-                                            <select id="chat-admin-{{ $order->id }}" name="chat_admin" class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-1 text-[12px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
-                                                <option value="">Belum tercatat</option>
-                                                @foreach ($atmintNames->concat([$order->chat_admin])->filter()->unique() as $atmintName)
-                                                    <option value="{{ $atmintName }}" @selected($order->chat_admin === $atmintName)>{{ $atmintName }}</option>
-                                                @endforeach
-                                            </select>
-                                            <label for="sold-by-{{ $order->id }}" class="block text-[11px] font-semibold text-on-surface-variant">Sales / marketing</label>
-                                            <input id="sold-by-{{ $order->id }}" type="text" name="sold_by" value="{{ $order->sold_by }}" maxlength="40" placeholder="Contoh: Jordan" class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-1 text-[12px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
-                                            <button type="submit" class="press-scale inline-flex w-full items-center justify-center gap-1 rounded-full bg-primary-container px-2.5 py-1 font-label-md text-[11px] font-semibold text-on-primary-container hover:opacity-95">
-                                                <span class="material-symbols-outlined text-[14px] shrink-0">check_circle</span>
-                                                <span>Simpan</span>
-                                            </button>
-                                        </form>
-                                    </details>
 
                                     {{-- CANCEL BUTTON --}}
                                     @if (!$order->isCancelled() && !$order->isReady())
