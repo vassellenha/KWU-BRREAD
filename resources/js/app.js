@@ -465,14 +465,59 @@ async function shrinkPhotoInput(input) {
 Alpine.data('reviewPhotoEditor', (config) => ({
     open: false,
     editText: false,
-    src: config.src,
-    width: config.width,
-    height: config.height,
-    fit: config.fit,
-    zoom: config.zoom,
-    fx: config.fx,
-    fy: config.fy,
+    photos: config.photos ?? [], // the saved photos: { id, src, width, height, fit, zoom, fx, fy, update, remove }
+    addUrl: config.add,
+    max: config.max ?? 4,
+    active: 0, // index into photos, or -1 while a new photo is being added
+    src: '',
+    width: null,
+    height: null,
+    fit: 'auto',
+    zoom: 100,
+    fx: 50,
+    fy: 50,
     error: '',
+
+    init() {
+        this.load(this.photos.length ? 0 : -1);
+    },
+
+    // Puts one saved photo (or the blank "new photo" state) into the controls.
+    load(index) {
+        this.active = index;
+        this.error = '';
+        if (this.$refs?.file) this.$refs.file.value = '';
+        const photo = this.photos[index];
+        this.src = photo?.src ?? '';
+        this.width = photo?.width ?? null;
+        this.height = photo?.height ?? null;
+        this.fit = photo?.fit ?? 'auto';
+        this.zoom = photo?.zoom ?? 100;
+        this.fx = photo?.fx ?? 50;
+        this.fy = photo?.fy ?? 50;
+    },
+
+    select(index) {
+        this.load(index);
+        this.open = true;
+    },
+
+    addNew() {
+        this.load(-1);
+        this.open = true;
+    },
+
+    get isNew() {
+        return this.active < 0 || !this.photos[this.active];
+    },
+
+    get canAdd() {
+        return this.photos.length < this.max;
+    },
+
+    get formAction() {
+        return this.isNew ? this.addUrl : this.photos[this.active].update;
+    },
 
     get resolved() {
         if (this.fit !== 'auto') return this.fit;

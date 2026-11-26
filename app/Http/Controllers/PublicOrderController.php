@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -92,7 +93,7 @@ class PublicOrderController extends Controller
             ->values();
 
         return view('pages.order-status', [
-            'order' => $order->loadMissing('reviewPhoto:id,order_id,width,height,updated_at'),
+            'order' => $order->loadMissing('reviewPhotos:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom'),
             'revision' => $revision,
             'version' => $this->versionOf($order),
             'creations' => $creations,
@@ -163,10 +164,18 @@ class PublicOrderController extends Controller
                 : back()->with('error', $message);
         }
 
-        // A photo always needs a few words with it: a picture alone says nothing about the sandwich.
+        // Up to four photos (`photos[]`; the old single `photo` still works). They always need a few words with them.
+        $files = array_values(array_filter(array_merge(
+            Arr::wrap($request->file('photos')),
+            Arr::wrap($request->file('photo')),
+        )));
+        $hasPhotos = $files !== [];
+
         $validated = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
-            'review_text' => [$finish ? 'required' : 'nullable', 'string', 'max:1000', 'required_with:photo', 'min:'.($request->hasFile('photo') ? 10 : ($finish ? 3 : 0))],
+            'review_text' => [$finish ? 'required' : 'nullable', 'string', 'max:1000', 'required_with:photo,photos', 'min:'.($hasPhotos ? 10 : ($finish ? 3 : 0))],
+            'photos' => ['nullable', 'array', 'max:'.ReviewPhoto::MAX_PER_REVIEW],
+            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
             'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
         ], [
             'rating.required' => 'Silakan pilih rating bintang 1 hingga 5.',
@@ -174,7 +183,13 @@ class PublicOrderController extends Controller
             'review_text.max' => 'Ulasan maksimal 1.000 karakter.',
             'review_text.required_with' => 'Foto harus disertai ulasan. Tulis sedikit tentang sandwich-nya ya.',
             'review_text.required' => 'Tulis komentar dulu untuk menyelesaikan pesanan.',
-            'review_text.min' => $request->hasFile('photo') ? 'Ulasan untuk foto minimal 10 karakter.' : 'Komentar minimal 3 karakter.',
+            'review_text.min' => $hasPhotos ? 'Ulasan untuk foto minimal 10 karakter.' : 'Komentar minimal 3 karakter.',
+            'photos.max' => 'Foto maksimal '.ReviewPhoto::MAX_PER_REVIEW.' per ulasan.',
+            'photos.*.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
+            'photos.*.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
+            'photos.*.max' => 'Setiap foto maksimal 6 MB.',
+            'photos.*.dimensions' => 'Foto terlalu kecil atau terlalu besar (minimal 200 px per sisi).',
+            'photos.*.uploaded' => 'Foto gagal diunggah. Coba foto yang lebih kecil.',
             'photo.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
             'photo.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
             'photo.max' => 'Foto maksimal 6 MB.',
@@ -182,27 +197,35 @@ class PublicOrderController extends Controller
             'photo.uploaded' => 'Foto gagal diunggah. Coba foto yang lebih kecil.',
         ]);
 
-        $picture = null;
-        if ($request->hasFile('photo')) {
+        if (count($files) > ReviewPhoto::MAX_PER_REVIEW) {
+            $message = 'Foto maksimal '.ReviewPhoto::MAX_PER_REVIEW.' per ulasan.';
+
+            return $request->wantsJson()
+                ? response()->json(['message' => $message, 'errors' => ['photos' => [$message]]], 422)
+                : back()->withErrors(['photos' => $message])->withInput();
+        }
+
+        $pictures = [];
+        foreach ($files as $file) {
             try {
-                $picture = ReviewImage::fromUpload($request->file('photo'));
+                $pictures[] = ReviewImage::fromUpload($file);
             } catch (Throwable) {
                 $message = 'Foto tidak bisa dibaca. Coba foto lain ya.';
 
                 return $request->wantsJson()
-                    ? response()->json(['message' => $message, 'errors' => ['photo' => [$message]]], 422)
-                    : back()->withErrors(['photo' => $message])->withInput();
+                    ? response()->json(['message' => $message, 'errors' => ['photos' => [$message]]], 422)
+                    : back()->withErrors(['photos' => $message])->withInput();
             }
         }
 
-        DB::transaction(function () use ($order, $validated, $picture, $finish) {
+        DB::transaction(function () use ($order, $validated, $pictures, $finish) {
             $order->update([
                 'rating' => $validated['rating'],
                 'review_text' => ! empty($validated['review_text']) ? trim($validated['review_text']) : null,
                 'reviewed_at' => now(),
             ] + ($finish ? ['status' => Order::STATUS_COMPLETED, 'completed_at' => now()] : []));
-            if ($picture) {
-                $order->reviewPhoto()->create($picture);
+            foreach ($pictures as $picture) {
+                $order->reviewPhotos()->create($picture);
             }
         });
 
@@ -214,7 +237,8 @@ class PublicOrderController extends Controller
                 'message' => $thanks,
                 'rating' => $order->rating,
                 'review_text' => $order->review_text,
-                'photo' => $order->reviewPhoto?->url(),
+                'photo' => $order->reviewPhotos()->first()?->url(),
+                'photos' => $order->reviewPhotos()->get()->map->url()->all(),
                 'completed' => $order->isCompleted(),
             ]);
         }

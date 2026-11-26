@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\ReviewPhoto;
 use App\Support\ReviewImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Arr;
@@ -37,7 +38,7 @@ class ReviewController extends Controller
 
         $query = Order::query()
             ->whereNotNull('rating')
-            ->with('reviewPhoto:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom')
+            ->with('reviewPhotos:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom')
             ->latest('reviewed_at');
 
         match ($filter) {
@@ -127,7 +128,7 @@ class ReviewController extends Controller
                 'review_hidden_at' => null,
             ]);
             if ($picture) {
-                $order->reviewPhoto()->create($picture);
+                $order->reviewPhotos()->create($picture);
             }
         });
 
@@ -154,29 +155,50 @@ class ReviewController extends Controller
         return back()->with('status', 'Ulasan pesanan #'.$order->order_number.' diperbarui.');
     }
 
-    /** Replaces the photo of a review (or adds one) and sets how it sits in the frame on the public pages. */
-    public function updatePhoto(Request $request, Order $order): RedirectResponse
+    private const PHOTO_RULES = [
+        'fit' => ['required', 'in:auto,cover,contain'],
+        'zoom' => ['required', 'integer', 'between:100,300'],
+        'focus_x' => ['required', 'integer', 'between:0,100'],
+        'focus_y' => ['required', 'integer', 'between:0,100'],
+    ];
+
+    private const PHOTO_FILE = ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'];
+
+    private const PHOTO_MESSAGES = [
+        'photo.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
+        'photo.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
+        'photo.max' => 'Foto maksimal 6 MB.',
+        'photo.dimensions' => 'Foto terlalu kecil atau terlalu besar (minimal 200 px per sisi).',
+    ];
+
+    /** Adds one more photo to a review (up to ReviewPhoto::MAX_PER_REVIEW) and sets how it sits in the frame. */
+    public function addPhoto(Request $request, Order $order): RedirectResponse
     {
         abort_unless($order->hasReview(), 404);
 
-        $validated = $request->validate([
-            'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
-            'fit' => ['required', Rule::in(['auto', 'cover', 'contain'])],
-            'zoom' => ['required', 'integer', 'between:100,300'],
-            'focus_x' => ['required', 'integer', 'between:0,100'],
-            'focus_y' => ['required', 'integer', 'between:0,100'],
-        ], [
-            'photo.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
-            'photo.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
-            'photo.max' => 'Foto maksimal 6 MB.',
-            'photo.dimensions' => 'Foto terlalu kecil atau terlalu besar (minimal 200 px per sisi).',
+        $validated = $request->validate(['photo' => ['required', ...self::PHOTO_FILE]] + self::PHOTO_RULES, self::PHOTO_MESSAGES + [
+            'photo.required' => 'Pilih foto dulu.',
         ]);
 
-        $existing = $order->reviewPhoto;
-
-        if (! $existing && ! $request->hasFile('photo')) {
-            return back()->withErrors(['photo' => 'Pilih foto dulu.']);
+        if ($order->reviewPhotos()->count() >= ReviewPhoto::MAX_PER_REVIEW) {
+            return back()->withErrors(['photo' => 'Satu ulasan maksimal '.ReviewPhoto::MAX_PER_REVIEW.' foto. Turunkan salah satu dulu.']);
         }
+
+        try {
+            $picture = ReviewImage::fromUpload($request->file('photo'));
+        } catch (Throwable) {
+            return back()->withErrors(['photo' => 'Foto tidak bisa dibaca. Coba foto lain.']);
+        }
+
+        $order->reviewPhotos()->create($picture + Arr::only($validated, ['fit', 'zoom', 'focus_x', 'focus_y']));
+
+        return back()->with('status', 'Foto ditambahkan ke ulasan pesanan #'.$order->order_number.'.');
+    }
+
+    /** Sets how one photo sits in the frame on the public pages, and swaps the picture when a new file comes with it. */
+    public function updatePhoto(Request $request, ReviewPhoto $photo): RedirectResponse
+    {
+        $validated = $request->validate(['photo' => ['nullable', ...self::PHOTO_FILE]] + self::PHOTO_RULES, self::PHOTO_MESSAGES);
 
         $attributes = Arr::only($validated, ['fit', 'zoom', 'focus_x', 'focus_y']);
 
@@ -188,11 +210,9 @@ class ReviewController extends Controller
             }
         }
 
-        $existing
-            ? $existing->update($attributes)
-            : $order->reviewPhoto()->create($attributes);
+        $photo->update($attributes);
 
-        return back()->with('status', 'Foto ulasan pesanan #'.$order->order_number.' disimpan.');
+        return back()->with('status', 'Foto ulasan pesanan #'.$photo->order?->order_number.' disimpan.');
     }
 
     /** Removes the review for good: the stars, the words and the photo. The order itself stays. */
@@ -201,7 +221,7 @@ class ReviewController extends Controller
         abort_unless($order->hasReview(), 404);
 
         DB::transaction(function () use ($order) {
-            $order->reviewPhoto()->delete();
+            $order->reviewPhotos()->delete();
             $order->update(['rating' => null, 'review_text' => null, 'reviewed_at' => null, 'review_hidden_at' => null]);
         });
 

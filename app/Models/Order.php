@@ -72,10 +72,16 @@ class Order extends Model
         return $this->hasMany(OrderRevision::class);
     }
 
-    /** The photo the customer added to their review, if any. */
+    /** The first (cover) photo of the review, if any. */
     public function reviewPhoto(): HasOne
     {
-        return $this->hasOne(ReviewPhoto::class);
+        return $this->hasOne(ReviewPhoto::class)->orderBy('review_photos.id');
+    }
+
+    /** Every photo the customer added to the review, in the order they were added. */
+    public function reviewPhotos(): HasMany
+    {
+        return $this->hasMany(ReviewPhoto::class)->orderBy('review_photos.id');
     }
 
     /** How many sandwiches the order holds: each creation counts once per its quantity, however many ingredients it has. */

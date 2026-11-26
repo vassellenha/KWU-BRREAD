@@ -403,8 +403,8 @@ export function registerOrderFx(Alpine) {
         text: config.text ?? '',
         finish: Boolean(config.finish),
         errors: {},
-        photo: null, // a preview URL of the picked photo
-        photoBlob: null, // the photo, downscaled in the browser before it is sent
+        photos: [], // the picked photos: { url (a preview), blob (downscaled in the browser before it is sent) }
+        maxPhotos: config.maxPhotos ?? 4,
         labels: ['', 'Kurang Memuaskan', 'Cukup Enak', 'Enak & Manis', 'Sangat Enak!', 'Luar Biasa Sempurna!'],
         _t: null,
 
@@ -415,11 +415,11 @@ export function registerOrderFx(Alpine) {
         // A photo never goes out alone (ten characters of review with it), and an order that is being finished needs a comment (three).
         get needsWords() {
             const length = this.text.trim().length;
-            return (Boolean(this.photo) && length < 10) || (this.finish && length < 3);
+            return (this.photos.length > 0 && length < 10) || (this.finish && length < 3);
         },
 
         get needsWordsMessage() {
-            return this.photo
+            return this.photos.length > 0
                 ? 'Foto harus disertai ulasan minimal 10 karakter. Tulis sedikit tentang sandwich-nya dulu ya.'
                 : 'Tulis komentar dulu ya, minimal 3 karakter, baru pesanan bisa diselesaikan.';
         },
@@ -427,60 +427,44 @@ export function registerOrderFx(Alpine) {
         // Phone photos are big (and servers cap uploads), so the picture is scaled to 1600 px on its longest side and
         // sent as a JPEG. Drawing it on a canvas also drops the EXIF data (location included) and keeps it upright.
         async pickPhoto(event) {
-            const file = event.target.files?.[0];
+            const input = event.target;
+            const files = Array.from(input.files ?? []);
+            input.value = ''; // the blobs below are what gets sent, never the input itself
             this.errors = { ...this.errors, photo: undefined };
-            if (!file) return;
-            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
-                this.errors = { ...this.errors, photo: 'File harus berupa foto (JPG, PNG atau WebP).' };
-                this.clearPhoto();
-                return;
+
+            for (const file of files) {
+                if (this.photos.length >= this.maxPhotos) {
+                    this.errors = { ...this.errors, photo: `Maksimal ${this.maxPhotos} foto per ulasan.` };
+                    break;
+                }
+                if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+                    this.errors = { ...this.errors, photo: 'File harus berupa foto (JPG, PNG atau WebP).' };
+                    continue;
+                }
+                let blob;
+                try {
+                    const bitmap = await createImageBitmap(file);
+                    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+                    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+                    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                    blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+                } catch {
+                    blob = file.size <= 6 * 1024 * 1024 ? file : null; // the browser could not decode it: let the server try
+                }
+                if (!blob) {
+                    this.errors = { ...this.errors, photo: 'Foto terlalu besar. Pilih foto di bawah 6 MB.' };
+                    continue;
+                }
+                this.photos.push({ url: URL.createObjectURL(blob), blob });
             }
-            try {
-                const bitmap = await createImageBitmap(file);
-                const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.round(bitmap.width * scale);
-                canvas.height = Math.round(bitmap.height * scale);
-                canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-                bitmap.close?.();
-                this.photoBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
-            } catch (error) {
-                this.photoBlob = file.size <= 6 * 1024 * 1024 ? file : null; // the browser could not decode it: let the server try
-            }
-            if (!this.photoBlob) {
-                this.errors = { ...this.errors, photo: 'Foto terlalu besar. Pilih foto di bawah 6 MB.' };
-                this.clearPhoto();
-                return;
-            }
-            if (this.photo) URL.revokeObjectURL(this.photo);
-            this.photo = URL.createObjectURL(this.photoBlob);
         },
 
-        clearPhoto() {
-            if (this.photo) URL.revokeObjectURL(this.photo);
-            this.photo = null;
-            this.photoBlob = null;
-            if (this.$refs.photo) this.$refs.photo.value = '';
-        },
-
-        // Eight comic impact lines radiate from a freshly picked star.
-        spark(n) {
-            return `--a:${(n - 1) * 45}deg`;
-        },
-
-        setRating(i) {
-            this.rating = i;
-            this.popped = 0;
-            this.bump = false;
-            this.$nextTick(() => {
-                this.popped = i;
-                this.bump = true;
-                clearTimeout(this._t);
-                this._t = setTimeout(() => {
-                    this.popped = 0;
-                    this.bump = false;
-                }, 700);
-            });
+        removePhoto(index) {
+            const [gone] = this.photos.splice(index, 1);
+            if (gone) URL.revokeObjectURL(gone.url);
+            this.errors = { ...this.errors, photo: undefined };
         },
 
         async submit(event) {
@@ -497,7 +481,8 @@ export function registerOrderFx(Alpine) {
             const form = event.target;
             const body = new FormData(form);
             body.delete('photo');
-            if (this.photoBlob) body.append('photo', this.photoBlob, 'review.jpg');
+            body.delete('photos[]');
+            this.photos.forEach((item, i) => body.append('photos[]', item.blob, `review-${i + 1}.jpg`));
             try {
                 const [response] = await Promise.all([
                     fetch(form.action, {
@@ -521,6 +506,9 @@ export function registerOrderFx(Alpine) {
 
                 if (response.status === 422) {
                     this.errors = Object.fromEntries(Object.entries(data.errors ?? {}).map(([key, list]) => [key, list[0]]));
+                    // Photo errors come back as photos, photos.0 ... : the form shows them in one place.
+                    const photoKey = Object.keys(this.errors).find((key) => key === 'photos' || key.startsWith('photos.'));
+                    if (photoKey && !this.errors.photo) this.errors.photo = this.errors[photoKey];
                     window.dispatchEvent(new CustomEvent('review:close'));
                     this.sending = false;
                     return;

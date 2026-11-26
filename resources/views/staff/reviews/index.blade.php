@@ -94,21 +94,36 @@
     @else
         <ul class="grid grid-cols-1 gap-space-md md:grid-cols-2 2xl:grid-cols-3">
             @foreach ($reviews as $review)
-                @php $photo = $review->reviewPhoto; @endphp
+                @php $photo = $review->reviewPhotos->first(); @endphp
                 <li
                     x-data="reviewPhotoEditor({{ \Illuminate\Support\Js::from([
-                        'src' => $photo?->url() ?? '',
-                        'width' => $photo?->width,
-                        'height' => $photo?->height,
-                        'fit' => $photo?->fit ?? 'auto',
-                        'zoom' => $photo?->zoom ?? 100,
-                        'fx' => $photo?->focus_x ?? 50,
-                        'fy' => $photo?->focus_y ?? 50,
+                        'max' => \App\Models\ReviewPhoto::MAX_PER_REVIEW,
+                        'add' => route('staff.reviews.photo', $review),
+                        'photos' => $review->reviewPhotos->map(fn ($item) => [
+                            'id' => $item->id,
+                            'src' => $item->url(),
+                            'width' => $item->width,
+                            'height' => $item->height,
+                            'fit' => $item->fit ?? 'auto',
+                            'zoom' => $item->zoom ?? 100,
+                            'fx' => $item->focus_x ?? 50,
+                            'fy' => $item->focus_y ?? 50,
+                            'update' => route('staff.reviews.photos.update', $item),
+                            'remove' => route('staff.site.photos.remove', $item),
+                        ])->values()->all(),
                     ]) }})"
                     class="flex flex-col overflow-hidden rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
                 >
                     <div class="review-frame {{ $review->review_hidden_at ? 'opacity-60' : '' }}" :style="frameStyle" x-show="src" @if (! $photo) x-cloak @endif style="{{ $photo?->frameStyle() }}">
                         <img class="review-frame__img" :src="src" src="{{ $photo?->url() }}" alt="Foto ulasan pesanan #{{ $review->order_number }}" loading="lazy">
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5 px-space-sm pt-space-xs" x-show="photos.length > 1" @if ($review->reviewPhotos->count() < 2) x-cloak @endif>
+                        <template x-for="(item, index) in photos" :key="item.id">
+                            <button type="button" @click="select(index)" :aria-pressed="active === index" :aria-label="'Edit foto ' + (index + 1)" :class="active === index ? 'ring-2 ring-primary' : 'opacity-70'" class="press-scale h-10 w-10 overflow-hidden rounded-md border border-outline-variant">
+                                <img :src="item.src" alt="" class="h-full w-full object-cover" loading="lazy">
+                            </button>
+                        </template>
+                        <span class="font-label-md text-[11px] text-on-surface-variant" x-text="photos.length + ' foto'"></span>
                     </div>
                     <div class="flex flex-1 flex-col gap-1.5 p-space-sm {{ $review->review_hidden_at ? 'opacity-60' : '' }}">
                         <div class="flex items-center justify-between gap-2">
@@ -148,10 +163,12 @@
                     </form>
 
                     {{-- PHOTO EDITOR: the frame above changes live as the controls move --}}
-                    <form method="POST" action="{{ route('staff.reviews.photo', $review) }}" enctype="multipart/form-data" x-show="open" x-cloak class="grid gap-space-xs border-t border-outline-variant/30 bg-surface-container-low p-space-sm">
+                    <form method="POST" :action="formAction" action="{{ route('staff.reviews.photo', $review) }}" enctype="multipart/form-data" x-show="open" x-cloak class="grid gap-space-xs border-t border-outline-variant/30 bg-surface-container-low p-space-sm">
                         @csrf
-                        <label class="flex flex-col gap-1 font-label-md text-label-md text-on-surface-variant">Ganti atau tambah foto
-                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" @change="pick($event)" class="font-body-sm text-body-sm">
+                        <p class="font-label-md text-[11px] text-on-surface-variant" x-text="isNew ? 'Foto baru untuk ulasan ini.' : 'Mengedit foto ' + (active + 1) + ' dari ' + photos.length + '.'"></p>
+                        <label class="flex flex-col gap-1 font-label-md text-label-md text-on-surface-variant" x-text="isNew ? 'Pilih foto' : 'Ganti gambar (opsional)'">Ganti atau tambah foto</label>
+                        <label class="flex flex-col gap-1 font-label-md text-label-md text-on-surface-variant">
+                            <input type="file" name="photo" x-ref="file" :required="isNew" accept="image/jpeg,image/png,image/webp" @change="pick($event)" class="font-body-sm text-body-sm">
                         </label>
                         <p x-show="error" x-text="error" x-cloak class="font-label-md text-label-md text-error"></p>
 
@@ -179,7 +196,7 @@
                             <button type="button" @click="fit = 'auto'; zoom = 100; fx = 50; fy = 50" class="font-label-md text-label-md text-primary underline">Reset</button>
                             <div class="flex gap-2">
                                 <button type="button" @click="open = false" class="press-scale rounded-full bg-surface-container px-space-md py-1 font-label-md text-label-md text-on-surface-variant">Tutup</button>
-                                <button type="submit" class="press-scale inline-flex items-center gap-1 rounded-full bg-primary-container px-space-md py-1 font-label-md text-label-md font-bold text-on-primary-container"><span class="material-symbols-outlined text-[16px]">check</span>Simpan foto</button>
+                                <button type="submit" class="press-scale inline-flex items-center gap-1 rounded-full bg-primary-container px-space-md py-1 font-label-md text-label-md font-bold text-on-primary-container"><span class="material-symbols-outlined text-[16px]">check</span><span x-text="isNew ? 'Tambah foto' : 'Simpan foto'">Simpan foto</span></button>
                             </div>
                         </div>
                     </form>
@@ -188,8 +205,11 @@
                         <button type="button" @click="editText = !editText" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
                             <span class="material-symbols-outlined text-[16px]">edit</span>Edit ulasan
                         </button>
-                        <button type="button" @click="open = !open" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
-                            <span class="material-symbols-outlined text-[16px]">crop</span><span x-text="src ? 'Edit foto' : 'Tambah foto'">Edit foto</span>
+                        <button type="button" @click="photos.length ? select(Math.max(active, 0)) : addNew()" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
+                            <span class="material-symbols-outlined text-[16px]">crop</span><span x-text="photos.length ? 'Edit foto' : 'Tambah foto'">Edit foto</span>
+                        </button>
+                        <button type="button" x-show="photos.length && canAdd" @click="addNew()" @if (! $photo || $review->reviewPhotos->count() >= \App\Models\ReviewPhoto::MAX_PER_REVIEW) x-cloak @endif class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
+                            <span class="material-symbols-outlined text-[16px]">add</span>Foto lagi
                         </button>
                         <form method="POST" action="{{ route('staff.site.reviews.toggle', $review) }}">
                             @csrf
@@ -197,15 +217,13 @@
                                 <span class="material-symbols-outlined text-[16px]">{{ $review->review_hidden_at ? 'visibility' : 'visibility_off' }}</span>{{ $review->review_hidden_at ? 'Tampilkan' : 'Sembunyikan' }}
                             </button>
                         </form>
-                        @if ($photo)
-                            <form method="POST" action="{{ route('staff.site.photos.remove', $photo) }}" data-confirm="Foto dihapus permanen. Bintang dan teks ulasan tetap ada." data-confirm-title="Turunkan foto ini?" data-confirm-label="Turunkan" data-cancel-label="Biarkan" data-confirm-tone="danger">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-error">
-                                    <span class="material-symbols-outlined text-[16px]">photo_camera</span>Turunkan foto
-                                </button>
-                            </form>
-                        @endif
+                        <form method="POST" :action="photos[active]?.remove" action="{{ $photo ? route('staff.site.photos.remove', $photo) : '' }}" x-show="photos.length && !isNew" @if (! $photo) x-cloak @endif data-confirm="Foto ini dihapus permanen. Bintang, teks, dan foto lainnya tetap ada." data-confirm-title="Turunkan foto ini?" data-confirm-label="Turunkan" data-cancel-label="Biarkan" data-confirm-tone="danger">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-error">
+                                <span class="material-symbols-outlined text-[16px]">photo_camera</span>Turunkan foto
+                            </button>
+                        </form>
                         <form method="POST" action="{{ route('staff.reviews.destroy', $review) }}" data-confirm="Bintang, teks, dan foto ulasan pesanan #{{ $review->order_number }} dihapus permanen. Pesanannya tetap ada dan pelanggan bisa mengulas lagi." data-confirm-title="Hapus ulasan ini?" data-confirm-label="Ya, hapus" data-cancel-label="Kembali" data-confirm-tone="danger">
                             @csrf
                             @method('DELETE')

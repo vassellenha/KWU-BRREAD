@@ -156,11 +156,12 @@ class ReviewManagementTest extends TestCase
         $this->assertSame(3, $done->fresh()->rating);
     }
 
-    public function test_the_admin_sets_the_frame_and_replaces_the_photo(): void
+    public function test_the_admin_sets_the_frame_and_replaces_one_photo(): void
     {
         $order = $this->reviewed('Budi', 5, 'Enak banget', photo: true);
+        $photo = $order->reviewPhoto;
 
-        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), [
+        $this->actingAs($this->admin())->post(route('staff.reviews.photos.update', $photo), [
             'fit' => 'contain',
             'zoom' => 150,
             'focus_x' => 30,
@@ -168,29 +169,56 @@ class ReviewManagementTest extends TestCase
             'photo' => UploadedFile::fake()->image('baru.jpg', 700, 500),
         ])->assertSessionHas('status');
 
-        $photo = $order->fresh()->reviewPhoto;
+        $photo->refresh();
         $this->assertSame('contain', $photo->fit);
         $this->assertSame(150, $photo->zoom);
         $this->assertSame(30, $photo->focus_x);
         $this->assertSame(70, $photo->focus_y);
         $this->assertSame(700, $photo->width);
+        $this->assertSame(1, $order->reviewPhotos()->count());
 
-        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), ['fit' => 'bogus', 'zoom' => 150, 'focus_x' => 30, 'focus_y' => 70])
+        $this->actingAs($this->admin())->post(route('staff.reviews.photos.update', $photo), ['fit' => 'bogus', 'zoom' => 150, 'focus_x' => 30, 'focus_y' => 70])
             ->assertSessionHasErrors('fit');
     }
 
-    public function test_a_photo_can_be_added_to_a_review_that_has_none_but_not_without_a_file(): void
+    public function test_a_photo_can_be_added_to_a_review_but_not_without_a_file(): void
     {
         $order = $this->reviewed('Budi', 5, 'Enak banget');
+        $frame = ['fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50];
 
-        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), ['fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50])
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), $frame)
             ->assertSessionHasErrors('photo');
 
-        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), [
-            'fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50,
-            'photo' => UploadedFile::fake()->image('x.jpg', 600, 800),
-        ])->assertSessionHas('status');
-        $this->assertNotNull($order->fresh()->reviewPhoto);
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), $frame + ['photo' => UploadedFile::fake()->image('x.jpg', 600, 800)])
+            ->assertSessionHas('status');
+        $this->assertSame(1, $order->reviewPhotos()->count());
+    }
+
+    public function test_a_review_holds_several_photos_up_to_the_limit(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'Enak banget', photo: true);
+        $frame = ['fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50];
+
+        for ($i = 0; $i < ReviewPhoto::MAX_PER_REVIEW - 1; $i++) {
+            $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), $frame + ['photo' => UploadedFile::fake()->image("f{$i}.jpg", 600, 800)])
+                ->assertSessionHas('status');
+        }
+        $this->assertSame(ReviewPhoto::MAX_PER_REVIEW, $order->reviewPhotos()->count());
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), $frame + ['photo' => UploadedFile::fake()->image('lagi.jpg', 600, 800)])
+            ->assertSessionHasErrors('photo');
+        $this->assertSame(ReviewPhoto::MAX_PER_REVIEW, $order->reviewPhotos()->count());
+
+        // The list page and the public feed carry every photo, and one photo can be taken down alone.
+        $this->actingAs($this->admin())->get(route('staff.reviews.index'))->assertOk();
+        $this->assertCount(ReviewPhoto::MAX_PER_REVIEW, ReviewFeed::photos()->first()['photos']);
+
+        $first = $order->reviewPhotos()->first();
+        $this->actingAs($this->admin())->delete(route('staff.site.photos.remove', $first))->assertRedirect();
+        $this->assertSame(ReviewPhoto::MAX_PER_REVIEW - 1, $order->reviewPhotos()->count());
+
+        $this->actingAs($this->admin())->delete(route('staff.reviews.destroy', $order))->assertRedirect();
+        $this->assertSame(0, $order->reviewPhotos()->count());
     }
 
     public function test_auto_fit_fills_the_frame_for_near_portrait_photos_and_shows_wide_ones_whole(): void

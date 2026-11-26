@@ -19,7 +19,7 @@ class ReviewFeed
     /**
      * The newest reviews that came with a photo.
      *
-     * @return Collection<int, array{name: string, rating: int, quote: string, made: string, photo: string, width: int, height: int, frame: string, when: string}>
+     * @return Collection<int, array{name: string, rating: int, quote: string, made: string, photo: string, width: int, height: int, frame: string, photos: array<int, array{photo: string, width: int, height: int, frame: string}>, when: string}>
      */
     public static function photos(int $limit = 3): Collection
     {
@@ -27,15 +27,22 @@ class ReviewFeed
             ->whereNotNull('rating')
             ->whereNull('review_hidden_at')
             ->whereHas('reviewPhoto')
-            ->with(['reviewPhoto:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom', 'orderItems.component'])
+            ->with(['reviewPhotos:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom', 'orderItems.component'])
             ->latest('reviewed_at')
             ->limit($limit)
             ->get()
             ->map(fn (Order $order) => self::card($order) + [
-                'photo' => $order->reviewPhoto->url(),
-                'width' => $order->reviewPhoto->width,
-                'height' => $order->reviewPhoto->height,
-                'frame' => $order->reviewPhoto->frameStyle(),
+                'photo' => $order->reviewPhotos->first()->url(),
+                'width' => $order->reviewPhotos->first()->width,
+                'height' => $order->reviewPhotos->first()->height,
+                'frame' => $order->reviewPhotos->first()->frameStyle(),
+                // Every photo of the review (the first one repeats), each with its own frame.
+                'photos' => $order->reviewPhotos->map(fn ($photo) => [
+                    'photo' => $photo->url(),
+                    'width' => $photo->width,
+                    'height' => $photo->height,
+                    'frame' => $photo->frameStyle(),
+                ])->values()->all(),
             ]));
     }
 

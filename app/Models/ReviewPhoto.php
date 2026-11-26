@@ -6,13 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * The photo that came with a customer's review, already downscaled and re-encoded (see App\Support\ReviewImage).
+ * A photo that came with a customer's review (a review can carry up to MAX_PER_REVIEW), already downscaled and re-encoded (see App\Support\ReviewImage).
  * The bytes live in `data` as base64; the page reads them through the review.photo route, never inline.
  */
 class ReviewPhoto extends Model
 {
     /** The shape of the public frame (width / height): 4 to 5. */
     public const FRAME_RATIO = 0.8;
+
+    /** How many photos one review can carry. */
+    public const MAX_PER_REVIEW = 4;
 
     protected $fillable = ['order_id', 'mime', 'width', 'height', 'data', 'fit', 'focus_x', 'focus_y', 'zoom'];
 

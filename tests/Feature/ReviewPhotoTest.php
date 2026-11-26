@@ -71,6 +71,47 @@ class ReviewPhotoTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
+    public function test_a_customer_can_add_several_photos_to_one_review(): void
+    {
+        $order = $this->confirmedOrder();
+
+        $this->post("/order/status/{$order->confirmation_token}/review", [
+            'rating' => 5,
+            'review_text' => 'Rotinya empuk, es krimnya masih beku.',
+            'photos' => [$this->photo(), $this->photo(), $this->photo()],
+        ])->assertRedirect();
+
+        $this->assertSame(3, $order->reviewPhotos()->count());
+        $this->assertNotNull($order->fresh()->reviewPhoto);
+        $this->get("/order/status/{$order->confirmation_token}")->assertOk();
+    }
+
+    public function test_more_photos_than_the_limit_are_refused(): void
+    {
+        $order = $this->confirmedOrder();
+
+        $this->post("/order/status/{$order->confirmation_token}/review", [
+            'rating' => 5,
+            'review_text' => 'Rotinya empuk, es krimnya masih beku.',
+            'photos' => array_map(fn () => $this->photo(), range(1, ReviewPhoto::MAX_PER_REVIEW + 1)),
+        ])->assertSessionHasErrors('photos');
+
+        $this->assertSame(0, $order->reviewPhotos()->count());
+        $this->assertNull($order->fresh()->rating);
+    }
+
+    public function test_several_photos_still_need_words(): void
+    {
+        $order = $this->confirmedOrder();
+
+        $this->post("/order/status/{$order->confirmation_token}/review", [
+            'rating' => 5,
+            'photos' => [$this->photo(), $this->photo()],
+        ])->assertSessionHasErrors('review_text');
+
+        $this->assertSame(0, $order->reviewPhotos()->count());
+    }
+
     public function test_a_photo_without_a_review_is_refused(): void
     {
         $order = $this->confirmedOrder();

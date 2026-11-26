@@ -300,9 +300,7 @@
                     @foreach ($polaroids as $i => $review)
                         <div data-reveal>
                             <figure class="polaroid flex flex-col h-full" style="--tilt: {{ $tilts[$i][0] }}; --tape: {{ $tilts[$i][1] }}">
-                                <div class="review-frame w-full mb-space-sm" style="{{ $review['frame'] }}">
-                                    <img class="review-frame__img" alt="{{ $review['alt'] }}" src="{{ $review['photo'] }}" loading="lazy">
-                                </div>
+                                <x-review-gallery :review="$review" :alt="$review['alt']" />
                                 <figcaption class="mb-space-xs">
                                     <div class="flex items-center justify-between gap-space-sm">
                                         <span class="font-hand text-[30px] leading-none text-on-surface truncate">{{ $review['name'] }}</span>

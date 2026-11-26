@@ -450,10 +450,14 @@
                                 @if ($order->review_text)
                                     <p class="os-done__quote">“{{ $order->review_text }}”</p>
                                 @endif
-                                @if ($order->reviewPhoto)
-                                    <figure class="os-done__photo">
-                                        <img src="{{ $order->reviewPhoto->url() }}" width="{{ $order->reviewPhoto->width }}" height="{{ $order->reviewPhoto->height }}" alt="Foto dari pelanggan untuk pesanan ini" loading="lazy">
-                                    </figure>
+                                @if ($order->reviewPhotos->isNotEmpty())
+                                    <div class="os-done__photos">
+                                        @foreach ($order->reviewPhotos as $reviewPhoto)
+                                            <figure class="os-done__photo">
+                                                <img src="{{ $reviewPhoto->url() }}" width="{{ $reviewPhoto->width }}" height="{{ $reviewPhoto->height }}" alt="Foto {{ $loop->iteration }} dari pelanggan untuk pesanan ini" loading="lazy">
+                                            </figure>
+                                        @endforeach
+                                    </div>
                                 @endif
                                 <p class="os-done__ok">
                                     <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
@@ -500,7 +504,7 @@
                                 method="POST"
                                 enctype="multipart/form-data"
                                 action="{{ route('order.review', ['token' => $order->confirmation_token]) }}"
-                                x-data="reviewForm({{ \Illuminate\Support\Js::from(['rating' => (int) old('rating', 5), 'text' => old('review_text', ''), 'finish' => $order->isReady()]) }})"
+                                x-data="reviewForm({{ \Illuminate\Support\Js::from(['rating' => (int) old('rating', 5), 'text' => old('review_text', ''), 'finish' => $order->isReady(), 'maxPhotos' => \App\Models\ReviewPhoto::MAX_PER_REVIEW]) }})"
                                 @submit.prevent="submit($event)"
                             >
                                 @csrf
@@ -558,24 +562,38 @@
                                     <p x-show="errors.review_text" x-text="errors.review_text" x-cloak class="os-error"></p>
                                 </div>
 
-                                {{-- The photo: optional, but it never goes out without a few words (see needsWords). --}}
+                                {{-- Photos: optional (up to four), but they never go out without a few words (see needsWords). --}}
                                 <div class="os-field">
                                     <span class="os-label">
-                                        <span>Foto Sandwich <small>(Opsional)</small></span>
+                                        <span>Foto Sandwich <small>(Opsional, maks. {{ \App\Models\ReviewPhoto::MAX_PER_REVIEW }})</small></span>
                                         <small>JPG, PNG, WebP</small>
                                     </span>
-                                    <input x-ref="photo" id="review_photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="pickPhoto($event)">
-                                    <label for="review_photo" class="os-photo" :class="{ 'has-photo': photo }" x-show="!photo">
+                                    <input x-ref="photo" id="review_photo" type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" @change="pickPhoto($event)">
+                                    <label for="review_photo" class="os-photo" x-show="photos.length === 0">
                                         <svg class="os-ico" aria-hidden="true"><use href="#osi-camera"/></svg>
                                         <span class="os-photo__title">Tambah foto sandwich-mu</span>
-                                        <span class="os-photo__hint">Foto terbaik masuk ke "Made by our customers" di halaman depan. Wajib ditemani ulasan.</span>
+                                        <span class="os-photo__hint">Boleh lebih dari satu foto. Foto terbaik masuk ke "Made by our customers" di halaman depan. Wajib ditemani ulasan.</span>
                                     </label>
-                                    <figure class="os-photo-preview" x-show="photo" x-cloak>
-                                        <img :src="photo" alt="Pratinjau foto ulasan">
-                                        <button type="button" class="os-photo-preview__x" @click="clearPhoto()" aria-label="Hapus foto">
-                                            <svg class="os-ico" aria-hidden="true"><use href="#osi-x"/></svg>
-                                        </button>
-                                    </figure>
+                                    <div class="os-photo-row" x-show="photos.length > 0" x-cloak>
+                                        <template x-for="(item, index) in photos" :key="item.url">
+                                            <figure class="os-photo-preview">
+                                                <img :src="item.url" :alt="'Pratinjau foto ulasan ' + (index + 1)">
+                                                <button type="button" class="os-photo-preview__x" @click="removePhoto(index)" :aria-label="'Hapus foto ' + (index + 1)">
+                                                    <svg class="os-ico" aria-hidden="true"><use href="#osi-x"/></svg>
+                                                </button>
+                                            </figure>
+                                        </template>
+                                        <label for="review_photo" class="os-photo os-photo--add" x-show="photos.length < maxPhotos">
+                                            <svg class="os-ico" aria-hidden="true"><use href="#osi-camera"/></svg>
+                                            <span class="os-photo__title">Tambah lagi</span>
+                                        </label>
+                                    </div>
+                                    @error('photos')
+                                        <p class="os-error">{{ $message }}</p>
+                                    @enderror
+                                    @error('photos.*')
+                                        <p class="os-error">{{ $message }}</p>
+                                    @enderror
                                     @error('photo')
                                         <p class="os-error">{{ $message }}</p>
                                     @enderror
