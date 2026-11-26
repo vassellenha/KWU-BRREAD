@@ -128,6 +128,25 @@
                         <p class="font-body-sm text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{{ $review->review_text ? '“'.$review->review_text.'”' : 'Tanpa teks, hanya bintang.' }}</p>
                     </div>
 
+                    {{-- TEXT EDITOR --}}
+                    <form method="POST" action="{{ route('staff.reviews.text', $review) }}" x-show="editText" x-cloak class="grid gap-space-xs border-t border-outline-variant/30 bg-surface-container-low p-space-sm">
+                        @csrf
+                        <label class="flex flex-col gap-1 font-label-md text-label-md text-on-surface-variant">Bintang
+                            <select name="rating" class="rounded-full border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                                @foreach ([5, 4, 3, 2, 1] as $stars)
+                                    <option value="{{ $stars }}" @selected((int) $review->rating === $stars)>{{ str_repeat('★', $stars) }} ({{ $stars }})</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label class="flex flex-col gap-1 font-label-md text-label-md text-on-surface-variant">Isi ulasan
+                            <textarea name="review_text" rows="4" maxlength="1000" required class="rounded-2xl border border-outline-variant bg-surface-container-lowest px-space-md py-space-xs font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">{{ $review->review_text }}</textarea>
+                        </label>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" @click="editText = false" class="press-scale rounded-full bg-surface-container px-space-md py-1 font-label-md text-label-md text-on-surface-variant">Tutup</button>
+                            <button type="submit" class="press-scale inline-flex items-center gap-1 rounded-full bg-primary-container px-space-md py-1 font-label-md text-label-md font-bold text-on-primary-container"><span class="material-symbols-outlined text-[16px]">check</span>Simpan ulasan</button>
+                        </div>
+                    </form>
+
                     {{-- PHOTO EDITOR: the frame above changes live as the controls move --}}
                     <form method="POST" action="{{ route('staff.reviews.photo', $review) }}" enctype="multipart/form-data" x-show="open" x-cloak class="grid gap-space-xs border-t border-outline-variant/30 bg-surface-container-low p-space-sm">
                         @csrf
@@ -166,6 +185,9 @@
                     </form>
 
                     <div class="flex flex-wrap gap-x-space-md gap-y-1 border-t border-outline-variant/30 p-space-sm">
+                        <button type="button" @click="editText = !editText" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
+                            <span class="material-symbols-outlined text-[16px]">edit</span>Edit ulasan
+                        </button>
                         <button type="button" @click="open = !open" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
                             <span class="material-symbols-outlined text-[16px]">crop</span><span x-text="src ? 'Edit foto' : 'Tambah foto'">Edit foto</span>
                         </button>

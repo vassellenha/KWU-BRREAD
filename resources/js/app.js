@@ -464,6 +464,7 @@ async function shrinkPhotoInput(input) {
 // Reviews (superadmin): edit a review photo and see the frame change live, with the same rules the public pages use.
 Alpine.data('reviewPhotoEditor', (config) => ({
     open: false,
+    editText: false,
     src: config.src,
     width: config.width,
     height: config.height,

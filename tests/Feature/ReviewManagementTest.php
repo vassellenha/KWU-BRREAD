@@ -212,4 +212,24 @@ class ReviewManagementTest extends TestCase
         $this->assertStringContainsString('--fit:contain', ReviewFeed::photos()->first()['frame']);
         $this->get('/reviews')->assertOk()->assertSee('review-frame', false)->assertSee('--zoom:1.2', false);
     }
+
+    public function test_the_admin_edits_the_words_and_stars_of_a_review(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'Enak bgt typo');
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('staff.reviews.text', $order), ['rating' => 4, 'review_text' => '  Enak banget  '])
+            ->assertSessionHas('status');
+
+        $order->refresh();
+        $this->assertSame(4, $order->rating);
+        $this->assertSame('Enak banget', $order->review_text);
+
+        $this->actingAs($admin)->post(route('staff.reviews.text', $order), ['rating' => 4, 'review_text' => ''])
+            ->assertSessionHasErrors('review_text');
+        $this->assertSame('Enak banget', $order->fresh()->review_text);
+
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_WAREHOUSE]))
+            ->post(route('staff.reviews.text', $order), ['rating' => 1, 'review_text' => 'diubah'])->assertForbidden();
+    }
 }

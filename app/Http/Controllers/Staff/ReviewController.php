@@ -134,6 +134,26 @@ class ReviewController extends Controller
         return back()->with('status', 'Ulasan untuk pesanan #'.$order->order_number.' ditambahkan.');
     }
 
+    /** Edits the words (and the stars) of a review, for a typo or a line that should not be on the site. */
+    public function updateText(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless($order->hasReview(), 404);
+
+        $validated = $request->validate([
+            'rating' => ['required', 'integer', 'between:1,5'],
+            'review_text' => ['required', 'string', 'min:3', 'max:1000'],
+        ], [
+            'rating.required' => 'Pilih bintang 1 sampai 5.',
+            'review_text.required' => 'Isi ulasan tidak boleh kosong.',
+            'review_text.min' => 'Ulasan minimal 3 karakter.',
+            'review_text.max' => 'Ulasan maksimal 1.000 karakter.',
+        ]);
+
+        $order->update(['rating' => $validated['rating'], 'review_text' => trim($validated['review_text'])]);
+
+        return back()->with('status', 'Ulasan pesanan #'.$order->order_number.' diperbarui.');
+    }
+
     /** Replaces the photo of a review (or adds one) and sets how it sits in the frame on the public pages. */
     public function updatePhoto(Request $request, Order $order): RedirectResponse
     {
