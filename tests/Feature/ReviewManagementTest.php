@@ -7,7 +7,9 @@ use App\Models\Order;
 use App\Models\ReviewPhoto;
 use App\Models\User;
 use Database\Seeders\ComponentSeeder;
+use App\Support\ReviewFeed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -117,5 +119,97 @@ class ReviewManagementTest extends TestCase
 
         $migration->up();
         $this->assertSame(1, DB::table('review_photos')->where('order_id', $order->id)->count());
+    }
+
+    public function test_the_admin_adds_a_review_for_a_finished_order(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'ok');
+        $order->update(['rating' => null, 'review_text' => null, 'reviewed_at' => null, 'status' => Order::STATUS_COMPLETED]);
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.store'), [
+            'order_id' => $order->id,
+            'rating' => 4,
+            'review_text' => 'Enak, esnya pas',
+            'photo' => UploadedFile::fake()->image('x.jpg', 600, 800),
+        ])->assertSessionHas('status');
+
+        $order->refresh();
+        $this->assertSame(4, $order->rating);
+        $this->assertSame('Enak, esnya pas', $order->review_text);
+        $this->assertNotNull($order->reviewPhoto);
+    }
+
+    public function test_the_admin_cannot_review_an_unfinished_or_already_reviewed_order(): void
+    {
+        $admin = $this->admin();
+        $pending = $this->reviewed('Budi', 5, 'ok');
+        $pending->update(['rating' => null, 'review_text' => null, 'status' => Order::STATUS_PENDING]);
+
+        $this->actingAs($admin)->post(route('staff.reviews.store'), ['order_id' => $pending->id, 'rating' => 5, 'review_text' => 'halo'])
+            ->assertSessionHasErrors('order_id');
+        $this->assertNull($pending->fresh()->rating);
+
+        $done = $this->reviewed('Sari', 3, 'sudah ada');
+        $done->update(['status' => Order::STATUS_COMPLETED]);
+        $this->actingAs($admin)->post(route('staff.reviews.store'), ['order_id' => $done->id, 'rating' => 1, 'review_text' => 'ganti'])
+            ->assertSessionHasErrors('order_id');
+        $this->assertSame(3, $done->fresh()->rating);
+    }
+
+    public function test_the_admin_sets_the_frame_and_replaces_the_photo(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'Enak banget', photo: true);
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), [
+            'fit' => 'contain',
+            'zoom' => 150,
+            'focus_x' => 30,
+            'focus_y' => 70,
+            'photo' => UploadedFile::fake()->image('baru.jpg', 700, 500),
+        ])->assertSessionHas('status');
+
+        $photo = $order->fresh()->reviewPhoto;
+        $this->assertSame('contain', $photo->fit);
+        $this->assertSame(150, $photo->zoom);
+        $this->assertSame(30, $photo->focus_x);
+        $this->assertSame(70, $photo->focus_y);
+        $this->assertSame(700, $photo->width);
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), ['fit' => 'bogus', 'zoom' => 150, 'focus_x' => 30, 'focus_y' => 70])
+            ->assertSessionHasErrors('fit');
+    }
+
+    public function test_a_photo_can_be_added_to_a_review_that_has_none_but_not_without_a_file(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'Enak banget');
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), ['fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50])
+            ->assertSessionHasErrors('photo');
+
+        $this->actingAs($this->admin())->post(route('staff.reviews.photo', $order), [
+            'fit' => 'auto', 'zoom' => 100, 'focus_x' => 50, 'focus_y' => 50,
+            'photo' => UploadedFile::fake()->image('x.jpg', 600, 800),
+        ])->assertSessionHas('status');
+        $this->assertNotNull($order->fresh()->reviewPhoto);
+    }
+
+    public function test_auto_fit_fills_the_frame_for_near_portrait_photos_and_shows_wide_ones_whole(): void
+    {
+        $portrait = new ReviewPhoto(['width' => 960, 'height' => 1280]);
+        $wide = new ReviewPhoto(['width' => 1600, 'height' => 900]);
+        $forced = new ReviewPhoto(['width' => 1600, 'height' => 900, 'fit' => 'cover', 'zoom' => 150, 'focus_x' => 20, 'focus_y' => 80]);
+
+        $this->assertSame('cover', $portrait->resolvedFit());
+        $this->assertSame('contain', $wide->resolvedFit());
+        $this->assertSame('--fit:cover;--fx:20%;--fy:80%;--zoom:1.5', $forced->frameStyle());
+    }
+
+    public function test_the_public_feed_carries_the_frame_of_each_photo(): void
+    {
+        $order = $this->reviewed('Budi', 5, 'Enak banget', photo: true);
+        $order->reviewPhoto->update(['fit' => 'contain', 'zoom' => 120]);
+
+        $this->assertStringContainsString('--fit:contain', ReviewFeed::photos()->first()['frame']);
+        $this->get('/reviews')->assertOk()->assertSee('review-frame', false)->assertSee('--zoom:1.2', false);
     }
 }

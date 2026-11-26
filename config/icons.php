@@ -39,6 +39,7 @@ return [
         'close',
         'content_copy',
         'cookie',
+        'crop',
         'delete',
         'directions',
         'done',

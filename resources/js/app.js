@@ -438,6 +438,80 @@ function primeAudio() {
     }
 }
 
+// Phone photos are big and PHP caps uploads, so a picked photo is scaled to 1600 px and re-saved as a JPEG in the
+// browser, then put back into the file input. Returns the size, or null when the file cannot be read.
+async function shrinkPhotoInput(input) {
+    const file = input.files?.[0];
+    if (!file) return null;
+    try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+        if (!blob) return null;
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], 'review.jpg', { type: 'image/jpeg' }));
+        input.files = transfer.files;
+        return { width: canvas.width, height: canvas.height, url: URL.createObjectURL(blob) };
+    } catch (error) {
+        return null;
+    }
+}
+
+// Reviews (superadmin): edit a review photo and see the frame change live, with the same rules the public pages use.
+Alpine.data('reviewPhotoEditor', (config) => ({
+    open: false,
+    src: config.src,
+    width: config.width,
+    height: config.height,
+    fit: config.fit,
+    zoom: config.zoom,
+    fx: config.fx,
+    fy: config.fy,
+    error: '',
+
+    get resolved() {
+        if (this.fit !== 'auto') return this.fit;
+        if (!this.width || !this.height) return 'cover';
+        return Math.abs(this.width / this.height / 0.8 - 1) <= 0.3 ? 'cover' : 'contain';
+    },
+
+    get frameStyle() {
+        return `--fit:${this.resolved};--fx:${this.fx}%;--fy:${this.fy}%;--zoom:${this.zoom / 100}`;
+    },
+
+    async pick(event) {
+        this.error = '';
+        const result = await shrinkPhotoInput(event.target);
+        if (!result) {
+            this.error = 'Foto tidak bisa dibaca. Coba foto lain.';
+            event.target.value = '';
+            return;
+        }
+        this.src = result.url;
+        this.width = result.width;
+        this.height = result.height;
+    },
+}));
+
+// Reviews (superadmin): the add form only needs the photo shrunk before it goes out.
+Alpine.data('reviewAdder', () => ({
+    error: '',
+    name: '',
+
+    async pick(event) {
+        this.error = '';
+        const result = await shrinkPhotoInput(event.target);
+        if (!result) {
+            this.error = 'Foto tidak bisa dibaca. Coba foto lain.';
+            event.target.value = '';
+        }
+    },
+}));
+
 Alpine.data('staffLogin', (initialUsername, captchaBase, captchaStamp = Date.now()) => ({
     username: initialUsername,
     password: '',

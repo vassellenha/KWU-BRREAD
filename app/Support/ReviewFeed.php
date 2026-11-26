@@ -19,7 +19,7 @@ class ReviewFeed
     /**
      * The newest reviews that came with a photo.
      *
-     * @return Collection<int, array{name: string, rating: int, quote: string, made: string, photo: string, width: int, height: int, when: string}>
+     * @return Collection<int, array{name: string, rating: int, quote: string, made: string, photo: string, width: int, height: int, frame: string, when: string}>
      */
     public static function photos(int $limit = 3): Collection
     {
@@ -27,7 +27,7 @@ class ReviewFeed
             ->whereNotNull('rating')
             ->whereNull('review_hidden_at')
             ->whereHas('reviewPhoto')
-            ->with(['reviewPhoto:id,order_id,width,height,updated_at', 'orderItems.component'])
+            ->with(['reviewPhoto:id,order_id,width,height,updated_at,fit,focus_x,focus_y,zoom', 'orderItems.component'])
             ->latest('reviewed_at')
             ->limit($limit)
             ->get()
@@ -35,6 +35,7 @@ class ReviewFeed
                 'photo' => $order->reviewPhoto->url(),
                 'width' => $order->reviewPhoto->width,
                 'height' => $order->reviewPhoto->height,
+                'frame' => $order->reviewPhoto->frameStyle(),
             ]));
     }
 

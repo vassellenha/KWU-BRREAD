@@ -315,6 +315,26 @@
     }
 }
 
+/* The frame a customer photo sits in on Home and /reviews. A photo that does not match its 4:5 shape shows whole on a
+   Brread! sprinkle backdrop; --fit, --fx, --fy and --zoom are set per photo by the superadmin (Reviews). */
+.review-frame {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4 / 5;
+    background-color: #fde9ea;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill-opacity='.7'%3E%3Crect x='14' y='20' width='26' height='9' rx='4.5' fill='%23f48fab' transform='rotate(-30 27 24)'/%3E%3Crect x='88' y='14' width='26' height='9' rx='4.5' fill='%23ffd166' transform='rotate(25 101 18)'/%3E%3Crect x='56' y='62' width='26' height='9' rx='4.5' fill='%238fd3d9' transform='rotate(70 69 66)'/%3E%3Crect x='118' y='76' width='26' height='9' rx='4.5' fill='%23d94f73' transform='rotate(-55 131 80)'/%3E%3Crect x='20' y='98' width='26' height='9' rx='4.5' fill='%23b7e4c7' transform='rotate(40 33 102)'/%3E%3Crect x='84' y='116' width='26' height='9' rx='4.5' fill='%23f48fab' transform='rotate(-15 97 120)'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 150px 150px;
+}
+.review-frame__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: var(--fit, cover);
+    object-position: var(--fx, 50%) var(--fy, 50%);
+    transform: scale(var(--zoom, 1));
+    transform-origin: var(--fx, 50%) var(--fy, 50%);
+}
+
 /* Hand-drawn underline that draws itself in. */
 .scribble path {
     stroke-dasharray: 420;

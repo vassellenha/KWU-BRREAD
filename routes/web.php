@@ -121,6 +121,8 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
 
     Route::middleware($rolesFor(User::MODULE_REVIEWS))->prefix('reviews')->name('reviews.')->group(function () {
         Route::get('/', [ReviewController::class, 'index'])->name('index');
+        Route::post('/', [ReviewController::class, 'store'])->name('store');
+        Route::post('/{order}/photo', [ReviewController::class, 'updatePhoto'])->name('photo');
         Route::delete('/{order}', [ReviewController::class, 'destroy'])->name('destroy');
     });
 

@@ -31,7 +31,9 @@
                     <div class="review-wall">
                         @foreach ($photos as $i => $review)
                             <figure class="polaroid" style="--tilt: {{ $tilts[$i % 6] }}; --tape: {{ $tapes[$i % 6] }}" data-reveal>
-                                <img class="w-full h-auto mb-space-sm bg-surface-container" src="{{ $review['photo'] }}" width="{{ $review['width'] }}" height="{{ $review['height'] }}" alt="Photo from {{ $review['name'] }} of their Brread! sandwich" loading="lazy">
+                                <div class="review-frame w-full mb-space-sm" style="{{ $review['frame'] }}">
+                                    <img class="review-frame__img" src="{{ $review['photo'] }}" width="{{ $review['width'] }}" height="{{ $review['height'] }}" alt="Photo from {{ $review['name'] }} of their Brread! sandwich" loading="lazy">
+                                </div>
                                 <figcaption class="mb-space-xs">
                                     <div class="flex items-center justify-between gap-space-sm">
                                         <span class="font-hand text-[28px] leading-none text-on-surface truncate">{{ $review['name'] }}</span>

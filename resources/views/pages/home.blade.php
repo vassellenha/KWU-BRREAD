@@ -287,11 +287,11 @@
                     // The three newest reviews that came with a photo; until there are three, the launch photos fill the rest.
                     $tilts = [['-2deg', '-4deg'], ['1.5deg', '3deg'], ['-1deg', '-2deg']];
                     $launch = [
-                        ['photo' => '/img/marketing/community-mjordan.jpg', 'alt' => 'Man biting into a whole wheat bread and vanilla ice cream sandwich on a campus lawn', 'name' => 'M. Jordan', 'made' => 'Whole Wheat Vanilla', 'quote' => 'Whole wheat with vanilla is not too sweet, and the bread was still firm when I finished it.', 'rating' => 5, 'pos' => 'object-[50%_30%]'],
-                        ['photo' => '/img/marketing/community-rizky.jpg', 'alt' => 'Whole wheat bread ice cream sandwich with vanilla ice cream and chocolate sauce poured over the top', 'name' => 'Rizky S.', 'made' => 'Wheat Vanilla Drizzle', 'quote' => 'Arrived in SCBD in 18 minutes and was still frozen solid. The chocolate drizzle on wheat bread works.', 'rating' => 5, 'pos' => 'object-center'],
-                        ['photo' => '/img/marketing/community-targaryen.jpg', 'alt' => 'Man sitting by a sports car with an open box of assorted ice cream sandwiches on the hood', 'name' => 'J. Targaryen', 'made' => 'Double Choc Monster', 'quote' => 'Ordered 20 boxes for our agency Friday treats and the team finished them in minutes.', 'rating' => 5, 'pos' => 'object-[50%_35%]'],
+                        ['photo' => '/img/marketing/community-mjordan.jpg', 'alt' => 'Man biting into a whole wheat bread and vanilla ice cream sandwich on a campus lawn', 'name' => 'M. Jordan', 'made' => 'Whole Wheat Vanilla', 'quote' => 'Whole wheat with vanilla is not too sweet, and the bread was still firm when I finished it.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:30%;--zoom:1'],
+                        ['photo' => '/img/marketing/community-rizky.jpg', 'alt' => 'Whole wheat bread ice cream sandwich with vanilla ice cream and chocolate sauce poured over the top', 'name' => 'Rizky S.', 'made' => 'Wheat Vanilla Drizzle', 'quote' => 'Arrived in SCBD in 18 minutes and was still frozen solid. The chocolate drizzle on wheat bread works.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:50%;--zoom:1'],
+                        ['photo' => '/img/marketing/community-targaryen.jpg', 'alt' => 'Man sitting by a sports car with an open box of assorted ice cream sandwiches on the hood', 'name' => 'J. Targaryen', 'made' => 'Double Choc Monster', 'quote' => 'Ordered 20 boxes for our agency Friday treats and the team finished them in minutes.', 'rating' => 5, 'frame' => '--fit:cover;--fx:50%;--fy:35%;--zoom:1'],
                     ];
-                    $fresh = \App\Support\ReviewFeed::photos(3)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich', 'pos' => 'object-center']);
+                    $fresh = \App\Support\ReviewFeed::photos(3)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich']);
                     $polaroids = $fresh->concat(array_slice($launch, 0, max(0, 3 - $fresh->count())))->values();
                     $words = \App\Support\ReviewFeed::words(6);
                 @endphp
@@ -300,8 +300,8 @@
                     @foreach ($polaroids as $i => $review)
                         <div data-reveal>
                             <figure class="polaroid flex flex-col h-full" style="--tilt: {{ $tilts[$i][0] }}; --tape: {{ $tilts[$i][1] }}">
-                                <div class="zoom-on-hover w-full aspect-[4/3] overflow-hidden mb-space-sm bg-surface-container">
-                                    <img class="w-full h-full object-cover {{ $review['pos'] }}" alt="{{ $review['alt'] }}" src="{{ $review['photo'] }}" loading="lazy">
+                                <div class="review-frame w-full mb-space-sm" style="{{ $review['frame'] }}">
+                                    <img class="review-frame__img" alt="{{ $review['alt'] }}" src="{{ $review['photo'] }}" loading="lazy">
                                 </div>
                                 <figcaption class="mb-space-xs">
                                     <div class="flex items-center justify-between gap-space-sm">
