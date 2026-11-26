@@ -103,7 +103,7 @@
     </div>
 
     {{-- FILTER TABS & SEARCH BAR --}}
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-space-sm md:gap-space-md mb-space-md">
+    <div class="mb-space-sm">
         <nav aria-label="Status filters" class="flex min-w-0 items-center gap-space-xs overflow-x-auto pb-1 [scrollbar-width:thin]">
             @php
                 $statusTabs = [
@@ -137,104 +137,62 @@
             @endforeach
         </nav>
 
-        <form method="GET" action="{{ route('staff.orders.index') }}" class="flex shrink-0 items-center gap-space-xs">
-            @if ($currentStatus !== 'all')
-                <input type="hidden" name="status" value="{{ $currentStatus }}">
-            @endif
-            @if ($pickup !== '')
-                <input type="hidden" name="pickup" value="{{ $pickup }}">
-            @endif
-            @if ($atmint !== '')
-                <input type="hidden" name="atmint" value="{{ $atmint }}">
-            @endif
-            <div class="relative w-full sm:w-auto">
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ $search }}"
-                    placeholder="Cari order, nama, no HP..."
-                    class="{{ $fieldClasses }} pl-9 pr-space-md w-full sm:w-64"
-                >
-                <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant/70 shrink-0">search</span>
-            </div>
-            @if ($search !== '')
-                <a href="{{ route('staff.orders.index', array_filter(['status' => $currentStatus, 'pickup' => $pickup, 'atmint' => $atmint])) }}" class="press-scale p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container" title="Reset pencarian">
-                    <span class="material-symbols-outlined text-[18px] shrink-0">close</span>
-                </a>
-            @endif
-            <button type="submit" class="press-scale px-space-md py-space-xs rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md hover:opacity-95 font-semibold">
-                Cari
-            </button>
-        </form>
     </div>
 
+    {{-- FILTER BAR: pickup day, atmint and search in one row; the dropdowns apply as soon as you pick --}}
     @php
-        $chipBase = 'press-scale inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-space-md py-1.5 rounded-full font-label-md text-label-md transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ';
-        $chip = fn (bool $active) => $chipBase.($active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
         $todayKey = now()->toDateString();
+        $selectedDay = $pickupDays->firstWhere('date', $pickup);
+        $filtersOn = $pickup !== '' || $atmint !== '' || $search !== '';
+        $selectClasses = $fieldClasses.' pr-8';
     @endphp
+    <form method="GET" action="{{ route('staff.orders.index') }}" x-data class="mb-space-md flex flex-wrap items-center gap-space-xs">
+        @if ($currentStatus !== 'all')
+            <input type="hidden" name="status" value="{{ $currentStatus }}">
+        @endif
 
-    {{-- PICKUP DAY FILTER: who collects on which day, and how many sandwiches that is --}}
-    @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
-        <section aria-label="Filter tanggal ambil" class="mb-space-sm flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-space-md">
-            <p class="shrink-0 pt-1.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold lg:w-28">Tanggal ambil</p>
-            <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-space-xs">
-                <a href="{{ route('staff.orders.index', request()->except('page', 'pickup')) }}" class="{{ $chip($pickup === '') }}" @if ($pickup === '') aria-current="page" @endif>Semua tanggal</a>
+        @if ($pickupDays->isNotEmpty() || $unscheduled > 0 || $pickup !== '')
+            <label for="filter-pickup" class="sr-only">Tanggal ambil</label>
+            <select id="filter-pickup" name="pickup" @change="$el.form.requestSubmit()" class="{{ $selectClasses }} {{ $pickup !== '' ? 'border-primary text-primary font-semibold' : '' }}">
+                <option value="">Semua tanggal ambil</option>
                 @foreach ($pickupDays as $day)
-                    @php $isDayActive = $pickup === $day['date']; @endphp
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => $day['date']])) }}" class="{{ $chip($isDayActive) }}" @if ($isDayActive) aria-current="page" @endif>
-                        <span class="material-symbols-outlined text-[16px] shrink-0">event</span>
-                        <span class="font-bold">{{ \Illuminate\Support\Carbon::parse($day['date'])->locale('id')->translatedFormat('D, j M') }}</span>
-                        @if ($day['date'] === $todayKey)
-                            <span class="rounded-full bg-primary px-1.5 text-[10px] font-bold leading-4 text-on-primary">Hari ini</span>
-                        @endif
-                        <span class="text-[12px] font-normal tabular-nums opacity-80">{{ $day['orders'] }} pesanan · {{ $day['sandwiches'] }} sandwich</span>
-                    </a>
+                    <option value="{{ $day['date'] }}" @selected($pickup === $day['date'])>
+                        {{ \Illuminate\Support\Carbon::parse($day['date'])->locale('id')->translatedFormat('D, j M') }}{{ $day['date'] === $todayKey ? ' (hari ini)' : '' }} · {{ $day['orders'] }} pesanan · {{ $day['sandwiches'] }} sandwich
+                    </option>
                 @endforeach
                 @if ($unscheduled > 0)
-                    @php $isNoneActive = $pickup === 'none'; @endphp
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['pickup' => 'none'])) }}" class="{{ $chipBase }}{{ $isNoneActive ? 'bg-amber-200 text-amber-900 font-bold shadow-sm' : 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100' }}" @if ($isNoneActive) aria-current="page" @endif>
-                        <span class="material-symbols-outlined text-[16px] shrink-0">schedule</span>
-                        <span class="font-bold">Belum ada tanggal</span>
-                        <span class="text-[12px] font-normal tabular-nums">{{ $unscheduled }} pesanan</span>
-                    </a>
+                    <option value="none" @selected($pickup === 'none')>Belum ada tanggal · {{ $unscheduled }} pesanan</option>
                 @endif
-            </div>
-            @php $selectedDay = $pickupDays->firstWhere('date', $pickup); @endphp
-            @if ($selectedDay)
-                <p class="mt-1.5 text-[12px] text-on-surface-variant">Diambil {{ \Illuminate\Support\Carbon::parse($selectedDay['date'])->locale('id')->translatedFormat('l, j F Y') }}: {{ implode(', ', $selectedDay['people']) }}. Angka dalam kurung adalah jumlah sandwich.</p>
-            @endif
-            </div>
-        </section>
-    @endif
+            </select>
+        @endif
 
-    {{-- ATMINT FILTER: which atmint the customer chatted with, so you can see who holds the most orders --}}
-    @if ($atmintChips->isNotEmpty() || $atmintUnset > 0 || $atmint !== '')
-        <section aria-label="Filter atmint" class="mb-space-md flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-space-md">
-            <p class="shrink-0 pt-1.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold lg:w-28">Chat via atmint</p>
-            <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-space-xs">
-                <a href="{{ route('staff.orders.index', request()->except('page', 'atmint')) }}" class="{{ $chip($atmint === '') }}" @if ($atmint === '') aria-current="page" @endif>Semua atmint</a>
+        @if ($atmintChips->isNotEmpty() || $atmintUnset > 0 || $atmint !== '')
+            <label for="filter-atmint" class="sr-only">Chat via atmint</label>
+            <select id="filter-atmint" name="atmint" @change="$el.form.requestSubmit()" class="{{ $selectClasses }} {{ $atmint !== '' ? 'border-primary text-primary font-semibold' : '' }}">
+                <option value="">Semua atmint</option>
                 @foreach ($atmintChips as $atmintChip)
-                    @php $isAtmintActive = $atmint === $atmintChip['name']; @endphp
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['atmint' => $atmintChip['name']])) }}" class="{{ $chip($isAtmintActive) }}" @if ($isAtmintActive) aria-current="page" @endif>
-                        <span class="material-symbols-outlined text-[16px] shrink-0">forum</span>
-                        <span class="font-bold">{{ $atmintChip['name'] }}</span>
-                        <span class="text-[12px] font-normal tabular-nums opacity-80">{{ $atmintChip['orders'] }} pesanan · {{ $atmintChip['sandwiches'] }} sandwich</span>
-                    </a>
+                    <option value="{{ $atmintChip['name'] }}" @selected($atmint === $atmintChip['name'])>{{ $atmintChip['name'] }} · {{ $atmintChip['orders'] }} pesanan · {{ $atmintChip['sandwiches'] }} sandwich</option>
                 @endforeach
                 @if ($atmintUnset > 0)
-                    @php $isUnsetActive = $atmint === 'none'; @endphp
-                    <a href="{{ route('staff.orders.index', array_merge(request()->except('page'), ['atmint' => 'none'])) }}" class="{{ $chipBase }}{{ $isUnsetActive ? 'bg-amber-200 text-amber-900 font-bold shadow-sm' : 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100' }}" @if ($isUnsetActive) aria-current="page" @endif>
-                        <span class="material-symbols-outlined text-[16px] shrink-0">schedule</span>
-                        <span class="font-bold">Belum tercatat</span>
-                        <span class="text-[12px] font-normal tabular-nums">{{ $atmintUnset }} pesanan</span>
-                    </a>
+                    <option value="none" @selected($atmint === 'none')>Belum tercatat · {{ $atmintUnset }} pesanan</option>
                 @endif
-            </div>
-            </div>
-        </section>
+            </select>
+        @endif
+
+        <div class="relative min-w-[12rem] flex-1 sm:max-w-xs">
+            <input type="text" name="q" value="{{ $search }}" placeholder="Cari order, nama, no HP..." class="{{ $fieldClasses }} w-full pl-9 pr-space-md">
+            <span class="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant/70 shrink-0">search</span>
+        </div>
+        <button type="submit" class="press-scale px-space-md py-space-xs rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md hover:opacity-95 font-semibold">Cari</button>
+
+        @if ($filtersOn)
+            <a href="{{ route('staff.orders.index', array_filter(['status' => $currentStatus !== 'all' ? $currentStatus : null])) }}" class="press-scale inline-flex items-center gap-1 rounded-full px-space-sm py-1.5 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface" title="Hapus semua filter kecuali status">
+                <span class="material-symbols-outlined text-[16px] shrink-0">close</span>Reset
+            </a>
+        @endif
+    </form>
+    @if ($selectedDay)
+        <p class="-mt-space-xs mb-space-md text-[12px] text-on-surface-variant">Diambil {{ \Illuminate\Support\Carbon::parse($selectedDay['date'])->locale('id')->translatedFormat('l, j F Y') }}: {{ implode(', ', $selectedDay['people']) }}. Angka dalam kurung adalah jumlah sandwich.</p>
     @endif
 
     {{-- ORDERS TABLE CARD --}}

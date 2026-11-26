@@ -72,7 +72,7 @@ class OrderPickupFilterTest extends TestCase
 
         $this->actingAs($this->staff())->get(route('staff.orders.index', ['pickup' => $day]))
             ->assertOk()
-            ->assertSee('2 pesanan, 3 sandwich')
+            ->assertSee('2 pesanan · 3 sandwich')
             ->assertSee('Pembeli Satu (2)')
             ->assertSee('Pembeli Dua (1)')
             ->assertDontSee('Pembeli Batal (5)');
