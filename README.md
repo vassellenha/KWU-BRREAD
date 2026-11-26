@@ -605,4 +605,4 @@ Built by [Vassell Enha Atthayya](https://github.com/vassellenha).
 
 
 
-**Honeypot allow list.** Addresses in `HONEYPOT_ALLOWED_IPS` (comma separated, set on the server; `config/auth.php` defaults it to the owner's IP and the second admin's IP) are never trapped or held: `/admin` is a plain 404 for them and an old hold no longer redirects them. Everyone else meets the trap as before.
+**Honeypot allow list.** The owner's IP, the second admin's IP and Atmint Chicarron's IP are always on the allow list in `config/auth.php`, and `HONEYPOT_ALLOWED_IPS` (comma separated, set on the server) adds more; none of them is ever trapped or held: `/admin` is a plain 404 for them and an old hold no longer redirects them. Everyone else meets the trap as before.

@@ -148,8 +148,13 @@ return [
     'honeypot_trap' => (bool) env('HONEYPOT_TRAP', true),
     'honeypot_horror_seconds' => (int) env('HORROR_SECONDS', 30),
     'honeypot_kewer_seconds' => (int) env('KEWER_SECONDS', 30),
-    // Addresses the trap never touches (the owner's and the second admin's own IPs): comma separated. Set HONEYPOT_ALLOWED_IPS on the server to change it.
-    'honeypot_allowed_ips' => array_values(array_filter(array_map('trim', explode(',', (string) env('HONEYPOT_ALLOWED_IPS', '103.171.164.172,36.68.86.63'))))),
+    // Addresses the trap never touches: the owner's, the second admin's and Atmint Chicarron's own IPs. They are always
+    // on the list, and HONEYPOT_ALLOWED_IPS (comma separated, set on the server) adds more, so an older value on the
+    // server can never take one of them off.
+    'honeypot_allowed_ips' => array_values(array_unique(array_merge(
+        ['103.171.164.172', '36.68.86.63', '182.10.66.205'],
+        array_filter(array_map('trim', explode(',', (string) env('HONEYPOT_ALLOWED_IPS', '')))),
+    ))),
     // The superadmin keeps a signed-in session for weeks when the request comes from one of these addresses (comma
     // separated, SUPERADMIN_TRUSTED_IPS). It only lengthens an existing session; the sign-in and captcha still apply.
     'superadmin_trusted_ips' => array_values(array_filter(array_map('trim', explode(',', (string) env('SUPERADMIN_TRUSTED_IPS', '103.171.164.172'))))),

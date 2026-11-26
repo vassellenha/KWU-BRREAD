@@ -47,6 +47,21 @@ class HoneypotTrapTest extends TestCase
         $this->get('/superadmin')->assertOk();
     }
 
+    public function test_the_team_addresses_are_on_the_default_allow_list(): void
+    {
+        $default = require config_path('auth.php');
+
+        foreach (['103.171.164.172', '36.68.86.63', '182.10.66.205'] as $address) {
+            $this->assertContains($address, $default['honeypot_allowed_ips']);
+        }
+
+        config(['auth.honeypot_allowed_ips' => $default['honeypot_allowed_ips']]);
+
+        // Atmint Chicarron's address meets a plain 404 at /admin and starts no hold
+        $this->withServerVariables(['REMOTE_ADDR' => '182.10.66.205'])->get('/admin')->assertNotFound();
+        $this->assertSame(0, (int) Cache::get('honeypot-hold:182.10.66.205'));
+    }
+
     public function test_admin_starts_the_hold_in_the_horror_phase(): void
     {
         $this->get('/admin')
