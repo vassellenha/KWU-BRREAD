@@ -167,7 +167,7 @@
     <section class="bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden">
         <div class="p-space-md border-b border-outline-variant/30">
             <h2 class="font-title-md text-title-md text-on-surface">Customer reviews</h2>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">The newest reviews, as they appear on Home, About and the customer photos page (first name and initial only). Hide one to keep it off the site; the rating stays in the reports. Take a photo down if it is not about the sandwich; the words stay.</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">The newest reviews, as they appear on Home, About and the customer photos page (first name and initial only). Hide one to keep it off the site; the rating stays in the reports. Take a photo down if it is not about the sandwich; the words stay. The Reviews page in the sidebar has the full list with filters and search.</p>
         </div>
         @if ($reviews->isEmpty())
             <p class="p-space-md font-body-md text-body-md text-on-surface-variant">No reviews yet.</p>

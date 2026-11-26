@@ -10,6 +10,7 @@ use App\Http\Controllers\Staff\MenuController;
 use App\Http\Controllers\Staff\MrpController;
 use App\Http\Controllers\Staff\OrderEditController;
 use App\Http\Controllers\Staff\OrderManagementController;
+use App\Http\Controllers\Staff\ReviewController;
 use App\Http\Controllers\Staff\SalesController;
 use App\Http\Controllers\Staff\SecurityController;
 use App\Http\Controllers\Staff\SignatureComboController;
@@ -116,6 +117,11 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::put('/shop/{section}', [SiteController::class, 'updateShop'])->whereIn('section', ['location', 'hours', 'orders', 'promises'])->name('shop');
         Route::delete('/photos/{photo}', [SiteController::class, 'removePhoto'])->name('photos.remove');
         Route::post('/reviews/{order}/toggle', [SiteController::class, 'toggleReview'])->name('reviews.toggle');
+    });
+
+    Route::middleware($rolesFor(User::MODULE_REVIEWS))->prefix('reviews')->name('reviews.')->group(function () {
+        Route::get('/', [ReviewController::class, 'index'])->name('index');
+        Route::delete('/{order}', [ReviewController::class, 'destroy'])->name('destroy');
     });
 
     Route::middleware($rolesFor(User::MODULE_SECURITY))->prefix('security')->name('security.')->group(function () {
