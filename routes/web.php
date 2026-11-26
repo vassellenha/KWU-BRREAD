@@ -55,6 +55,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::post('/{order}/paid', [OrderManagementController::class, 'markPaid'])->name('paid');
         Route::post('/{order}/preparing', [OrderManagementController::class, 'markPreparing'])->name('preparing');
         Route::post('/{order}/ready', [OrderManagementController::class, 'markReady'])->name('ready');
+        Route::post('/{order}/completed', [OrderManagementController::class, 'markCompleted'])->name('completed');
         Route::post('/{order}/pickup-date', [OrderManagementController::class, 'setPickupDate'])->name('pickup-date');
         Route::post('/{order}/attribution', [OrderManagementController::class, 'setAttribution'])->name('attribution');
         Route::post('/{order}/cancel', [OrderManagementController::class, 'cancel'])->name('cancel');
@@ -159,6 +160,7 @@ Route::get('/privacy', function () {
 Route::get('/order/status/{token}', [PublicOrderController::class, 'show'])->name('order.status');
 Route::get('/order/status/{token}/version', [PublicOrderController::class, 'version'])->middleware('throttle:60,1')->name('order.version');
 Route::post('/order/status/{token}/review', [PublicOrderController::class, 'submitReview'])->middleware('throttle:10,1')->name('order.review');
+Route::post('/order/status/{token}/complete', [PublicOrderController::class, 'complete'])->middleware('throttle:10,1')->name('order.complete');
 Route::get('/reviews', [PublicOrderController::class, 'reviews'])->name('reviews');
 Route::get('/reviews/photo/{photo}', [PublicOrderController::class, 'photo'])->whereNumber('photo')->name('review.photo');
 Route::get('/combos/photo/{photo}', [SignatureComboController::class, 'photo'])->whereNumber('photo')->name('signature.photo');

@@ -152,17 +152,29 @@ class PublicOrderController extends Controller
                 : back()->with('error', $message);
         }
 
+        // "Kirim Ulasan & Selesaikan": the review that also closes the order. It needs a comment, and the sandwich ready.
+        $finish = $request->boolean('finish');
+
+        if ($finish && ! $order->isReady()) {
+            $message = 'Pesanan baru bisa diselesaikan setelah siap diambil.';
+
+            return $request->wantsJson()
+                ? response()->json(['message' => $message], 409)
+                : back()->with('error', $message);
+        }
+
         // A photo always needs a few words with it: a picture alone says nothing about the sandwich.
         $validated = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
-            'review_text' => ['nullable', 'string', 'max:1000', 'required_with:photo', 'min:'.($request->hasFile('photo') ? 10 : 0)],
+            'review_text' => [$finish ? 'required' : 'nullable', 'string', 'max:1000', 'required_with:photo', 'min:'.($request->hasFile('photo') ? 10 : ($finish ? 3 : 0))],
             'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000'],
         ], [
             'rating.required' => 'Silakan pilih rating bintang 1 hingga 5.',
             'rating.between' => 'Rating bintang harus antara 1 sampai 5.',
             'review_text.max' => 'Ulasan maksimal 1.000 karakter.',
             'review_text.required_with' => 'Foto harus disertai ulasan. Tulis sedikit tentang sandwich-nya ya.',
-            'review_text.min' => 'Ulasan untuk foto minimal 10 karakter.',
+            'review_text.required' => 'Tulis komentar dulu untuk menyelesaikan pesanan.',
+            'review_text.min' => $request->hasFile('photo') ? 'Ulasan untuk foto minimal 10 karakter.' : 'Komentar minimal 3 karakter.',
             'photo.image' => 'File harus berupa foto (JPG, PNG atau WebP).',
             'photo.mimes' => 'File harus berupa foto (JPG, PNG atau WebP).',
             'photo.max' => 'Foto maksimal 6 MB.',
@@ -183,12 +195,12 @@ class PublicOrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($order, $validated, $picture) {
+        DB::transaction(function () use ($order, $validated, $picture, $finish) {
             $order->update([
                 'rating' => $validated['rating'],
                 'review_text' => ! empty($validated['review_text']) ? trim($validated['review_text']) : null,
                 'reviewed_at' => now(),
-            ]);
+            ] + ($finish ? ['status' => Order::STATUS_COMPLETED, 'completed_at' => now()] : []));
             if ($picture) {
                 $order->reviewPhoto()->create($picture);
             }
@@ -203,10 +215,59 @@ class PublicOrderController extends Controller
                 'rating' => $order->rating,
                 'review_text' => $order->review_text,
                 'photo' => $order->reviewPhoto?->url(),
+                'completed' => $order->isCompleted(),
             ]);
         }
 
         return back()->with('success', $thanks);
+    }
+
+    /**
+     * The customer closes their own order from the tracking link. It has to be ready, and a rating and a comment have to
+     * be in first (the photo is optional). A review that has stars but no words gets its comment here.
+     */
+    public function complete(Request $request, string $token): RedirectResponse
+    {
+        $order = Order::where('confirmation_token', $token)->firstOrFail();
+
+        if ($request->user()) {
+            return back()->with('error', 'Akun staf hanya bisa melihat. Pesanan diselesaikan oleh pelanggan atau lewat tombol Selesai di daftar pesanan.');
+        }
+
+        if ($order->isCancelled()) {
+            return back()->with('error', 'Pesanan yang dibatalkan tidak dapat diselesaikan.');
+        }
+
+        if ($order->isCompleted()) {
+            return back()->with('info', 'Pesanan ini sudah selesai. Terima kasih!');
+        }
+
+        if (! $order->isReady()) {
+            return back()->with('error', 'Pesanan baru bisa diselesaikan setelah siap diambil.');
+        }
+
+        if (! $order->hasReview()) {
+            return back()->with('error', 'Beri bintang dan tulis ulasan dulu sebelum menyelesaikan pesanan.');
+        }
+
+        $comment = null;
+        if (trim((string) $order->review_text) === '') {
+            $comment = $request->validate([
+                'review_text' => ['required', 'string', 'min:3', 'max:1000'],
+            ], [
+                'review_text.required' => 'Tulis komentar dulu untuk menyelesaikan pesanan.',
+                'review_text.min' => 'Komentar minimal 3 karakter.',
+                'review_text.max' => 'Ulasan maksimal 1.000 karakter.',
+            ])['review_text'];
+        }
+
+        $order->update(array_filter([
+            'review_text' => $comment !== null ? trim($comment) : null,
+            'status' => Order::STATUS_COMPLETED,
+            'completed_at' => now(),
+        ], fn ($value) => $value !== null));
+
+        return back()->with('success', 'Pesanan selesai. Terima kasih sudah jajan di Brread!');
     }
 
     /** A review photo, straight from the database. Its address carries a version, so it is cached for a year. */

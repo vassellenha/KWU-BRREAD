@@ -21,6 +21,8 @@ class Order extends Model
 
     public const STATUS_READY = 'ready';
 
+    public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
@@ -32,6 +34,7 @@ class Order extends Model
         'paid_at',
         'preparing_at',
         'ready_at',
+        'completed_at',
         'pickup_on',
         'cancelled_at',
         'customer_name',
@@ -50,6 +53,7 @@ class Order extends Model
         'paid_at' => 'datetime',
         'preparing_at' => 'datetime',
         'ready_at' => 'datetime',
+        'completed_at' => 'datetime',
         'pickup_on' => 'date',
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
@@ -109,6 +113,24 @@ class Order extends Model
         return $this->status === self::STATUS_READY;
     }
 
+    /** Done ("selesai"): picked up, and closed by staff or by the customer after a review. */
+    public function isCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
+    /** Ready for pickup, or already done: the sandwich has been made either way. */
+    public function hasBeenReady(): bool
+    {
+        return $this->isReady() || $this->isCompleted();
+    }
+
+    /** A rating and a comment: what the customer owes before they can finish the order. */
+    public function hasFullReview(): bool
+    {
+        return $this->rating !== null && trim((string) $this->review_text) !== '';
+    }
+
     /** Paid, or past paid (being prepared, ready): the money is in either way. */
     public function hasBeenPaid(): bool
     {
@@ -118,7 +140,7 @@ class Order extends Model
     /** Being prepared, or ready for pickup. */
     public function hasBeenPrepared(): bool
     {
-        return $this->isProcessing() || $this->isReady();
+        return $this->isProcessing() || $this->hasBeenReady();
     }
 
     /** Past the confirm step: confirmed and waiting for payment, or any later step. */

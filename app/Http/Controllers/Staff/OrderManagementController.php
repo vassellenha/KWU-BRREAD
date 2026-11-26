@@ -40,7 +40,7 @@ class OrderManagementController extends Controller
         } elseif ($status === 'unconfirmed') {
             // Not confirmed yet: no tracking link, nothing paid.
             $query->where('status', Order::STATUS_PENDING);
-        } elseif (in_array($status, [Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_READY, Order::STATUS_CANCELLED], true)) {
+        } elseif (in_array($status, [Order::STATUS_CONFIRMED, Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_READY, Order::STATUS_COMPLETED, Order::STATUS_CANCELLED], true)) {
             $query->where('status', $status);
         } else {
             // "Semua Pesanan" leaves out cancelled orders; they live in their own tab.
@@ -80,6 +80,7 @@ class OrderManagementController extends Controller
             'paid' => Order::where('status', Order::STATUS_PAID)->count(),
             'processing' => Order::where('status', Order::STATUS_PROCESSING)->count(),
             'ready' => Order::where('status', Order::STATUS_READY)->count(),
+            'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
             'avg_rating' => round((float) Order::whereNotNull('rating')->avg('rating'), 1),
             'reviews_count' => Order::whereNotNull('rating')->count(),
@@ -221,7 +222,7 @@ class OrderManagementController extends Controller
                 return ['error', 'Pesanan yang sudah dibatalkan tidak dapat ditandai siap diambil.'];
             }
 
-            if ($order->isReady()) {
+            if ($order->hasBeenReady()) {
                 return ['info', "Pesanan #{$order->order_number} sudah ditandai siap diambil sebelumnya."];
             }
 
@@ -232,6 +233,32 @@ class OrderManagementController extends Controller
             $order->update(['status' => Order::STATUS_READY, 'ready_at' => now()]);
 
             return ['success', "Pesanan #{$order->order_number} ditandai siap diambil. Halaman tracking pembeli ikut berubah."];
+        });
+
+        return back()->with(...$outcome);
+    }
+
+    /** The last step: the order is picked up and done. The customer can also finish it from their tracking page. */
+    public function markCompleted(Order $order): RedirectResponse
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($order->isCancelled()) {
+                return ['error', 'Pesanan yang sudah dibatalkan tidak dapat ditandai selesai.'];
+            }
+
+            if ($order->isCompleted()) {
+                return ['info', "Pesanan #{$order->order_number} sudah ditandai selesai sebelumnya."];
+            }
+
+            if (! $order->isReady()) {
+                return ['error', "Tandai pesanan #{$order->order_number} siap diambil dulu sebelum selesai."];
+            }
+
+            $order->update(['status' => Order::STATUS_COMPLETED, 'completed_at' => now()]);
+
+            return ['success', "Pesanan #{$order->order_number} ditandai selesai. Halaman tracking pembeli ikut berubah."];
         });
 
         return back()->with(...$outcome);
@@ -320,8 +347,8 @@ class OrderManagementController extends Controller
                 return ['info', "Pesanan #{$order->order_number} sudah berstatus batal."];
             }
 
-            if ($order->isReady()) {
-                return ['error', "Pesanan #{$order->order_number} sudah siap diambil, jadi tidak bisa dibatalkan."];
+            if ($order->hasBeenReady()) {
+                return ['error', "Pesanan #{$order->order_number} sudah siap diambil atau selesai, jadi tidak bisa dibatalkan."];
             }
 
             $tally = [];

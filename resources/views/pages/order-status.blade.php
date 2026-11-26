@@ -14,12 +14,13 @@
         $art = fn (string $name): string => asset('img/cutout/' . $name . '.webp');
         $first = $creations->first();
 
-        $statusText = $order->isReady() ? 'Pesanan Siap Diambil'
+        $statusText = $order->isCompleted() ? 'Pesanan Selesai'
+            : ($order->isReady() ? 'Pesanan Siap Diambil'
             : ($order->isProcessing() ? 'Pesanan Disiapkan'
             : ($order->isPaid() ? 'Pembayaran Berhasil'
             : ($order->isConfirmed() ? 'Pesanan Terkonfirmasi'
             : ($order->isPending() ? 'Menunggu Konfirmasi'
-            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status))))));
+            : ($order->isCancelled() ? 'Pesanan Dibatalkan' : ucfirst($order->status)))))));
 
         $tracker = [
             'state' => $state,
@@ -28,7 +29,7 @@
             // Confetti only while the order waits for its next step, not once it is being prepared or ready.
             'celebrate' => $order->isConfirmed() || $order->isPaid(),
             // The page checks for edits and status changes every few seconds while it is open (not once it is final).
-            'pollUrl' => ($order->isReady() || $order->isCancelled()) ? null : route('order.version', ['token' => $order->confirmation_token]),
+            'pollUrl' => ($order->hasBeenReady() || $order->isCancelled()) ? null : route('order.version', ['token' => $order->confirmation_token]),
             'version' => $version,
         ];
     @endphp
@@ -126,6 +127,12 @@
                                     <dd>{{ $order->ready_at->format('d M Y, H:i') }} WIB</dd>
                                 </div>
                             @endif
+                            @if ($order->completed_at)
+                                <div>
+                                    <dt>Selesai</dt><i class="tk__lead" aria-hidden="true"></i>
+                                    <dd>{{ $order->completed_at->format('d M Y, H:i') }} WIB</dd>
+                                </div>
+                            @endif
                         </dl>
 
                         <div class="tk__actions">
@@ -168,14 +175,14 @@
                                     <span class="os-step__time">{{ $order->preparing_at ? $order->preparing_at->format('H:i') . ' WIB' : ($order->isPaid() ? 'Segera disiapkan' : '-') }}</span>
                                 </li>
 
-                                <li class="os-step {{ $order->isReady() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : ($order->isProcessing() ? 'is-current' : 'is-todo is-waiting')) }}" style="--i: 3">
+                                <li class="os-step {{ $order->hasBeenReady() ? 'is-done' : ($order->isCancelled() ? 'is-todo' : ($order->isProcessing() ? 'is-current' : 'is-todo is-waiting')) }}" style="--i: 3">
                                     <span class="os-node">
                                         <svg class="os-ico" aria-hidden="true">
-                                            <use href="#{{ $order->isReady() ? 'osi-check' : ($order->isCancelled() ? 'osi-bag' : 'osi-hourglass') }}"/>
+                                            <use href="#{{ $order->hasBeenReady() ? 'osi-check' : ($order->isCancelled() ? 'osi-bag' : 'osi-hourglass') }}"/>
                                         </svg>
                                     </span>
-                                    <span class="os-step__label">{{ $order->isReady() ? '4. Pesanan siap diambil' : '4. Pesanan dikemas' }}</span>
-                                    <span class="os-step__time">{{ $order->isReady() ? ($order->ready_at ? $order->ready_at->format('H:i') . ' WIB' : 'Di konter toko') : ($order->isProcessing() ? 'Sebentar lagi' : '-') }}</span>
+                                    <span class="os-step__label">{{ $order->isCompleted() ? '4. Pesanan selesai' : ($order->isReady() ? '4. Pesanan siap diambil' : '4. Pesanan dikemas') }}</span>
+                                    <span class="os-step__time">{{ $order->isCompleted() ? ($order->completed_at ? $order->completed_at->format('H:i') . ' WIB' : 'Selesai') : ($order->isReady() ? ($order->ready_at ? $order->ready_at->format('H:i') . ' WIB' : 'Di konter toko') : ($order->isProcessing() ? 'Sebentar lagi' : '-')) }}</span>
                                 </li>
                             </ol>
                         </div>
@@ -187,12 +194,15 @@
                                 <svg class="os-ico"><use href="#{{ $order->hasBeenPaid() ? 'osi-star' : ($order->isConfirmed() ? 'osi-wallet' : ($order->isCancelled() ? 'osi-info' : 'osi-hourglass')) }}"/></svg>
                             </span>
                             <p>
-                                @if ($order->isReady())
+                                @if ($order->isCompleted())
+                                    <b>Pesanan selesai. Makasih udah jajan!</b>
+                                    Semoga sandwich-nya enak. Mau bikin lagi? Studio kami selalu terbuka.
+                                @elseif ($order->isReady())
                                     <b>Pesananmu siap diambil!</b>
                                     @if ($order->pickup_on)
-                                        Ambil pesananmu pada <b>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</b> dan sebutkan nomor pesananmu. Kalau sempat, tulis ulasan di bawah ya.
+                                        Ambil pesananmu pada <b>{{ $order->pickup_on->locale('id')->translatedFormat('l, j F Y') }}</b> dan sebutkan nomor pesananmu. Setelah itu, beri bintang dan tulis ulasan di bawah, lalu tekan Selesaikan Pesanan.
                                     @else
-                                        Datang ke konter toko dan sebutkan nomor pesananmu. Kalau sempat, tulis ulasan di bawah ya.
+                                        Datang ke konter toko dan sebutkan nomor pesananmu. Setelah itu, beri bintang dan tulis ulasan di bawah, lalu tekan Selesaikan Pesanan.
                                     @endif
                                 @elseif ($order->isProcessing())
                                     <b>Pesananmu lagi disiapkan.</b>
@@ -449,6 +459,31 @@
                                     <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
                                     <span>Ulasan Anda telah tersimpan dan membantu kami terus berkembang!</span>
                                 </p>
+
+                                @if ($order->isReady() && ! $viewOnly)
+                                    {{-- Ready and reviewed: one tap closes the order (a review with stars only gets its comment first). --}}
+                                    <form method="POST" action="{{ route('order.complete', ['token' => $order->confirmation_token]) }}" class="os-slip__actions">
+                                        @csrf
+                                        @if (trim((string) $order->review_text) === '')
+                                            <div class="os-field">
+                                                <label for="complete_text" class="os-label"><span>Komentar <small>(wajib untuk menyelesaikan)</small></span></label>
+                                                <textarea id="complete_text" name="review_text" rows="3" maxlength="1000" required minlength="3" class="os-textarea" placeholder="Tulis sedikit tentang sandwich-nya ya.">{{ old('review_text') }}</textarea>
+                                                @error('review_text')
+                                                    <p class="os-error">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                        @endif
+                                        <button type="submit" class="os-btn os-send">
+                                            <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
+                                            <span>Selesaikan Pesanan</span>
+                                        </button>
+                                    </form>
+                                @elseif ($order->isCompleted())
+                                    <p class="os-done__ok">
+                                        <svg class="os-ico" aria-hidden="true"><use href="#osi-check"/></svg>
+                                        <span>Pesanan ini sudah selesai{{ $order->completed_at ? ' pada '.$order->completed_at->format('d M Y, H:i').' WIB' : '' }}.</span>
+                                    </p>
+                                @endif
                             </div>
                         @elseif ($viewOnly)
                             {{-- STAFF: look, never rate --}}
@@ -465,7 +500,7 @@
                                 method="POST"
                                 enctype="multipart/form-data"
                                 action="{{ route('order.review', ['token' => $order->confirmation_token]) }}"
-                                x-data="reviewForm({{ \Illuminate\Support\Js::from(['rating' => (int) old('rating', 5), 'text' => old('review_text', '')]) }})"
+                                x-data="reviewForm({{ \Illuminate\Support\Js::from(['rating' => (int) old('rating', 5), 'text' => old('review_text', ''), 'finish' => $order->isReady()]) }})"
                                 @submit.prevent="submit($event)"
                             >
                                 @csrf
@@ -473,6 +508,9 @@
                                 <div>
                                     <span class="os-label">Berapa rating kepuasan Anda?</span>
                                     <input type="hidden" name="rating" :value="rating">
+                                @if ($order->isReady())
+                                    <input type="hidden" name="finish" value="1">
+                                @endif
                                     <div class="os-stars" @mouseleave="hover = 0">
                                         <div class="os-stars__row" role="group" aria-label="Rating bintang">
                                             <template x-for="i in 5" :key="i">
@@ -502,7 +540,7 @@
 
                                 <div class="os-field">
                                     <label for="review_text" class="os-label">
-                                        <span>Ulasan / Komentar <small x-text="photo ? '(wajib untuk foto)' : '(Opsional)'">(Opsional)</small></span>
+                                        <span>Ulasan / Komentar <small x-text="(photo || finish) ? '(wajib)' : '(Opsional)'">(Opsional)</small></span>
                                         <small><span x-text="text.length">0</span>/1000</small>
                                     </label>
                                     <textarea
@@ -542,13 +580,13 @@
                                         <p class="os-error">{{ $message }}</p>
                                     @enderror
                                     <p x-show="errors.photo" x-text="errors.photo" x-cloak class="os-error"></p>
-                                    <p x-show="needsWords" x-cloak class="os-need" role="status">Foto harus disertai ulasan minimal 10 karakter. Tulis sedikit tentang sandwich-nya dulu ya.</p>
+                                    <p x-show="needsWords" x-cloak class="os-need" role="status" x-text="needsWordsMessage">Tulis sedikit tentang sandwich-nya dulu ya.</p>
                                 </div>
 
                                 <div class="os-slip__actions">
                                     <button type="submit" :disabled="sending || needsWords" :aria-disabled="needsWords" class="os-btn os-send">
                                         <svg class="os-ico" aria-hidden="true"><use href="#osi-send"/></svg>
-                                        <span>Kirim Ulasan</span>
+                                        <span>{{ $order->isReady() ? 'Kirim Ulasan & Selesaikan Pesanan' : 'Kirim Ulasan' }}</span>
                                     </button>
                                 </div>
                             </form>

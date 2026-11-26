@@ -113,6 +113,7 @@
                     'paid' => 'Pembayaran Berhasil',
                     'processing' => 'Disiapkan',
                     'ready' => 'Siap Diambil',
+                    'completed' => 'Selesai',
                     'cancelled' => 'Dibatalkan',
                 ];
             @endphp
@@ -375,6 +376,11 @@
                                         <span class="material-symbols-outlined text-[14px] shrink-0">inventory_2</span>
                                         Siap Diambil
                                     </span>
+                                @elseif ($order->isCompleted())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-300" title="{{ $order->completed_at ? 'Selesai '.$order->completed_at->format('d M Y, H:i').' WIB' : '' }}">
+                                        <span class="material-symbols-outlined text-[14px] shrink-0">check_circle</span>
+                                        Selesai
+                                    </span>
                                 @elseif ($order->isCancelled())
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-300">
                                         <span class="material-symbols-outlined text-[14px] shrink-0">cancel</span>
@@ -525,6 +531,17 @@
                                         </form>
                                     @endif
 
+                                    {{-- MARK COMPLETED BUTTON --}}
+                                    @if ($order->isReady())
+                                        <form method="POST" action="{{ route('staff.orders.completed', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} ditandai selesai (sudah diambil)." data-confirm-title="Pesanan selesai?" data-confirm-label="Ya, selesai" data-cancel-label="Kembali">
+                                            @csrf
+                                            <button type="submit" class="press-scale inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-700 text-white hover:bg-teal-800 font-label-md text-[11px] font-semibold shadow-sm transition-colors" title="Tandai pesanan selesai">
+                                                <span class="material-symbols-outlined text-[14px] shrink-0">check_circle</span>
+                                                <span>Selesai</span>
+                                            </button>
+                                        </form>
+                                    @endif
+
                                     {{-- PICKUP DATE --}}
                                     @if (!$order->isCancelled())
                                         <form method="POST" action="{{ route('staff.orders.pickup-date', $order) }}" class="inline-flex items-stretch overflow-hidden rounded-full border border-outline-variant bg-surface-container-lowest transition-shadow focus-within:ring-2 focus-within:ring-primary/40" title="Tanggal ambil, tampil di halaman tracking pembeli">
@@ -546,7 +563,7 @@
                                     @endif
 
                                     {{-- CANCEL BUTTON --}}
-                                    @if (!$order->isCancelled() && !$order->isReady())
+                                    @if (!$order->isCancelled() && !$order->hasBeenReady())
                                         <form method="POST" action="{{ route('staff.orders.cancel', $order) }}" data-confirm="Pesanan #{{ $order->order_number }} akan dibatalkan dan stok bahan dipulihkan." data-confirm-title="Batalkan pesanan?" data-confirm-label="Ya, batalkan" data-cancel-label="Kembali" data-confirm-tone="danger">
                                             @csrf
                                             <button

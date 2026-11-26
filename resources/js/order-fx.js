@@ -401,6 +401,7 @@ export function registerOrderFx(Alpine) {
         bump: false,
         sending: false,
         text: config.text ?? '',
+        finish: Boolean(config.finish),
         errors: {},
         photo: null, // a preview URL of the picked photo
         photoBlob: null, // the photo, downscaled in the browser before it is sent
@@ -411,9 +412,16 @@ export function registerOrderFx(Alpine) {
             return this.hover || this.rating;
         },
 
-        // A photo never goes out alone: it needs at least ten characters of review with it.
+        // A photo never goes out alone (ten characters of review with it), and an order that is being finished needs a comment (three).
         get needsWords() {
-            return Boolean(this.photo) && this.text.trim().length < 10;
+            const length = this.text.trim().length;
+            return (Boolean(this.photo) && length < 10) || (this.finish && length < 3);
+        },
+
+        get needsWordsMessage() {
+            return this.photo
+                ? 'Foto harus disertai ulasan minimal 10 karakter. Tulis sedikit tentang sandwich-nya dulu ya.'
+                : 'Tulis komentar dulu ya, minimal 3 karakter, baru pesanan bisa diselesaikan.';
         },
 
         // Phone photos are big (and servers cap uploads), so the picture is scaled to 1600 px on its longest side and
@@ -478,7 +486,7 @@ export function registerOrderFx(Alpine) {
         async submit(event) {
             if (this.sending) return;
             if (this.needsWords) {
-                this.errors = { review_text: 'Foto harus disertai ulasan minimal 10 karakter.' };
+                this.errors = { review_text: this.needsWordsMessage };
                 document.getElementById('review_text')?.focus();
                 return;
             }
