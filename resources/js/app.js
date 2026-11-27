@@ -7,6 +7,7 @@ import { registerOrderFx } from './order-fx.js';
 import { registerStaffBatch } from './staff-batch.js';
 import { registerGridNav } from './staff-grid.js';
 import { registerOrderEdit } from './order-edit.js';
+import './no-translate-icons.js';
 import './sfx.js';
 import './staff-heartbeat.js';
 
