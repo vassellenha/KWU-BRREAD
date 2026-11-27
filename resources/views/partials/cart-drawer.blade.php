@@ -258,7 +258,7 @@
                         class="w-full flex items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-lg py-space-sm font-label-lg text-label-lg text-on-primary-container shadow-[0_4px_12px_rgba(199,70,89,0.3)] transition-[opacity,transform] duration-200 hover:opacity-95 active:translate-y-[2px]"
                     >
                         <span class="material-symbols-outlined text-[20px]">forum</span>
-                        <span x-text="admins.length > 1 ? 'Confirm and chat ' + admin.name : 'Confirm and chat on WhatsApp'"></span>
+                        <span x-text="/^[+\d]/.test(admin.name) ? 'Confirm and chat on WhatsApp' : 'Confirm and chat ' + admin.name"></span>
                     </button>
                 </template>
                 <button
