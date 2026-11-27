@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Component;
+use App\Models\Employee;
 use App\Models\SiteSetting;
+use App\Support\ContactInfo;
 use App\Models\User;
 use Database\Seeders\ComponentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,5 +123,22 @@ class CheckoutWhatsappTest extends TestCase
         $this->assertStringContainsString('Es krim: ${item.flavor', $js);
         $this->assertStringContainsString('Topping: ${toppings}', $js);
         $this->assertSame(2, substr_count($js, '...creations,'), 'both message styles list the creations');
+    }
+
+    public function test_switching_an_admin_off_in_hr_removes_their_chat_button(): void
+    {
+        SiteSetting::put(['contact_whatsapp' => 'Atmint Gatot (Aura++): +62 896-0275-1180 (kuno), Atmint Rusdi: 0811 6362 805 (formal), Atmint Amba: 0821 3601 9367']);
+        Employee::create(['name' => 'Atmint Gatot', 'position' => 'Customer Service', 'rotation_order' => 1, 'is_active' => true]);
+        $rusdi = Employee::create(['name' => 'Atmint Rusdi', 'position' => 'Customer Service', 'rotation_order' => 2, 'is_active' => true]);
+
+        $names = fn () => collect(ContactInfo::get()['whatsapp_links'])->pluck('name')->all();
+        $this->assertSame(['Atmint Gatot (Aura++)', 'Atmint Rusdi', 'Atmint Amba'], $names());
+
+        $rusdi->update(['is_active' => false]);
+        // Amba has no HR record here, so she is always offered; Gatot is matched by name without the bracket note.
+        $this->assertSame(['Atmint Gatot (Aura++)', 'Atmint Amba'], $names());
+
+        $rusdi->update(['is_active' => true]);
+        $this->assertContains('Atmint Rusdi', $names());
     }
 }
