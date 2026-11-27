@@ -284,11 +284,11 @@
                 </div>
 
                 @php
-                    // The three newest reviews that came with a photo; only real customer photos show here (the admin can hide or delete any of them in Reviews).
+                    // The pinned reviews first, then the newest photo reviews, three in all; only real customer photos show here (the admin can hide or delete any of them in Reviews).
                     $tilts = [['-2deg', '-4deg'], ['1.5deg', '3deg'], ['-1deg', '-2deg']];
-                    $fresh = \App\Support\ReviewFeed::photos(3)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich']);
+                    $fresh = \App\Support\ReviewFeed::featured(\App\Support\ReviewFeed::PIN_MAX)->map(fn ($review) => $review + ['alt' => 'Photo from '.$review['name'].' of their Brread! sandwich']);
                     $polaroids = $fresh->values();
-                    $words = \App\Support\ReviewFeed::words(6);
+                    $ticker = \App\Support\ReviewFeed::ticker();
                 @endphp
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg md:gap-space-xl" data-reveal-group>
@@ -329,29 +329,37 @@
                     @endfor
                 </div>
 
-                {{-- Reviews that came with words only: newest first, as little order tickets under the photos. --}}
-                @if ($words->isNotEmpty())
+                {{-- Every review with words, text only, in a slow loop that never ends. Pinned ones lead, then the newest. --}}
+                @if ($ticker->isNotEmpty())
+                    @php
+                        // One half of the loop has to be wider than the screen, so a short list repeats itself.
+                        $half = collect(range(1, max(1, (int) ceil(8 / $ticker->count()))))->flatMap(fn () => $ticker->all())->values();
+                    @endphp
                     <div class="mt-space-xl" data-reveal>
-                        <p class="font-hand text-[26px] leading-none text-primary -rotate-1 mb-space-md">fresh from the order slips</p>
-                        <ul class="review-slips">
-                            @foreach ($words as $review)
-                                <li class="review-slip">
-                                    <span class="review-slip__stars" role="img" aria-label="{{ $review['rating'] }} out of 5 stars">
-                                        @for ($star = 1; $star <= 5; $star++)
-                                            <span class="material-symbols-outlined {{ $star <= $review['rating'] ? '' : 'opacity-25' }}" style="font-variation-settings: 'FILL' 1;" aria-hidden="true">star</span>
-                                        @endfor
-                                    </span>
-                                    <p class="review-slip__quote">“{{ $review['quote'] }}”</p>
-                                    <p class="review-slip__who"><span class="font-hand">{{ $review['name'] }}</span> · {{ $review['made'] }}</p>
-                                </li>
-                            @endforeach
-                        </ul>
+                        <p class="font-hand text-[26px] leading-none text-primary -rotate-1 mb-space-md">what everyone is saying</p>
+                        <div class="review-marquee" role="region" aria-label="Customer reviews" tabindex="0">
+                            <ul class="review-marquee__track" style="--marquee-s: {{ max(24, $half->count() * 7) }}s">
+                                @foreach ([0, 1] as $copy)
+                                    @foreach ($half as $review)
+                                        <li class="review-slip" @if ($copy === 1) aria-hidden="true" @endif>
+                                            <span class="review-slip__stars" role="img" aria-label="{{ $review['rating'] }} out of 5 stars">
+                                                @for ($star = 1; $star <= 5; $star++)
+                                                    <span class="material-symbols-outlined {{ $star <= $review['rating'] ? '' : 'opacity-25' }}" style="font-variation-settings: 'FILL' 1;" aria-hidden="true">star</span>
+                                                @endfor
+                                            </span>
+                                            <p class="review-slip__quote">“{{ $review['quote'] }}”</p>
+                                            <p class="review-slip__who"><span class="font-hand">{{ $review['name'] }}</span> · {{ $review['made'] }}</p>
+                                        </li>
+                                    @endforeach
+                                @endforeach
+                            </ul>
+                        </div>
                     </div>
                 @endif
 
                 <div class="mt-space-xl flex justify-center" data-reveal>
                     <a href="{{ route('reviews') }}" class="btn-chunky inline-flex items-center gap-2 bg-surface-container-lowest text-on-surface border-2 border-on-surface px-space-xl py-3 rounded-full font-label-lg text-label-lg" style="--chunk: #352f29">
-                        <span class="material-symbols-outlined text-[20px]">photo_library</span>View more customer photos
+                        <span class="material-symbols-outlined text-[20px]">photo_library</span>View all reviews
                     </a>
                 </div>
             </div>

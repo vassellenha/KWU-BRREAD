@@ -340,6 +340,35 @@
 .review-frame--empty .material-symbols-outlined { font-size: 44px; color: var(--color-primary, #c74659); opacity: 0.8; }
 .polaroid--empty { opacity: 0.95; }
 
+/* A pinned review with words only takes the photo's place: the sprinkle backdrop and one big quote mark. */
+.review-frame--quote { display: flex; align-items: center; justify-content: center; }
+
+/* The Home ticker: every review as text, running slowly from right to left and looping. */
+.review-marquee {
+    overflow: hidden;
+    padding: 10px 0 14px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+.review-marquee__track {
+    display: flex;
+    width: max-content;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    animation: review-marquee var(--marquee-s, 60s) linear infinite;
+}
+.review-marquee__track .review-slip { flex: 0 0 min(320px, 78vw); margin-right: 20px; }
+.review-marquee:hover .review-marquee__track,
+.review-marquee:focus-within .review-marquee__track { animation-play-state: paused; }
+@keyframes review-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+    /* No movement: the same reviews sit in a row the visitor can scroll sideways. */
+    .review-marquee { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+    .review-marquee__track { animation: none; }
+    .review-marquee__track .review-slip[aria-hidden='true'] { display: none; }
+}
+
 /* Several photos in one review: the big frame, then a row of small thumbnails to flip between them. */
 .review-gallery__dots { display: flex; gap: 6px; margin: -4px 0 var(--space-sm, 12px); }
 .review-gallery__dot { width: 34px; height: 34px; padding: 0; border: 2px solid var(--color-on-surface, #3b1f16); border-radius: 6px; overflow: hidden; background: #fff; opacity: 0.6; cursor: pointer; transition: opacity 160ms ease-out, transform 160ms ease-out; }

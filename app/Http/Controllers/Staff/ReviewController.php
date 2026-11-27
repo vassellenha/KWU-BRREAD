@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ReviewPhoto;
+use App\Support\ReviewFeed;
 use App\Support\ReviewImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Arr;
@@ -78,6 +79,7 @@ class ReviewController extends Controller
                 'hidden' => (clone $reviews)->whereNotNull('review_hidden_at')->count(),
                 'photos' => (clone $reviews)->whereHas('reviewPhoto')->count(),
                 'fresh' => (clone $reviews)->where('reviewed_at', '>=', now()->subDay())->count(),
+                'pinned' => (clone $reviews)->whereNotNull('review_pinned_at')->count(),
             ],
         ]);
     }
@@ -133,6 +135,33 @@ class ReviewController extends Controller
         });
 
         return back()->with('status', 'Ulasan untuk pesanan #'.$order->order_number.' ditambahkan.');
+    }
+
+    /**
+     * Pins a review to the top of "Made by our customers" on Home, or takes it off. Up to ReviewFeed::PIN_MAX at a time,
+     * shown in the order they were pinned; a hidden review cannot be pinned.
+     */
+    public function pin(Order $order): RedirectResponse
+    {
+        abort_unless($order->hasReview(), 404);
+
+        if ($order->review_pinned_at !== null) {
+            $order->update(['review_pinned_at' => null]);
+
+            return back()->with('status', 'Ulasan pesanan #'.$order->order_number.' dilepas dari pin.');
+        }
+
+        if ($order->review_hidden_at !== null) {
+            return back()->withErrors(['pin' => 'Ulasan yang disembunyikan tidak bisa di-pin. Tampilkan dulu.']);
+        }
+
+        if (Order::query()->whereNotNull('review_pinned_at')->count() >= ReviewFeed::PIN_MAX) {
+            return back()->withErrors(['pin' => 'Maksimal '.ReviewFeed::PIN_MAX.' ulasan yang di-pin. Lepas salah satu dulu.']);
+        }
+
+        $order->update(['review_pinned_at' => now()]);
+
+        return back()->with('status', 'Ulasan pesanan #'.$order->order_number.' di-pin ke atas Home.');
     }
 
     /** Edits the words (and the stars) of a review, for a typo or a line that should not be on the site. */
@@ -222,7 +251,7 @@ class ReviewController extends Controller
 
         DB::transaction(function () use ($order) {
             $order->reviewPhotos()->delete();
-            $order->update(['rating' => null, 'review_text' => null, 'reviewed_at' => null, 'review_hidden_at' => null]);
+            $order->update(['rating' => null, 'review_text' => null, 'reviewed_at' => null, 'review_hidden_at' => null, 'review_pinned_at' => null]);
         });
 
         return back()->with('status', 'Ulasan pesanan #'.$order->order_number.' dihapus.');

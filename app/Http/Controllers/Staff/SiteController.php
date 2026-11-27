@@ -112,7 +112,8 @@ class SiteController extends Controller
     {
         abort_unless($order->hasReview(), 404);
         $hide = $order->review_hidden_at === null;
-        $order->update(['review_hidden_at' => $hide ? now() : null]);
+        // A hidden review cannot stay pinned: it would hold one of the three spots without showing.
+        $order->update(['review_hidden_at' => $hide ? now() : null] + ($hide ? ['review_pinned_at' => null] : []));
 
         return back()->with('status', 'Review of order #'.$order->order_number.($hide ? ' is hidden from the site.' : ' shows on the site again.'));
     }

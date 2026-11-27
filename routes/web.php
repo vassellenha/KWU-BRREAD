@@ -125,6 +125,7 @@ Route::prefix('staff')->name('staff.')->middleware('auth')->group(function () us
         Route::post('/{order}/photo', [ReviewController::class, 'addPhoto'])->name('photo');
         Route::post('/photos/{photo}', [ReviewController::class, 'updatePhoto'])->whereNumber('photo')->name('photos.update');
         Route::post('/{order}/text', [ReviewController::class, 'updateText'])->name('text');
+        Route::post('/{order}/pin', [ReviewController::class, 'pin'])->name('pin');
         Route::delete('/{order}', [ReviewController::class, 'destroy'])->name('destroy');
     });
 

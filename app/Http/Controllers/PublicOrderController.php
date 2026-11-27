@@ -310,7 +310,7 @@ class PublicOrderController extends Controller
     {
         return view('pages.reviews', [
             'photos' => ReviewFeed::photos(ReviewFeed::WALL_MAX),
-            'words' => ReviewFeed::words(ReviewFeed::WALL_MAX),
+            'words' => ReviewFeed::words(ReviewFeed::ALL_MAX),
         ]);
     }
 }

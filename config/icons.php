@@ -84,6 +84,7 @@ return [
         'print',
         'progress_activity',
         'public',
+        'push_pin',
         'receipt',
         'receipt_long',
         'redo',

@@ -56,13 +56,14 @@
     </details>
 
     {{-- NUMBERS --}}
-    <div class="mb-space-md grid grid-cols-2 gap-space-sm md:grid-cols-5">
+    <div class="mb-space-md grid grid-cols-2 gap-space-sm md:grid-cols-6">
         @foreach ([
             ['Total ulasan', $stats['total']],
             ['Rata-rata', $stats['average'].' / 5'],
             ['24 jam terakhir', $stats['fresh']],
             ['Dengan foto', $stats['photos']],
             ['Disembunyikan', $stats['hidden']],
+            ['Di-pin (maks. '.\App\Support\ReviewFeed::PIN_MAX.')', $stats['pinned']],
         ] as [$label, $value])
             <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-space-sm">
                 <p class="font-label-md text-label-md text-on-surface-variant">{{ $label }}</p>
@@ -131,6 +132,9 @@
                             <span class="shrink-0 font-label-md text-label-md tabular-nums text-primary">{{ str_repeat('★', (int) $review->rating) }}<span class="text-outline-variant">{{ str_repeat('★', 5 - (int) $review->rating) }}</span></span>
                         </div>
                         <div class="flex flex-wrap items-center gap-1.5">
+                            @if ($review->review_pinned_at)
+                                <span class="inline-flex items-center gap-0.5 rounded-full bg-primary-container px-2 py-0.5 font-label-md text-[11px] font-bold text-on-primary-container"><span class="material-symbols-outlined text-[13px]">push_pin</span>Di-pin di Home</span>
+                            @endif
                             @if ($review->review_hidden_at)
                                 <span class="rounded-full bg-surface-container px-2 py-0.5 font-label-md text-[11px] text-on-surface-variant">Disembunyikan dari situs</span>
                             @else
@@ -211,6 +215,14 @@
                         <button type="button" x-show="photos.length && canAdd" @click="addNew()" @if (! $photo || $review->reviewPhotos->count() >= \App\Models\ReviewPhoto::MAX_PER_REVIEW) x-cloak @endif class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
                             <span class="material-symbols-outlined text-[16px]">add</span>Foto lagi
                         </button>
+                        @unless ($review->review_hidden_at)
+                            <form method="POST" action="{{ route('staff.reviews.pin', $review) }}">
+                                @csrf
+                                <button type="submit" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">
+                                    <span class="material-symbols-outlined text-[16px]">push_pin</span>{{ $review->review_pinned_at ? 'Lepas pin' : 'Pin ke atas' }}
+                                </button>
+                            </form>
+                        @endunless
                         <form method="POST" action="{{ route('staff.site.reviews.toggle', $review) }}">
                             @csrf
                             <button type="submit" class="press-scale inline-flex items-center gap-1 font-label-md text-label-md text-primary">

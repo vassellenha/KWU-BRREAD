@@ -45,6 +45,7 @@ class Order extends Model
         'review_text',
         'reviewed_at',
         'review_hidden_at',
+        'review_pinned_at',
     ];
 
     protected $casts = [
@@ -58,6 +59,7 @@ class Order extends Model
         'cancelled_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'review_hidden_at' => 'datetime',
+        'review_pinned_at' => 'datetime',
         'rating' => 'integer',
     ];
 

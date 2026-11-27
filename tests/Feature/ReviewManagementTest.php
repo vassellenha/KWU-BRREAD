@@ -260,4 +260,51 @@ class ReviewManagementTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => User::ROLE_WAREHOUSE]))
             ->post(route('staff.reviews.text', $order), ['rating' => 1, 'review_text' => 'diubah'])->assertForbidden();
     }
+
+    public function test_the_admin_pins_up_to_three_reviews_and_home_shows_them_first(): void
+    {
+        $admin = $this->admin();
+        $words = $this->reviewed('Wati', 4, 'Pinned with words only');
+        $newest = $this->reviewed('Budi', 5, 'Newest photo', photo: true);
+        $old = $this->reviewed('Sari', 5, 'Old photo', photo: true);
+        $old->update(['reviewed_at' => now()->subWeek()]);
+        $extra = $this->reviewed('Ano', 5, 'Fourth');
+
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $old))->assertSessionHas('status');
+        $old->update(['review_pinned_at' => now()->subMinute()]); // pinned a moment earlier, so the order is not a tie
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $words))->assertSessionHas('status');
+        $this->assertNotNull($old->fresh()->review_pinned_at);
+
+        // Pinned first, in the order they were pinned (the old photo review before the words-only one), then the newest photo.
+        $featured = ReviewFeed::featured(3);
+        $this->assertSame(['Sari', 'Wati', 'Budi'], $featured->pluck('name')->all());
+        $this->assertSame([], $featured[1]['photos']);
+
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $newest))->assertSessionHas('status');
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $extra))->assertSessionHasErrors('pin');
+        $this->assertNull($extra->fresh()->review_pinned_at);
+
+        $this->get('/')->assertOk()->assertSee('Pinned with words only');
+
+        // Taking it off frees a spot; hiding a pinned review lets go of its pin; a hidden one cannot be pinned.
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $newest))->assertSessionHas('status');
+        $this->assertNull($newest->fresh()->review_pinned_at);
+        $this->actingAs($admin)->post(route('staff.site.reviews.toggle', $words))->assertRedirect();
+        $this->assertNull($words->fresh()->review_pinned_at);
+        $this->actingAs($admin)->post(route('staff.reviews.pin', $words))->assertSessionHasErrors('pin');
+    }
+
+    public function test_the_home_ticker_carries_every_review_with_words_and_no_pictures(): void
+    {
+        $this->reviewed('Wati', 4, 'Only words here');
+        $this->reviewed('Budi', 5, 'Words and a photo', photo: true);
+        $hidden = $this->reviewed('Ano', 1, 'Should not show');
+        $hidden->update(['review_hidden_at' => now()]);
+
+        $ticker = ReviewFeed::ticker();
+        $this->assertEqualsCanonicalizing(['Only words here', 'Words and a photo'], $ticker->pluck('quote')->all());
+
+        $this->get('/')->assertOk()->assertSee('review-marquee', false)->assertSee('Only words here')->assertDontSee('Should not show');
+        $this->get('/reviews')->assertOk()->assertSee('Only words here');
+    }
 }
