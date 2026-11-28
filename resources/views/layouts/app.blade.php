@@ -18,6 +18,7 @@
     {{-- Entry intro plays once per browser session; a short variant plays when Home was reached through the logo or the
          Home link (flag set by app.js a moment before). Both are decided before first paint so nothing flashes. --}}
     <script>try{var d=document.documentElement,s=sessionStorage,q=+s.getItem('brreadHomeNav')||0;s.removeItem('brreadHomeNav');if(matchMedia('(prefers-reduced-motion: reduce)').matches){d.classList.add('no-intro')}else if(!s.getItem('brreadIntro')){s.setItem('brreadIntro','1')}else if(q&&Date.now()-q<6000&&location.pathname==='/'){d.classList.add('quick-intro')}else{d.classList.add('no-intro')}}catch(e){document.documentElement.classList.add('no-intro')}</script>
+    <link rel="preload" as="image" href="/img/brand/brread-logo.webp" type="image/webp">
     <link rel="preload" as="image" href="/img/intro/bread-white.webp">
     <link rel="preload" as="image" href="/img/intro/icecream-strawberry.webp">
     @include('partials.lockdown-guard')

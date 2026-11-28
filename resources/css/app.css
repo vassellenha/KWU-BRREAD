@@ -1556,14 +1556,28 @@ html.has-scoopbar::-webkit-scrollbar {
     height: 66px;
     background-size: 660px 66px;
 }
+/* The logo sits inside the 80px bar with a few pixels of strawberry above and below it; its own pink outline is what
+   joins it to the bar, so it has no box, badge or shadow of its own. The height steps down with the screen, and the
+   width follows from the logo's shape (1.77 to 1). */
 .site-nav-logo {
     display: block;
-    transition: transform 260ms var(--ease-bounce);
+    flex-shrink: 0;
+    border-radius: 14px;
+    transition: transform 200ms var(--ease-out, ease-out);
 }
 .site-nav-logo img {
     display: block;
     height: 56px;
     width: auto;
+    aspect-ratio: 600 / 339;
+    object-fit: contain;
+}
+.site-nav-logo:focus-visible { outline: 3px dashed #a62d42; outline-offset: 3px; }
+@media (max-width: 1023px) {
+    .site-nav-logo img { height: 52px; }
+}
+@media (max-width: 639px) {
+    .site-nav-logo img { height: 48px; }
 }
 .site-nav-link {
     position: relative;
@@ -1646,7 +1660,7 @@ html.has-scoopbar::-webkit-scrollbar {
 }
 @media (hover: hover) and (pointer: fine) {
     .site-nav-logo:hover {
-        transform: scale(1.06) rotate(-2deg);
+        transform: translateY(-1px) scale(1.03);
     }
     .site-nav-link:not(.is-active):hover {
         background: rgba(255, 248, 244, 0.55);
@@ -1942,9 +1956,6 @@ body.is-broken .login-eye {
         top: calc(5rem - 8px);
         height: 44px;
         background-size: 440px 44px;
-    }
-    .site-nav-logo img {
-        height: 50px;
     }
 }
 

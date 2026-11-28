@@ -9,12 +9,17 @@
         <div class="h-20 max-w-[1200px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop flex items-center justify-between gap-space-md">
             <div class="flex items-center gap-space-lg">
                 <a class="site-nav-logo" href="{{ route('home') }}" aria-label="Brread! home">
-                    <img
-                        src="{{ asset('logo.png') }}"
-                        alt="Brread! Ice Cream Sandwich Singapore Style"
-                        width="480" height="239"
-                        onerror="this.style.display='none'"
-                    >
+                    {{-- Trimmed to its outline, 600 px wide (sharp up to 3x on a phone); the width and height attributes keep the bar from jumping while it loads. --}}
+                    <picture>
+                        <source srcset="{{ asset('img/brand/brread-logo.webp') }}" type="image/webp">
+                        <img
+                            src="{{ asset('img/brand/brread-logo.png') }}"
+                            alt="Brread! Ice Cream Sandwich Singapore Style"
+                            width="600" height="339"
+                            decoding="async"
+                            fetchpriority="high"
+                        >
+                    </picture>
                 </a>
 
                 <nav aria-label="Main" class="hidden lg:flex items-center gap-1">
