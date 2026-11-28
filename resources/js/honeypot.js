@@ -5,8 +5,6 @@
 // Nothing flashes bright: the canvas carries dim grain and thin tinted bars, never a full-screen flash.
 
 const KEY = 'brread-honeypot';
-const SPAM_TRIES = 6;
-const SPAM_WINDOW = 15000;
 
 const root = document.getElementById('hp');
 const video = document.getElementById('hp-video');
@@ -33,7 +31,7 @@ const POPS = {
 
 // QA only (the server sets data-seek only outside production, with ?replay=1&seek=N): the cutscene is frozen at that second.
 const QA = root && root.dataset.seek !== undefined ? { seek: Number(root.dataset.seek) || 0 } : null;
-const state = { start: 0, until: 0, horrorMs: 22000, ip: root?.dataset.ip || '', phase: 'horror', tries: [], bsod: false, popAt: 0, raf: 0, ended: false };
+const state = { start: 0, until: 0, horrorMs: 22000, ip: root?.dataset.ip || '', phase: 'horror', popAt: 0, raf: 0, ended: false };
 
 const el = (tag, className, content) => {
     const node = document.createElement(tag);
@@ -98,14 +96,14 @@ function unmute() {
         video.muted = false;
         video.volume = 1;
     }
-    if (state.phase === 'kewer' && video.paused && !document.hidden && !state.bsod) video.play().catch(() => {});
+    if (state.phase === 'kewer' && video.paused && !document.hidden) video.play().catch(() => {});
 }
 
 /** Sound is on and stays on: the video tries to start with sound, and any press unmutes it if the browser said no. */
 function lockSound() {
     video.addEventListener('volumechange', unmute);
     video.addEventListener('pause', () => {
-        if (!document.hidden && !state.ended && !state.bsod) video.play().catch(() => {});
+        if (!document.hidden && !state.ended) video.play().catch(() => {});
     });
 
     video.muted = false;
@@ -260,20 +258,11 @@ function buildPops() {
 }
 
 let popIndex = 0;
-/** An escape attempt gets its own pop-up (no more than one every 700 ms), and a run of them brings the blue screen. */
+/** An escape attempt gets its own pop-up (no more than one every 700 ms). Spamming Back never brings a blue screen here. */
 function taunt(kind) {
-    if (state.ended || state.bsod) return;
+    if (state.ended) return;
 
     const now = Date.now();
-    state.tries = state.tries.filter((at) => now - at < SPAM_WINDOW);
-    state.tries.push(now);
-
-    if (state.tries.length >= SPAM_TRIES && secondsLeft() > 4) {
-        state.tries = [];
-        bsod();
-        return;
-    }
-
     if (now - state.popAt < 700) return;
     state.popAt = now;
 
@@ -286,36 +275,6 @@ function taunt(kind) {
     void pop.offsetWidth;
     pop.classList.add('is-on');
     blip(root.dataset.audio);
-}
-
-/* ------------------------------------------------------------ the blue screen */
-
-function bsod() {
-    state.bsod = true;
-    const screen = el('div', 'hp-bsod');
-    const clip = el('video');
-    clip.src = root.dataset.bsod;
-    clip.muted = true;
-    clip.playsInline = true;
-    clip.setAttribute('playsinline', '');
-    screen.append(clip);
-    document.body.append(screen);
-    if (state.phase === 'kewer') video.pause();
-    forceFullscreen();
-
-    const err = new Audio(root.dataset.error);
-    err.volume = 0.9;
-    err.play().catch(() => {});
-    clip.play().catch(() => {});
-
-    // Never longer than the hold itself (and gone a moment before it ends).
-    const ms = Math.min(8000, Math.max(1500, (secondsLeft() - 1) * 1000));
-    later(() => {
-        err.pause();
-        screen.remove();
-        state.bsod = false;
-        if (!state.ended && state.phase === 'kewer') video.play().catch(() => {});
-    }, ms);
 }
 
 /* ------------------------------------------------------------ the canvas: grain and thin tinted bars */
@@ -463,7 +422,7 @@ function arm() {
     });
 
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !state.ended && !state.bsod && state.phase === 'kewer') video.play().catch(() => {});
+        if (!document.hidden && !state.ended && state.phase === 'kewer') video.play().catch(() => {});
     });
 
     // Back from the browser's cache comes back to the real clock.
