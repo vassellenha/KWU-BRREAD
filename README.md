@@ -624,4 +624,6 @@ Built by [Vassell Enha Atthayya](https://github.com/vassellenha).
 
 
 
+**Honeypot preview.** Because the owner's IP is on the allow list, `/admin` is a plain 404 for the people who run the shop, so the trap cannot be watched there. To check it on the live site, sign in as the superadmin and open the unlisted address `/t9c-v2x/0m7e-hqb_n4/bWx6cA` (change it with `HONEYPOT_PREVIEW_PATH`). It plays the whole thing from second zero, the horror intro and then the Kewer scene, and ends at Home like the real one, but it starts no hold, writes no security record and stores nothing in the browser, so the shop stays open in your other tabs and nobody is locked out. The address is linked from nowhere and answers 404 to guests, staff and allowed addresses that are not signed in as admin (`HoneypotController::preview`, `data-preview` on the page, `store()` in `resources/js/honeypot.js` skips the browser copy of the hold). Close the tab to leave early.
+
 **Honeypot allow list.** The owner's IP, the second admin's IP and Atmint Chicarron's IP are always on the allow list in `config/auth.php`, and `HONEYPOT_ALLOWED_IPS` (comma separated, set on the server) adds more; none of them is ever trapped or held: `/admin` is a plain 404 for them and an old hold no longer redirects them. Everyone else meets the trap as before.

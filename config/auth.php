@@ -146,6 +146,9 @@ return [
     // The /admin honeypot: a guest who opens /admin (or /administrator, /wp-admin) is held per address in two phases,
     // a cinematic horror intro and then the Kewer scene, before being released to the shop. The test suite switches it off.
     'honeypot_trap' => (bool) env('HONEYPOT_TRAP', true),
+    // Unlisted address where a signed-in superadmin can watch the whole trap (horror intro, then Kewer) without being held or
+    // logged, and without the browser remembering a hold. Everyone else, allowed addresses included, gets a plain 404 there.
+    'honeypot_preview_path' => env('HONEYPOT_PREVIEW_PATH', 't9c-v2x/0m7e-hqb_n4/bWx6cA'),
     'honeypot_horror_seconds' => (int) env('HORROR_SECONDS', 30),
     'honeypot_kewer_seconds' => (int) env('KEWER_SECONDS', 30),
     // Addresses the trap never touches: the owner's, the second admin's and Atmint Chicarron's own IPs. They are always

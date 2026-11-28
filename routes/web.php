@@ -41,6 +41,8 @@ Route::redirect('/staff/login', '/staff', 301);
 
 // The honeypot: the superadmin sign-in lives only at /superadmin, so these addresses are bait for a guest
 // (see App\Support\HoneypotTrap). Anything else under them is bait too.
+// The same trap for a signed-in admin only, at an address of random letters (see HoneypotController::preview).
+Route::get(config('auth.honeypot_preview_path'), [HoneypotController::class, 'preview'])->name('honeypot.preview');
 foreach (HoneypotTrap::PATHS as $trapPath) {
     Route::get('/'.$trapPath, HoneypotController::class);
     Route::get('/'.$trapPath.'/{any}', HoneypotController::class)->where('any', '.*');

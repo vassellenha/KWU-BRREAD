@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bagel+Fat+One&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@700&family=Crimson+Pro:ital,wght@0,600;1,600&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
     <noscript>
-        <meta http-equiv="refresh" content="{{ $remaining + 1 }};url=/admin?resume=1">
+        <meta http-equiv="refresh" content="{{ $remaining + 1 }};url={{ ($preview ?? false) ? '/' : '/admin?resume=1' }}">
         <style>#hz { display: none !important; } #hp-kewer { display: block !important; }</style>
     </noscript>
     @vite(['resources/css/honeypot.css', 'resources/js/honeypot.js'])
@@ -19,7 +19,7 @@
 <body>
     {{-- Vertical-only motion blur for the rising pistol (three steps, picked by its speed). --}}
     <svg class="cr-defs" width="0" height="0" aria-hidden="true" focusable="false"><filter id="cr-mb1" x="0" y="-8%" width="100%" height="116%"><feGaussianBlur stdDeviation="0 3"/></filter><filter id="cr-mb2" x="0" y="-12%" width="100%" height="124%"><feGaussianBlur stdDeviation="0 7"/></filter><filter id="cr-mb3" x="0" y="-16%" width="100%" height="132%"><feGaussianBlur stdDeviation="0 12"/></filter></svg>
-    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-samples="{{ json_encode($samples ?? [], JSON_UNESCAPED_SLASHES) }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3" data-bsod="/video/prank-bsod.mp4"@if ($seek !== null) data-seek="{{ $seek }}"@endif>
+    <main id="hp" class="hp" data-phase="{{ $phase }}" data-elapsed="{{ $elapsed }}" data-horror="{{ $horror }}" data-kewer="{{ $kewer }}" data-ip="{{ request()->ip() }}" data-samples="{{ json_encode($samples ?? [], JSON_UNESCAPED_SLASHES) }}" data-audio="/audio/prank-fahh.mp3" data-error="/audio/prank-xperror.mp3"@if ($preview ?? false) data-preview="1"@endif data-bsod="/video/prank-bsod.mp4"@if ($seek !== null) data-seek="{{ $seek }}"@endif>
 
         {{-- PHASE A: "BRREAD! COLD ROOM 03", a night security camera feed that goes wrong. Built and driven by honeypot.js. --}}
         <section id="hz" class="hz" aria-hidden="true" data-figure="/img/honeypot/character-fullbody.webp">

@@ -38,6 +38,7 @@ class HoneypotController extends Controller
         }
 
         return response(view('honeypot.trap', [
+            'preview' => false,
             'elapsed' => $elapsed,
             'phase' => HoneypotTrap::phase($elapsed),
             'horror' => HoneypotTrap::horrorSeconds(),
@@ -45,6 +46,27 @@ class HoneypotController extends Controller
             'remaining' => HoneypotTrap::total() - $elapsed,
             'samples' => HoneypotTrap::samples(),
             'seek' => HoneypotTrap::seek($request),
+        ]))->header('Cache-Control', 'no-store, max-age=0');
+    }
+
+    /**
+     * The whole trap from second zero for a signed-in admin, to check it on the live site. No hold is started, nothing is
+     * logged and the browser stores no hold, so nobody is locked out and the shop stays open in other tabs. Anyone who is
+     * not a signed-in admin gets a 404, so the address gives nothing away. It ends at Home like the real thing.
+     */
+    public function preview(Request $request): Response
+    {
+        abort_unless($request->user()?->isAdmin(), 404, headers: ['Cache-Control' => 'no-store']);
+
+        return response(view('honeypot.trap', [
+            'preview' => true,
+            'elapsed' => 0,
+            'phase' => HoneypotTrap::phase(0),
+            'horror' => HoneypotTrap::horrorSeconds(),
+            'kewer' => HoneypotTrap::kewerSeconds(),
+            'remaining' => HoneypotTrap::total(),
+            'samples' => HoneypotTrap::samples(),
+            'seek' => null,
         ]))->header('Cache-Control', 'no-store, max-age=0');
     }
 }

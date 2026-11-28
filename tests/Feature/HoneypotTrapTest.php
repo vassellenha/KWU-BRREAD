@@ -372,4 +372,32 @@ class HoneypotTrapTest extends TestCase
         $this->get('/menu')->assertOk();
         $this->assertSame(0, $this->heldSince());
     }
+
+    public function test_a_signed_in_admin_can_watch_the_whole_trap_at_the_unlisted_preview_without_a_hold(): void
+    {
+        $admin = User::where('role', User::ROLE_ADMIN)->firstOrFail();
+
+        $this->actingAs($admin)->get('/'.config('auth.honeypot_preview_path'))
+            ->assertOk()
+            ->assertSee('data-phase="horror"', false)
+            ->assertSee('data-elapsed="0"', false)
+            ->assertSee('data-preview="1"', false);
+
+        // nothing is held or logged, so nobody is sent back to /admin and the shop stays open
+        $this->assertSame(0, $this->heldSince());
+        $this->assertSame(0, SecurityEvent::where('reason', 'honeypot')->count());
+        $this->actingAs($admin)->get('/menu')->assertOk();
+    }
+
+    public function test_the_trap_preview_is_a_404_for_guests_and_staff_and_the_real_page_never_carries_the_preview_mark(): void
+    {
+        $path = '/'.config('auth.honeypot_preview_path');
+
+        $this->get($path)->assertNotFound();
+        $this->assertSame(0, $this->heldSince());
+
+        $this->get('/admin')->assertOk()->assertDontSee('data-preview', false);
+
+        $this->actingAs(User::where('username', 'staffmrp')->firstOrFail())->get($path)->assertNotFound();
+    }
 }

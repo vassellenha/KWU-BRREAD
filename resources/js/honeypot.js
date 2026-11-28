@@ -48,6 +48,9 @@ const later = (fn, ms) => window.setTimeout(fn, ms);
 /* ------------------------------------------------------------ hold kept in the browser */
 
 function store() {
+    // A preview (signed-in admin) is never remembered, so the rest of the shop is not sent back to it.
+    if (root?.dataset.preview !== undefined) return;
+
     const value = JSON.stringify({ until: state.until, path: '/admin?resume=1' });
     try {
         window.localStorage.setItem(KEY, value);
